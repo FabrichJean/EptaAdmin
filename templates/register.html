@@ -1,0 +1,24 @@
+{{define "title"}}Créer un compte — EptaAdmin{{end}}
+{{define "content"}}
+<div class="min-h-full flex items-center justify-center px-4">
+  <div class="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+    <div class="text-center mb-8">
+      <div class="mx-auto h-12 w-12 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-xl">E</div>
+      <h1 class="mt-4 text-xl font-semibold text-slate-900">Configuration initiale</h1>
+      <p class="text-sm text-slate-500 mt-1">Ce formulaire crée le compte Propriétaire. Il ne sera plus accessible ensuite.</p>
+    </div>
+
+    {{if .Error}}
+    <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3">
+      {{.Error}}
+    </div>
+    {{end}}
+
+    <form method="POST" action="/register" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1" for="username">Identifiant</label>
+        <input id="username" name="username" type="text" required autofocus value="{{.Username}}"
+          class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1" for="email">Email</label>
