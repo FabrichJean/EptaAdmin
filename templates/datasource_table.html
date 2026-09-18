@@ -24,56 +24,100 @@
         <button onclick="location.reload()" class="eb-btn-primary shrink-0 rounded-lg text-xs px-3 py-1.5 transition-colors">Recharger</button>
       </div>
 
-      <div class="mb-4 flex items-center justify-between gap-4">
-        <input id="search-input" type="text" placeholder="🔍 Rechercher..."
-          class="eb-input w-full sm:w-80 rounded-lg px-3 py-2 text-sm" />
-        {{if .CanEdit}}
-        <button id="add-column-btn" type="button" class="eb-btn-secondary shrink-0 rounded-lg text-sm font-medium px-4 py-2 transition-colors">+ Column</button>
-        {{end}}
+      <!-- Toolbar -->
+      <div class="flex items-center gap-3 mb-5">
+        <div class="relative flex-1">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--eb-muted);"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input id="global-search-input" type="text" placeholder="Rechercher dans les colonnes..."
+            class="eb-input w-full rounded-lg pl-9 pr-3 py-2.5 text-sm" />
+        </div>
+        <div class="relative">
+          <button id="filters-btn" type="button" class="eb-btn-secondary rounded-lg text-sm font-medium px-4 py-2.5 transition-colors flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            Filtres
+          </button>
+          <div id="filters-menu" class="hidden absolute right-0 mt-2 w-56 rounded-lg p-3 z-20 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+            <p class="text-xs font-semibold uppercase tracking-wide mb-2" style="color: var(--eb-muted);">Types affichés</p>
+            <div class="space-y-1.5" id="filters-list">
+              <label class="flex items-center gap-2 text-sm" style="color: var(--eb-text);"><input type="checkbox" class="filter-type-cb" value="text" checked /> Texte</label>
+              <label class="flex items-center gap-2 text-sm" style="color: var(--eb-text);"><input type="checkbox" class="filter-type-cb" value="long_text" checked /> Texte long</label>
+              <label class="flex items-center gap-2 text-sm" style="color: var(--eb-text);"><input type="checkbox" class="filter-type-cb" value="number" checked /> Nombre</label>
+              <label class="flex items-center gap-2 text-sm" style="color: var(--eb-text);"><input type="checkbox" class="filter-type-cb" value="boolean" checked /> Booléen</label>
+              <label class="flex items-center gap-2 text-sm" style="color: var(--eb-text);"><input type="checkbox" class="filter-type-cb" value="image" checked /> Image</label>
+            </div>
+          </div>
+        </div>
+        <div class="relative">
+          <button id="sort-btn" type="button" class="eb-btn-secondary rounded-lg text-sm font-medium px-4 py-2.5 transition-colors flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 16 4 4 4-4M7 20V4M21 8l-4-4-4 4M17 4v16"/></svg>
+            Trier
+          </button>
+          <div id="sort-menu" class="hidden absolute right-0 mt-2 w-48 rounded-lg py-1 z-20 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+            <button type="button" class="sort-option w-full text-left px-3 py-2 text-sm" data-sort="none" style="color: var(--eb-text);">Ordre d'origine</button>
+            <button type="button" class="sort-option w-full text-left px-3 py-2 text-sm" data-sort="asc" style="color: var(--eb-text);">A → Z</button>
+            <button type="button" class="sort-option w-full text-left px-3 py-2 text-sm" data-sort="desc" style="color: var(--eb-text);">Z → A</button>
+            <p class="px-3 pt-1.5 text-xs" style="color: var(--eb-muted); border-top: 1px solid var(--eb-border);">Affichage seulement — n'affecte pas l'ordre enregistré.</p>
+          </div>
+        </div>
+        <div class="relative">
+          <button id="page-menu-btn" type="button" class="eb-btn-secondary rounded-lg px-3 py-2.5 transition-colors">⋯</button>
+          <div id="page-menu" class="hidden absolute right-0 mt-2 w-44 rounded-lg py-1 z-20 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+            <button type="button" onclick="location.reload()" class="w-full text-left px-3 py-2 text-sm" style="color: var(--eb-text);">Actualiser</button>
+          </div>
+        </div>
       </div>
 
-      <div id="add-column-form" class="hidden mb-4 flex items-center gap-2">
-        <input id="add-column-input" type="text" placeholder="nom de la colonne"
-          class="eb-input w-full sm:w-72 rounded-lg px-3 py-2 text-sm" style="border-color: var(--eb-accent);" />
-        <button id="add-column-confirm-btn" type="button" class="eb-btn-primary rounded-lg text-sm px-4 py-2 transition-colors">Ajouter</button>
-        <button id="add-column-cancel-btn" type="button" class="eb-btn-secondary rounded-lg text-sm px-4 py-2 transition-colors">Annuler</button>
-        <span class="text-xs" style="color: var(--eb-muted);">Le type se choisit à chaque valeur, pas pour la colonne entière.</span>
-      </div>
-
-      {{if .Columns}}
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {{range .Columns}}
-        <div class="column-panel eb-card rounded-xl flex flex-col" data-column="{{.Key}}" data-type="{{.Type}}" data-managed="{{if .Managed}}true{{else}}false{{end}}">
-          <div class="px-4 py-3 flex items-center justify-between" style="border-bottom: 1px solid var(--eb-border);">
-            <span class="text-xs font-semibold uppercase tracking-wide" style="color: var(--eb-muted);">{{.Key}}</span>
-            {{if not .Managed}}
-            <span class="text-xs" style="color: var(--eb-warn);" title="Champ présent dans les données mais non déclaré dans le schéma">non géré</span>
-            {{end}}
-          </div>
-          <div class="value-list flex-1">
-            {{$col := .}}
-            {{range $i, $v := .Values}}
-            {{$vt := valueType $v}}
-            {{$isImage := eq $vt "image"}}
-            {{$isLongText := eq $vt "long_text"}}
-            <div class="value-row flex items-center gap-2 px-4 py-2 text-sm" data-index="{{$i}}" data-search-value style="border-top: 1px solid var(--eb-border);">
-              <span class="type-badge eb-chip shrink-0">{{typeLabel $vt}}</span>
-              {{if $isImage}}
-              <img src="{{formatValue $v}}" class="eb-thumb h-8 w-8 shrink-0" onerror="this.style.display='none'" />
-              {{end}}
-              {{if and $col.Managed $.CanEdit}}
-              <span class="value-text editable flex-1 min-w-0 cursor-text{{if $isLongText}} whitespace-pre-wrap{{end}}{{if $isImage}} truncate text-xs{{end}}" data-type="{{$vt}}" title="Double-cliquer pour modifier" style="color: var(--eb-{{if $isImage}}muted{{else}}text{{end}});">{{formatValue $v}}</span>
-              {{else}}
-              <span class="flex-1 min-w-0{{if $isLongText}} whitespace-pre-wrap{{end}}{{if $isImage}} truncate text-xs{{end}}" style="color: var(--eb-muted);">{{formatValue $v}}</span>
-              {{end}}
-              {{if and $col.Managed $.CanDelete}}
-              <button type="button" class="delete-value-btn eb-icon-btn text-xs shrink-0">✕</button>
+        {{$colorHex := columnColorHex .Key}}
+        {{$icon := columnIcon .Key}}
+        <div class="column-panel eb-card rounded-xl flex flex-col overflow-hidden" style="border-top: 3px solid {{$colorHex}};" data-column="{{.Key}}" data-managed="{{if .Managed}}true{{else}}false{{end}}">
+          <div class="px-4 py-3 flex items-start justify-between gap-2" style="border-bottom: 1px solid var(--eb-border);">
+            <div class="flex items-start gap-3 min-w-0">
+              <div class="h-10 w-10 rounded-lg flex items-center justify-center shrink-0" style="background: {{$colorHex}}26; color: {{$colorHex}};">
+                {{template "col-icon" $icon}}
+              </div>
+              <div class="min-w-0">
+                <span class="text-sm font-bold uppercase tracking-wide truncate block" style="color: var(--eb-text);">{{.Key}}</span>
+                <p class="column-description text-xs mt-0.5 truncate" style="color: var(--eb-muted);">{{if .Description}}{{.Description}}{{else if not .Managed}}Champ non déclaré dans le schéma.{{end}}</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <span class="value-count eb-chip">{{len .Values}}</span>
+              {{if and .Managed $.CanEdit}}
+              <div class="relative">
+                <button type="button" class="column-menu-btn eb-icon-btn text-sm px-1">⋯</button>
+                <div class="column-menu hidden absolute right-0 mt-1 w-48 rounded-lg py-1 z-20 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+                  <button type="button" class="edit-description-btn w-full text-left px-3 py-2 text-sm" style="color: var(--eb-text);">Modifier la description</button>
+                  {{if $.CanDelete}}
+                  <button type="button" class="delete-column-btn w-full text-left px-3 py-2 text-sm" style="color: #f87171;">Supprimer la colonne</button>
+                  {{end}}
+                </div>
+              </div>
               {{end}}
             </div>
-            {{end}}
           </div>
+
+          <div class="edit-description-form hidden px-4 py-3 flex items-center gap-2" style="border-bottom: 1px solid var(--eb-border);">
+            <input type="text" class="edit-description-input eb-field-sm flex-1 rounded px-2 py-1.5 text-sm" value="{{.Description}}" placeholder="Description de la colonne" />
+            <button type="button" class="save-description-btn eb-btn-primary rounded text-xs px-3 py-1.5">OK</button>
+            <button type="button" class="cancel-description-btn eb-btn-secondary rounded text-xs px-3 py-1.5">✕</button>
+          </div>
+
           {{if and .Managed $.CanCreate}}
-          <div class="append-row flex items-start gap-2 px-4 py-3" style="border-top: 1px solid var(--eb-border);">
+          <div class="px-4 py-3 flex items-center gap-2" style="border-bottom: 1px solid var(--eb-border);">
+            <div class="relative flex-1">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--eb-muted);"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              <input type="text" class="local-search-input eb-field-sm w-full rounded-lg pl-8 pr-2 py-1.5 text-sm" placeholder="Rechercher..." />
+            </div>
+            <button type="button" class="open-append-btn rounded-full text-xs font-medium px-3 py-1.5 shrink-0 flex items-center gap-1" style="border: 1px solid {{$colorHex}}; color: {{$colorHex}};">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+              Ajouter
+            </button>
+          </div>
+          {{end}}
+
+          <div class="append-row hidden flex items-start gap-2 px-4 py-3" style="border-bottom: 1px solid var(--eb-border);">
             <select class="append-type eb-field-sm rounded px-1 py-1 text-xs shrink-0">
               <option value="text">Texte</option>
               <option value="long_text">Texte long</option>
@@ -86,15 +130,83 @@
             </div>
             <button type="button" class="append-btn text-sm font-medium shrink-0" style="color: var(--eb-accent);">Ajouter</button>
           </div>
-          {{end}}
+
+          <div class="value-list flex-1" style="max-height: 320px; overflow-y: auto;">
+            {{$col := .}}
+            {{range $i, $v := .Values}}
+            {{$vt := valueType $v}}
+            {{$isImage := eq $vt "image"}}
+            {{$isLongText := eq $vt "long_text"}}
+            <div class="value-row flex items-center gap-3 px-4 py-2 text-sm" data-index="{{$i}}" data-search-value data-value-type="{{$vt}}" style="border-top: 1px solid var(--eb-border);">
+              <span class="type-badge eb-chip shrink-0">{{typeLabel $vt}}</span>
+              {{if $isImage}}
+              <a href="{{formatValue $v}}" target="_blank" rel="noopener" class="shrink-0 block" title="Ouvrir l'image dans un nouvel onglet">
+                <img src="{{formatValue $v}}" class="eb-thumb h-10 w-10 hover:opacity-80 transition-opacity" onerror="this.parentElement.style.display='none'" />
+              </a>
+              {{end}}
+              {{if and $col.Managed $.CanEdit}}
+              <span class="value-text editable flex-1 min-w-0 cursor-text{{if $isLongText}} whitespace-pre-wrap{{end}}" data-type="{{$vt}}"{{if $isImage}} data-value="{{formatValue $v}}"{{end}} title="Double-cliquer pour modifier" style="color: var(--eb-text);">{{if $isImage}}Image{{else}}{{formatValue $v}}{{end}}</span>
+              {{else}}
+              <span class="flex-1 min-w-0{{if $isLongText}} whitespace-pre-wrap{{end}}" style="color: var(--eb-muted);">{{if $isImage}}Image{{else}}{{formatValue $v}}{{end}}</span>
+              {{end}}
+              {{if and $col.Managed (or $.CanEdit $.CanDelete)}}
+              <div class="relative shrink-0">
+                <button type="button" class="value-menu-btn eb-icon-btn text-sm px-1">⋮</button>
+                <div class="value-menu hidden absolute right-0 mt-1 w-36 rounded-lg py-1 z-20 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+                  {{if $.CanEdit}}<button type="button" class="value-menu-edit w-full text-left px-3 py-1.5 text-sm" style="color: var(--eb-text);">Modifier</button>{{end}}
+                  {{if $.CanDelete}}<button type="button" class="value-menu-delete w-full text-left px-3 py-1.5 text-sm" style="color: #f87171;">Supprimer</button>{{end}}
+                </div>
+              </div>
+              {{end}}
+            </div>
+            {{end}}
+            {{if not .Values}}
+            <div class="empty-state flex flex-col items-center justify-center text-center px-6 py-10">
+              {{if and .Managed $.CanCreate}}
+              <button type="button" class="open-append-btn h-10 w-10 rounded-full flex items-center justify-center mb-3" style="border: 1px dashed var(--eb-border-strong); color: var(--eb-muted);">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+              </button>
+              {{end}}
+              <p class="text-sm font-semibold" style="color: var(--eb-text);">Aucun enregistrement</p>
+              <p class="text-xs mt-1 max-w-[16rem]" style="color: var(--eb-muted);">
+                {{if and .Managed $.CanCreate}}Commencez par ajouter un nouvel élément à cette colonne.{{else}}Cette colonne ne contient aucune valeur.{{end}}
+              </p>
+              {{if and .Managed $.CanCreate}}
+              <button type="button" class="open-append-btn eb-btn-secondary rounded-full text-xs font-medium px-4 py-2 mt-4" style="border-color: {{$colorHex}}; color: {{$colorHex}};">+ Ajouter un élément</button>
+              {{end}}
+            </div>
+            {{end}}
+          </div>
+
+          <div class="px-4 py-2.5 flex items-center justify-between text-xs" style="border-top: 1px solid var(--eb-border); color: var(--eb-muted);">
+            <span class="record-count-label">{{len .Values}} enregistrement{{if ne (len .Values) 1}}s{{end}}</span>
+          </div>
+        </div>
+        {{end}}
+
+        {{if .CanEdit}}
+        <div class="column-panel-empty rounded-xl flex flex-col items-center justify-center text-center px-6 py-10" style="border: 1px dashed var(--eb-border-strong);">
+          <div id="add-column-prompt" class="flex flex-col items-center">
+            <div class="h-10 w-10 rounded-lg flex items-center justify-center mb-3" style="background: var(--eb-surface-2); color: var(--eb-muted);">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 12h6M9 16h6"/><rect x="4" y="6" width="16" height="16" rx="2"/></svg>
+            </div>
+            <p class="text-sm font-semibold" style="color: var(--eb-text);">Colonne vide</p>
+            <p class="text-xs mt-1 max-w-[16rem]" style="color: var(--eb-muted);">Ajoutez des données ou configurez une nouvelle colonne.</p>
+            <button id="add-column-btn" type="button" class="eb-btn-secondary rounded-full text-xs font-medium px-4 py-2 mt-4" style="border-color: var(--eb-accent); color: var(--eb-accent);">+ Ajouter une colonne</button>
+          </div>
+          <div id="add-column-form" class="hidden w-full space-y-2">
+            <input id="add-column-input" type="text" placeholder="nom de la colonne"
+              class="eb-input w-full rounded-lg px-3 py-2 text-sm" style="border-color: var(--eb-accent);" />
+            <input id="add-column-description" type="text" placeholder="description (optionnelle)"
+              class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
+            <div class="flex items-center gap-2">
+              <button id="add-column-confirm-btn" type="button" class="eb-btn-primary flex-1 rounded-lg text-sm px-4 py-2 transition-colors">Ajouter</button>
+              <button id="add-column-cancel-btn" type="button" class="eb-btn-secondary flex-1 rounded-lg text-sm px-4 py-2 transition-colors">Annuler</button>
+            </div>
+          </div>
         </div>
         {{end}}
       </div>
-      {{else}}
-      <div class="eb-card rounded-xl px-5 py-14 text-center text-sm" style="color: var(--eb-muted);">
-        Aucune colonne pour le moment. Créez-en une avec "+ Column" pour commencer.
-      </div>
-      {{end}}
      </div>
     </main>
 
@@ -142,6 +254,26 @@
     }
   }
 
+  // --- Generic dropdown menu helper: toggles a sibling `.xxx-menu` element
+  // open/closed, and closes any other open menu when one opens or the
+  // user clicks elsewhere. ---
+  function bindMenu(triggerSelector, menuClass) {
+    document.querySelectorAll(triggerSelector).forEach((btn) => {
+      const menu = btn.parentElement.querySelector("." + menuClass) || btn.nextElementSibling;
+      if (!menu) return;
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const isHidden = menu.classList.contains("hidden");
+        closeAllMenus();
+        if (isHidden) menu.classList.remove("hidden");
+      });
+    });
+  }
+  function closeAllMenus() {
+    document.querySelectorAll(".column-menu, .value-menu, #filters-menu, #sort-menu, #page-menu").forEach((m) => m.classList.add("hidden"));
+  }
+  document.addEventListener("click", closeAllMenus);
+
   function typedInput(type, currentValue) {
     if (type === "boolean") {
       const select = document.createElement("select");
@@ -175,35 +307,74 @@
 
   // An "image" value is a URL, normally produced by uploading a file. The
   // returned node behaves like a plain input for the rest of the code
-  // (.value / .focus() work) even though it bundles a thumbnail preview,
-  // a URL field and a file picker that uploads in place.
+  // (.value / .focus() work) even though it's a small card: a preview,
+  // a styled upload button, and a collapsed "use a URL instead" fallback.
   function imageWidget(currentValue) {
-    const wrapper = document.createElement("span");
-    wrapper.className = "flex items-center gap-2 flex-1 min-w-0";
+    const wrapper = document.createElement("div");
+    wrapper.className = "flex-1 min-w-0 rounded-lg p-2 flex items-center gap-3";
+    wrapper.style.background = "var(--eb-surface)";
+    wrapper.style.border = "1px solid var(--eb-border)";
 
+    const preview = document.createElement("div");
+    preview.className = "h-14 w-14 rounded-lg overflow-hidden flex items-center justify-center shrink-0";
+    preview.style.background = "var(--eb-surface-2)";
+    preview.style.border = "1px solid var(--eb-border)";
+    preview.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--eb-muted);"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>';
+    const placeholder = preview.firstElementChild;
     const thumb = document.createElement("img");
-    thumb.className = "eb-thumb h-10 w-10 shrink-0";
-    thumb.style.display = currentValue ? "" : "none";
-    if (currentValue) thumb.src = currentValue;
-    thumb.addEventListener("error", () => { thumb.style.display = "none"; });
-    thumb.addEventListener("load", () => { thumb.style.display = ""; });
+    thumb.className = "h-full w-full object-cover";
+    thumb.style.display = "none";
+    preview.appendChild(thumb);
 
-    const urlInput = document.createElement("input");
-    urlInput.type = "text";
-    urlInput.placeholder = "URL de l'image";
-    urlInput.className = "eb-field-sm flex-1 min-w-0 rounded px-1.5 py-1 text-sm";
-    urlInput.value = currentValue || "";
-    urlInput.addEventListener("input", () => { thumb.src = urlInput.value; });
+    function setPreview(url) {
+      if (!url) {
+        thumb.style.display = "none";
+        placeholder.style.display = "";
+        return;
+      }
+      thumb.src = url;
+    }
+    thumb.addEventListener("load", () => { thumb.style.display = ""; placeholder.style.display = "none"; });
+    thumb.addEventListener("error", () => { thumb.style.display = "none"; placeholder.style.display = ""; });
 
+    const controls = document.createElement("div");
+    controls.className = "flex-1 min-w-0";
+
+    const fileLabel = document.createElement("label");
+    fileLabel.className = "eb-btn-secondary inline-flex items-center gap-1.5 rounded-lg text-xs font-medium px-3 py-1.5 cursor-pointer";
+    fileLabel.textContent = currentValue ? "Remplacer l'image" : "Choisir une image";
     const fileInput = document.createElement("input");
     fileInput.type = "file";
     fileInput.accept = "image/*";
-    fileInput.className = "text-xs w-24 shrink-0";
-    fileInput.style.color = "var(--eb-muted)";
+    fileInput.className = "sr-only";
+    fileLabel.appendChild(fileInput);
 
     const status = document.createElement("span");
-    status.className = "text-xs shrink-0";
+    status.className = "text-xs ml-2";
     status.style.color = "var(--eb-muted)";
+
+    const fileRow = document.createElement("div");
+    fileRow.className = "flex items-center";
+    fileRow.appendChild(fileLabel);
+    fileRow.appendChild(status);
+
+    const urlToggle = document.createElement("button");
+    urlToggle.type = "button";
+    urlToggle.className = "block text-xs mt-1.5 hover:underline";
+    urlToggle.style.color = "var(--eb-muted)";
+    urlToggle.textContent = "ou coller une URL";
+
+    const urlInput = document.createElement("input");
+    urlInput.type = "text";
+    urlInput.placeholder = "https://...";
+    urlInput.className = "eb-field-sm w-full rounded px-2 py-1 text-xs mt-1.5 hidden";
+    urlInput.value = currentValue || "";
+    urlInput.addEventListener("input", () => setPreview(urlInput.value));
+
+    urlToggle.addEventListener("click", () => {
+      urlInput.classList.toggle("hidden");
+      if (!urlInput.classList.contains("hidden")) urlInput.focus();
+    });
 
     fileInput.addEventListener("change", async () => {
       const file = fileInput.files[0];
@@ -219,7 +390,8 @@
         }
         const data = await res.json();
         urlInput.value = data.url;
-        thumb.src = data.url;
+        setPreview(data.url);
+        fileLabel.textContent = "Remplacer l'image";
         status.textContent = "";
       } catch (e) {
         status.textContent = e.message;
@@ -228,16 +400,20 @@
       }
     });
 
-    wrapper.appendChild(thumb);
-    wrapper.appendChild(urlInput);
-    wrapper.appendChild(fileInput);
-    wrapper.appendChild(status);
+    controls.appendChild(fileRow);
+    controls.appendChild(urlToggle);
+    controls.appendChild(urlInput);
+
+    wrapper.appendChild(preview);
+    wrapper.appendChild(controls);
+
+    setPreview(currentValue);
 
     Object.defineProperty(wrapper, "value", {
       get() { return urlInput.value; },
-      set(v) { urlInput.value = v; thumb.src = v; thumb.style.display = v ? "" : "none"; },
+      set(v) { urlInput.value = v; setPreview(v); },
     });
-    wrapper.focus = () => urlInput.focus();
+    wrapper.focus = () => fileLabel.focus();
 
     return wrapper;
   }
@@ -265,7 +441,7 @@
     const column = panel.dataset.column;
     const index = parseInt(row.dataset.index, 10);
     if (row.querySelector(".edit-wrapper")) return;
-    const original = span.textContent;
+    const original = span.dataset.value !== undefined ? span.dataset.value : span.textContent;
     const originalType = span.dataset.type || "text";
 
     const wrapper = document.createElement("span");
@@ -309,34 +485,52 @@
     });
 
     let settled = false;
+    function buildValueSpan(type, value) {
+      const span = document.createElement("span");
+      span.className = "value-text editable flex-1 min-w-0 cursor-text" + (type === "long_text" ? " whitespace-pre-wrap" : "");
+      span.style.color = "var(--eb-text)";
+      span.title = "Double-cliquer pour modifier";
+      span.dataset.type = type;
+      if (type === "image") {
+        span.dataset.value = value;
+        span.textContent = "Image";
+      } else {
+        span.textContent = value;
+      }
+      bindEditableSpan(span);
+      return span;
+    }
+    function syncThumbnail(row, newSpan, type, value) {
+      let link = row.querySelector("a.value-thumb-link");
+      if (type === "image") {
+        if (!link) {
+          link = document.createElement("a");
+          link.className = "value-thumb-link shrink-0 block";
+          link.target = "_blank";
+          link.rel = "noopener";
+          const thumb = document.createElement("img");
+          thumb.className = "eb-thumb h-10 w-10 hover:opacity-80 transition-opacity";
+          thumb.addEventListener("error", () => { link.style.display = "none"; });
+          thumb.addEventListener("load", () => { link.style.display = ""; });
+          link.appendChild(thumb);
+          newSpan.before(link);
+        }
+        link.href = value;
+        link.title = "Ouvrir l'image dans un nouvel onglet";
+        link.querySelector("img").src = value;
+      } else if (link) {
+        link.remove();
+      }
+    }
     function commit() {
       if (settled) return;
       settled = true;
       const newVal = valueWidget.value;
       const newType = tSelect.value;
-      const newSpan = document.createElement("span");
-      newSpan.className = "value-text editable flex-1 min-w-0 cursor-text" +
-        (newType === "long_text" ? " whitespace-pre-wrap" : "") +
-        (newType === "image" ? " truncate text-xs" : "");
-      newSpan.style.color = newType === "image" ? "var(--eb-muted)" : "var(--eb-text)";
-      newSpan.title = "Double-cliquer pour modifier";
-      newSpan.dataset.type = newType;
-      newSpan.textContent = newVal;
-      bindEditableSpan(newSpan);
+      const newSpan = buildValueSpan(newType, newVal);
       wrapper.replaceWith(newSpan);
-      let thumb = row.querySelector("img");
-      if (newType === "image") {
-        if (!thumb) {
-          thumb = document.createElement("img");
-          thumb.className = "eb-thumb h-8 w-8 shrink-0";
-          thumb.addEventListener("error", () => { thumb.style.display = "none"; });
-          newSpan.before(thumb);
-        }
-        thumb.style.display = "";
-        thumb.src = newVal;
-      } else if (thumb) {
-        thumb.remove();
-      }
+      row.dataset.valueType = newType;
+      syncThumbnail(row, newSpan, newType, newVal);
       if (badge) {
         badge.textContent = TYPE_LABELS[newType];
         badge.classList.remove("hidden");
@@ -354,14 +548,9 @@
     function cancelEdit() {
       if (settled) return;
       settled = true;
-      const s = document.createElement("span");
-      s.className = "value-text editable flex-1 cursor-text" + (originalType === "long_text" ? " whitespace-pre-wrap" : "");
-      s.style.color = "var(--eb-text)";
-      s.title = "Double-cliquer pour modifier";
-      s.dataset.type = originalType;
-      s.textContent = original;
-      bindEditableSpan(s);
+      const s = buildValueSpan(originalType, original);
       wrapper.replaceWith(s);
+      syncThumbnail(row, s, originalType, original);
       if (badge) badge.classList.remove("hidden");
     }
     confirmBtn.addEventListener("click", commit);
@@ -383,9 +572,8 @@
   }
   document.querySelectorAll(".value-text.editable").forEach(bindEditableSpan);
 
-  function toggleDelete(btn) {
-    const row = btn.closest(".value-row");
-    const panel = btn.closest(".column-panel");
+  function toggleDelete(row) {
+    const panel = row.closest(".column-panel");
     const column = panel.dataset.column;
     const index = parseInt(row.dataset.index, 10);
     const key = column + ":" + index;
@@ -398,8 +586,82 @@
     }
     updateBar();
   }
-  document.querySelectorAll(".delete-value-btn").forEach((btn) => {
-    btn.addEventListener("click", () => toggleDelete(btn));
+
+  // --- Value ⋮ menu: Modifier / Supprimer ---
+  bindMenu(".value-menu-btn", "value-menu");
+  document.querySelectorAll(".value-menu-edit").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const row = btn.closest(".value-row");
+      const span = row.querySelector(".value-text.editable");
+      closeAllMenus();
+      if (span) startEdit(span);
+    });
+  });
+  document.querySelectorAll(".value-menu-delete").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const row = btn.closest(".value-row");
+      closeAllMenus();
+      toggleDelete(row);
+    });
+  });
+
+  // --- Column ⋯ menu: Modifier la description / Supprimer la colonne ---
+  bindMenu(".column-menu-btn", "column-menu");
+  document.querySelectorAll(".edit-description-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const panel = btn.closest(".column-panel");
+      closeAllMenus();
+      panel.querySelector(".edit-description-form").classList.remove("hidden");
+      panel.querySelector(".edit-description-input").focus();
+    });
+  });
+  document.querySelectorAll(".cancel-description-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      btn.closest(".edit-description-form").classList.add("hidden");
+    });
+  });
+  document.querySelectorAll(".save-description-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const panel = btn.closest(".column-panel");
+      const column = panel.dataset.column;
+      const input = panel.querySelector(".edit-description-input");
+      btn.disabled = true;
+      try {
+        const res = await fetch(COLUMN_URL + "/" + encodeURIComponent(column), {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ description: input.value }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || "Une erreur est survenue.");
+        }
+        panel.querySelector(".column-description").textContent = input.value || "";
+        panel.querySelector(".edit-description-form").classList.add("hidden");
+      } catch (e) {
+        alert(e.message);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
+  document.querySelectorAll(".delete-column-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const panel = btn.closest(".column-panel");
+      const column = panel.dataset.column;
+      closeAllMenus();
+      if (!confirm("Supprimer la colonne \"" + column + "\" et toutes ses valeurs ? Cette action est irréversible.")) return;
+      try {
+        const res = await fetch(COLUMN_URL + "/" + encodeURIComponent(column), { method: "DELETE" });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || "Une erreur est survenue.");
+        }
+        location.reload();
+      } catch (e) {
+        alert(e.message);
+      }
+    });
   });
 
   // --- Append a value to a column (client-side staged, sent on Save) ---
@@ -407,9 +669,17 @@
     const appendBtn = panel.querySelector(".append-btn");
     const appendTypeSelect = panel.querySelector(".append-type");
     const appendValueContainer = panel.querySelector(".append-value-container");
+    const appendRow = panel.querySelector(".append-row");
     if (!appendBtn || !appendTypeSelect || !appendValueContainer) return;
     const valueList = panel.querySelector(".value-list");
     const column = panel.dataset.column;
+
+    panel.querySelectorAll(".open-append-btn").forEach((openBtn) => {
+      openBtn.addEventListener("click", () => {
+        appendRow.classList.remove("hidden");
+        appendValueContainer.querySelector(".append-input, .append-input ~ input, input, textarea, select")?.focus();
+      });
+    });
 
     let appendInput = appendValueContainer.querySelector(".append-input");
 
@@ -434,37 +704,56 @@
       bindAppendKeys();
     });
 
+    function updateCountLabels(delta) {
+      const countBadge = panel.querySelector(".value-count");
+      const countLabel = panel.querySelector(".record-count-label");
+      const n = parseInt(countBadge.textContent, 10) + delta;
+      countBadge.textContent = n;
+      countLabel.textContent = n + (n !== 1 ? " enregistrements" : " enregistrement");
+    }
+
     function commitAppend() {
       const value = appendInput.value;
       const type = appendTypeSelect.value;
       if (value === "") return;
+      const emptyState = valueList.querySelector(".empty-state");
+      if (emptyState) emptyState.remove();
+
       const row = document.createElement("div");
-      row.className = "value-row eb-row-new flex items-center gap-2 px-4 py-2 text-sm";
+      row.className = "value-row eb-row-new flex items-center gap-3 px-4 py-2 text-sm";
       row.style.borderTop = "1px solid var(--eb-border)";
+      row.dataset.searchValue = "";
+      row.dataset.valueType = type;
       const badge = document.createElement("span");
       badge.className = "type-badge eb-chip shrink-0";
       badge.textContent = TYPE_LABELS[type];
       const span = document.createElement("span");
-      span.className = "flex-1 min-w-0" +
-        (type === "long_text" ? " whitespace-pre-wrap" : "") +
-        (type === "image" ? " truncate text-xs" : "");
-      span.style.color = type === "image" ? "var(--eb-muted)" : "var(--eb-text)";
-      span.textContent = value;
+      span.className = "flex-1 min-w-0" + (type === "long_text" ? " whitespace-pre-wrap" : "");
+      span.style.color = "var(--eb-text)";
+      span.textContent = type === "image" ? "Image" : value;
       const removeBtn = document.createElement("button");
       removeBtn.type = "button";
       removeBtn.className = "eb-icon-btn text-xs shrink-0";
       removeBtn.textContent = "✕";
       row.appendChild(badge);
       if (type === "image") {
+        const link = document.createElement("a");
+        link.className = "shrink-0 block";
+        link.href = value;
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.title = "Ouvrir l'image dans un nouvel onglet";
         const thumb = document.createElement("img");
-        thumb.className = "eb-thumb h-8 w-8 shrink-0";
+        thumb.className = "eb-thumb h-10 w-10 hover:opacity-80 transition-opacity";
         thumb.src = value;
-        thumb.addEventListener("error", () => { thumb.style.display = "none"; });
-        row.appendChild(thumb);
+        thumb.addEventListener("error", () => { link.style.display = "none"; });
+        link.appendChild(thumb);
+        row.appendChild(link);
       }
       row.appendChild(span);
       row.appendChild(removeBtn);
       valueList.appendChild(row);
+      updateCountLabels(1);
 
       const entry = { column, value, type, el: row };
       pendingAppends.push(entry);
@@ -472,6 +761,7 @@
         const idx = pendingAppends.indexOf(entry);
         if (idx !== -1) pendingAppends.splice(idx, 1);
         row.remove();
+        updateCountLabels(-1);
         updateBar();
       });
 
@@ -485,20 +775,27 @@
 
   // --- Add column ---
   const addColumnBtn = document.getElementById("add-column-btn");
+  const addColumnPrompt = document.getElementById("add-column-prompt");
   const addColumnForm = document.getElementById("add-column-form");
   const addColumnInput = document.getElementById("add-column-input");
+  const addColumnDescription = document.getElementById("add-column-description");
   const addColumnConfirmBtn = document.getElementById("add-column-confirm-btn");
   const addColumnCancelBtn = document.getElementById("add-column-cancel-btn");
 
   if (addColumnBtn) {
     addColumnBtn.addEventListener("click", () => {
+      addColumnPrompt.classList.add("hidden");
       addColumnForm.classList.remove("hidden");
       addColumnInput.value = "";
+      addColumnDescription.value = "";
       addColumnInput.focus();
     });
   }
   if (addColumnCancelBtn) {
-    addColumnCancelBtn.addEventListener("click", () => addColumnForm.classList.add("hidden"));
+    addColumnCancelBtn.addEventListener("click", () => {
+      addColumnForm.classList.add("hidden");
+      addColumnPrompt.classList.remove("hidden");
+    });
   }
   async function commitNewColumn() {
     const name = addColumnInput.value.trim();
@@ -508,7 +805,7 @@
       const res = await fetch(COLUMN_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: name }),
+        body: JSON.stringify({ key: name, description: addColumnDescription.value.trim() }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -523,12 +820,13 @@
   if (addColumnConfirmBtn) {
     addColumnConfirmBtn.addEventListener("click", commitNewColumn);
   }
-  if (addColumnInput) {
-    addColumnInput.addEventListener("keydown", (e) => {
+  [addColumnInput, addColumnDescription].forEach((el) => {
+    if (!el) return;
+    el.addEventListener("keydown", (e) => {
       if (e.key === "Enter") { e.preventDefault(); commitNewColumn(); }
       else if (e.key === "Escape") { e.preventDefault(); addColumnForm.classList.add("hidden"); }
     });
-  }
+  });
 
   const discardBtn = document.getElementById("discard-btn");
   if (discardBtn) {
@@ -585,13 +883,107 @@
     saveBtn.click();
   });
 
-  const searchInput = document.getElementById("search-input");
-  if (searchInput) {
-    searchInput.addEventListener("input", () => {
-      const q = searchInput.value.trim().toLowerCase();
+  // --- Global search (across every column) + per-column local search ---
+  function applyRowVisibility(row) {
+    const q = (row.__globalQuery || "") || "";
+    const lq = (row.__localQuery || "") || "";
+    const typeOk = !row.__typeFiltered;
+    const matchesGlobal = !q || row.textContent.toLowerCase().includes(q);
+    const matchesLocal = !lq || row.textContent.toLowerCase().includes(lq);
+    row.style.display = (matchesGlobal && matchesLocal && typeOk) ? "" : "none";
+  }
+
+  const globalSearchInput = document.getElementById("global-search-input");
+  if (globalSearchInput) {
+    globalSearchInput.addEventListener("input", () => {
+      const q = globalSearchInput.value.trim().toLowerCase();
       document.querySelectorAll(".value-row[data-search-value]").forEach((row) => {
-        row.style.display = !q || row.textContent.toLowerCase().includes(q) ? "" : "none";
+        row.__globalQuery = q;
+        applyRowVisibility(row);
       });
+    });
+  }
+
+  document.querySelectorAll(".column-panel").forEach((panel) => {
+    const localInput = panel.querySelector(".local-search-input");
+    if (!localInput) return;
+    localInput.addEventListener("input", () => {
+      const q = localInput.value.trim().toLowerCase();
+      panel.querySelectorAll(".value-row[data-search-value]").forEach((row) => {
+        row.__localQuery = q;
+        applyRowVisibility(row);
+      });
+    });
+  });
+
+  // --- Filters (by value type) ---
+  const filtersBtn = document.getElementById("filters-btn");
+  const filtersMenu = document.getElementById("filters-menu");
+  if (filtersBtn && filtersMenu) {
+    filtersBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isHidden = filtersMenu.classList.contains("hidden");
+      closeAllMenus();
+      if (isHidden) filtersMenu.classList.remove("hidden");
+    });
+    filtersMenu.addEventListener("click", (e) => e.stopPropagation());
+    document.querySelectorAll(".filter-type-cb").forEach((cb) => {
+      cb.addEventListener("change", () => {
+        const active = new Set(
+          Array.from(document.querySelectorAll(".filter-type-cb:checked")).map((c) => c.value)
+        );
+        document.querySelectorAll(".value-row[data-search-value]").forEach((row) => {
+          row.__typeFiltered = !active.has(row.dataset.valueType);
+          applyRowVisibility(row);
+        });
+      });
+    });
+  }
+
+  // --- Sort (display-only, per column) ---
+  const sortBtn = document.getElementById("sort-btn");
+  const sortMenu = document.getElementById("sort-menu");
+  if (sortBtn && sortMenu) {
+    sortBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isHidden = sortMenu.classList.contains("hidden");
+      closeAllMenus();
+      if (isHidden) sortMenu.classList.remove("hidden");
+    });
+    sortMenu.addEventListener("click", (e) => e.stopPropagation());
+    document.querySelectorAll(".sort-option").forEach((opt) => {
+      opt.addEventListener("click", () => {
+        const mode = opt.dataset.sort;
+        document.querySelectorAll(".column-panel").forEach((panel) => {
+          const list = panel.querySelector(".value-list");
+          const rows = Array.from(list.querySelectorAll(".value-row[data-search-value]"));
+          if (rows.length === 0) return;
+          if (mode === "none") {
+            rows.sort((a, b) => (a.__originalIndex ?? 0) - (b.__originalIndex ?? 0));
+          } else {
+            rows.forEach((r) => { if (r.__originalIndex === undefined) r.__originalIndex = parseInt(r.dataset.index, 10); });
+            rows.sort((a, b) => {
+              const av = a.querySelector(".value-text, span:nth-child(2)")?.textContent.toLowerCase() || "";
+              const bv = b.querySelector(".value-text, span:nth-child(2)")?.textContent.toLowerCase() || "";
+              return mode === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+            });
+          }
+          rows.forEach((r) => list.appendChild(r));
+        });
+        closeAllMenus();
+      });
+    });
+  }
+
+  // --- Page-level "..." menu ---
+  const pageMenuBtn = document.getElementById("page-menu-btn");
+  const pageMenu = document.getElementById("page-menu");
+  if (pageMenuBtn && pageMenu) {
+    pageMenuBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isHidden = pageMenu.classList.contains("hidden");
+      closeAllMenus();
+      if (isHidden) pageMenu.classList.remove("hidden");
     });
   }
 })();
