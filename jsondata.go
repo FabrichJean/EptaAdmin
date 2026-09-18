@@ -112,11 +112,12 @@ func SaveColumnStore(path string, cs ColumnStore) error {
 // declared — e.g. data written outside the app — shown read-only for
 // transparency instead of silently hidden.
 type Column struct {
-	Key      string
-	Type     string // "text" | "number" | "boolean"; empty for unmanaged
-	Managed  bool
-	Editable bool
-	Values   []any
+	Key         string
+	Type        string // "text" | "number" | "boolean"; empty for unmanaged
+	Managed     bool
+	Editable    bool
+	Values      []any
+	Description string
 }
 
 // BuildColumns lays out the schema columns first (in their declared order),
@@ -126,7 +127,7 @@ func BuildColumns(schemaCols []*DataSourceColumn, cs ColumnStore) []Column {
 	cols := make([]Column, 0, len(schemaCols))
 	known := map[string]bool{}
 	for _, c := range schemaCols {
-		cols = append(cols, Column{Key: c.Key, Type: c.Type, Managed: true, Editable: true, Values: cs[c.Key]})
+		cols = append(cols, Column{Key: c.Key, Type: c.Type, Managed: true, Editable: true, Values: cs[c.Key], Description: c.Description})
 		known[c.Key] = true
 	}
 
