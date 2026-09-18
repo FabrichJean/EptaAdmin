@@ -12,11 +12,15 @@ type App struct {
 	templates map[string]*template.Template
 }
 
+var templateFuncs = template.FuncMap{
+	"formatValue": FormatValue,
+}
+
 func NewApp(store *Store) (*App, error) {
 	a := &App{store: store, templates: map[string]*template.Template{}}
-	pages := []string{"login.html", "register.html", "dashboard.html", "members.html"}
+	pages := []string{"login.html", "register.html", "dashboard.html", "members.html", "workspaces.html", "workspace_detail.html", "datasource_table.html"}
 	for _, page := range pages {
-		tmpl, err := template.ParseFiles("templates/layout.html", "templates/"+page)
+		tmpl, err := template.New("layout.html").Funcs(templateFuncs).ParseFiles("templates/layout.html", "templates/"+page)
 		if err != nil {
 			return nil, err
 		}
@@ -158,6 +162,8 @@ func (a *App) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		"CurrentUser":      currentUser,
 		"Users":            users,
 		"CanManageMembers": canManageMembers(currentUser.Role),
+		"ActiveNav":        "dashboard",
+		"PageTitle":        "Tableau de bord",
 	})
 }
 
@@ -178,6 +184,8 @@ func (a *App) handleMembersPage(w http.ResponseWriter, r *http.Request) {
 		"Users":            users,
 		"AssignableRoles":  assignableRolesWithLabels(currentUser.Role),
 		"CanManageMembers": true,
+		"ActiveNav":        "members",
+		"PageTitle":        "Membres",
 	})
 }
 
@@ -205,6 +213,8 @@ func (a *App) handleCreateMember(w http.ResponseWriter, r *http.Request) {
 			"Users":            users,
 			"AssignableRoles":  assignableRolesWithLabels(currentUser.Role),
 			"CanManageMembers": true,
+			"ActiveNav":        "members",
+			"PageTitle":        "Membres",
 			"Error":            msg,
 			"Username":         username,
 			"Email":            email,

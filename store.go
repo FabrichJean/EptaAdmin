@@ -59,9 +59,90 @@ func (s *Store) migrate() error {
 		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		expires_at DATETIME NOT NULL
 	);
+
+	CREATE TABLE IF NOT EXISTS workspaces (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT NOT NULL,
+		slug TEXT NOT NULL UNIQUE,
+		created_by INTEGER NOT NULL REFERENCES users(id),
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE TABLE IF NOT EXISTS workspace_members (
+		workspace_id INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+		user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		role TEXT NOT NULL,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		PRIMARY KEY (workspace_id, user_id)
+	);
+
+	CREATE TABLE IF NOT EXISTS data_sources (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		workspace_id INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+		name TEXT NOT NULL,
+		slug TEXT NOT NULL DEFAULT '',
+		type TEXT NOT NULL DEFAULT 'json',
+		storage_path TEXT NOT NULL,
+		version INTEGER NOT NULL DEFAULT 1,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		UNIQUE (workspace_id, name)
+	);
+
+	CREATE TABLE IF NOT EXISTS data_source_columns (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		data_source_id INTEGER NOT NULL REFERENCES data_sources(id) ON DELETE CASCADE,
+		key TEXT NOT NULL,
+		type TEXT NOT NULL DEFAULT 'text',
+		position INTEGER NOT NULL,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		UNIQUE (data_source_id, key)
+	);
 	`
-	_, err := s.db.Exec(schema)
-	return err
+	if _, err := s.db.Exec(schema); err != nil {
+		return err
+	}
+
+	// data_sources.slug was added after the table already existed for some
+	// installs — add it defensively and backfill any rows still missing one.
+	if _, err := s.db.Exec(`ALTER TABLE data_sources ADD COLUMN slug TEXT NOT NULL DEFAULT ''`); err != nil {
+		if !strings.Contains(err.Error(), "duplicate column name") {
+			return err
+		}
+	}
+	return s.backfillDataSourceSlugs()
+}
+
+func (s *Store) backfillDataSourceSlugs() error {
+	rows, err := s.db.Query(`SELECT id, workspace_id, name FROM data_sources WHERE slug = ''`)
+	if err != nil {
+		return err
+	}
+	type pending struct {
+		id, workspaceID int64
+		name            string
+	}
+	var toFill []pending
+	for rows.Next() {
+		var p pending
+		if err := rows.Scan(&p.id, &p.workspaceID, &p.name); err != nil {
+			rows.Close()
+			return err
+		}
+		toFill = append(toFill, p)
+	}
+	rows.Close()
+
+	for _, p := range toFill {
+		slug, err := s.uniqueDataSourceSlug(p.workspaceID, p.name)
+		if err != nil {
+			return err
+		}
+		if _, err := s.db.Exec(`UPDATE data_sources SET slug = ? WHERE id = ?`, slug, p.id); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Store) CreateUser(username, email, passwordHash, role string) (*User, error) {
