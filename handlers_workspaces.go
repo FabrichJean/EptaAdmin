@@ -34,6 +34,19 @@ func workspaceDetailData(currentUser *User, ws *Workspace, role string, members 
 	}
 }
 
+func workspacesPageData(currentUser *User, workspaces []*UserWorkspace) map[string]any {
+	return map[string]any{
+		"CurrentUser":       currentUser,
+		"Workspaces":        workspaces,
+		"ActiveNav":         "workspaces",
+		"PageTitle":         "Workspaces",
+		"CanManageMembers":  canManageMembers(currentUser.Role),
+		"HeaderTitle":       "Workspaces",
+		"HeaderIcon":        "workspace",
+		"HeaderDescription": "Chaque workspace regroupe ses propres membres, rôles et sources de données JSON.",
+	}
+}
+
 func (a *App) handleWorkspacesPage(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
 	workspaces, err := a.store.ListWorkspacesForUser(currentUser.ID)
@@ -42,13 +55,7 @@ func (a *App) handleWorkspacesPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
 		return
 	}
-	a.render(w, "workspaces.html", map[string]any{
-		"CurrentUser":      currentUser,
-		"Workspaces":       workspaces,
-		"ActiveNav":        "workspaces",
-		"PageTitle":        "Workspaces",
-		"CanManageMembers": canManageMembers(currentUser.Role),
-	})
+	a.render(w, "workspaces.html", workspacesPageData(currentUser, workspaces))
 }
 
 // Any authenticated user may create a workspace; they become its Owner.
@@ -63,15 +70,10 @@ func (a *App) handleCreateWorkspace(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
 			return
 		}
-		a.render(w, "workspaces.html", map[string]any{
-			"CurrentUser":      currentUser,
-			"Workspaces":       workspaces,
-			"ActiveNav":        "workspaces",
-			"PageTitle":        "Workspaces",
-			"CanManageMembers": canManageMembers(currentUser.Role),
-			"Error":            msg,
-			"Name":             name,
-		})
+		data := workspacesPageData(currentUser, workspaces)
+		data["Error"] = msg
+		data["Name"] = name
+		a.render(w, "workspaces.html", data)
 	}
 
 	if name == "" {
