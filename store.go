@@ -95,6 +95,7 @@ func (s *Store) migrate() error {
 		key TEXT NOT NULL,
 		type TEXT NOT NULL DEFAULT 'text',
 		position INTEGER NOT NULL,
+		description TEXT NOT NULL DEFAULT '',
 		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		UNIQUE (data_source_id, key)
 	);
@@ -103,11 +104,16 @@ func (s *Store) migrate() error {
 		return err
 	}
 
-	// data_sources.slug was added after the table already existed for some
-	// installs — add it defensively and backfill any rows still missing one.
-	if _, err := s.db.Exec(`ALTER TABLE data_sources ADD COLUMN slug TEXT NOT NULL DEFAULT ''`); err != nil {
-		if !strings.Contains(err.Error(), "duplicate column name") {
-			return err
+	// Columns added after the tables already existed for some installs —
+	// add them defensively (SQLite has no "ADD COLUMN IF NOT EXISTS").
+	for _, alter := range []string{
+		`ALTER TABLE data_sources ADD COLUMN slug TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE data_source_columns ADD COLUMN description TEXT NOT NULL DEFAULT ''`,
+	} {
+		if _, err := s.db.Exec(alter); err != nil {
+			if !strings.Contains(err.Error(), "duplicate column name") {
+				return err
+			}
 		}
 	}
 	return s.backfillDataSourceSlugs()
