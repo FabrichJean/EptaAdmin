@@ -130,22 +130,82 @@
 {{else if eq . "currency"}}<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M15 9.5c0-1.4-1.5-2.5-3-2.5s-3 .8-3 2.2 1.5 2 3 2.3 3 .9 3 2.3-1.5 2.2-3 2.2-3-1.1-3-2.5"/></svg>
 {{else if eq . "image"}}<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
 {{else if eq . "text"}}<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>
+{{else if eq . "database"}}<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+{{else if eq . "workspace"}}<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
 {{else}}<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65M22 12.65l-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg>
 {{end}}
 {{end}}
 
 {{define "header"}}
-<header class="h-16 shrink-0 flex items-center justify-between px-4 sm:px-8 relative z-10" style="background: var(--eb-surface); border-bottom: 1px solid var(--eb-border);">
-  <h1 class="text-lg font-semibold" style="color: var(--eb-text);">{{.PageTitle}}</h1>
-  <div class="flex items-center gap-4">
-    <span class="hidden sm:inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium" style="background: var(--eb-surface-2); color: var(--eb-muted);">
-      {{.CurrentUser.RoleLabel}}
-    </span>
-    <form method="POST" action="/logout">
-      <button type="submit" class="text-sm font-medium transition-colors" style="color: var(--eb-muted);" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='var(--eb-muted)'">Déconnexion</button>
-    </form>
+<header class="shrink-0 relative z-20" style="background: var(--eb-surface); border-bottom: 1px solid var(--eb-border);">
+  <div class="h-14 flex items-center justify-between px-4 sm:px-8">
+    {{if .Breadcrumb}}
+    <div class="flex items-center gap-2 text-sm min-w-0">
+      {{range $i, $b := .Breadcrumb}}
+      {{if $i}}<span style="color: var(--eb-border-strong);">/</span>{{end}}
+      {{if $b.URL}}<a href="{{$b.URL}}" class="hover:underline truncate" style="color: var(--eb-muted);">{{$b.Label}}</a>{{else}}<span class="truncate" style="color: var(--eb-text);">{{$b.Label}}</span>{{end}}
+      {{end}}
+    </div>
+    {{else}}
+    <h1 class="text-lg font-semibold" style="color: var(--eb-text);">{{.PageTitle}}</h1>
+    {{end}}
+
+    <div class="flex items-center gap-3 shrink-0">
+      {{if .MemberCount}}
+      <span class="hidden sm:inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium" style="background: var(--eb-surface-2); color: var(--eb-muted);">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        {{.MemberCount}}
+      </span>
+      {{end}}
+      <div class="relative">
+        <button id="user-menu-btn" type="button" class="flex items-center gap-2">
+          <div class="h-8 w-8 rounded-full flex items-center justify-center text-xs font-semibold shrink-0" style="background: var(--eb-accent); color: var(--eb-accent-ink);">{{slice .CurrentUser.Username 0 1}}</div>
+          <div class="hidden sm:block text-left leading-tight">
+            <p class="text-sm font-medium" style="color: var(--eb-text);">{{.CurrentUser.Username}}</p>
+            <p class="text-xs" style="color: var(--eb-muted);">{{.CurrentUser.RoleLabel}}</p>
+          </div>
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 hidden sm:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--eb-muted);"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div id="user-menu" class="hidden absolute right-0 mt-2 w-44 rounded-lg py-1 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+          <form method="POST" action="/logout">
+            <button type="submit" class="w-full text-left px-3 py-2 text-sm" style="color: #f87171;">Déconnexion</button>
+          </form>
+        </div>
+      </div>
+    </div>
   </div>
+
+  {{if .HeaderTitle}}
+  <div class="px-4 sm:px-8 pb-4 flex items-start gap-3">
+    {{if .HeaderIcon}}
+    <div class="h-11 w-11 rounded-lg flex items-center justify-center shrink-0" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">
+      {{template "col-icon" .HeaderIcon}}
+    </div>
+    {{end}}
+    <div class="min-w-0">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-xl font-bold truncate" style="color: var(--eb-text);">{{.HeaderTitle}}</span>
+        {{if .HeaderBadge}}
+        <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">{{.HeaderBadge}}</span>
+        {{end}}
+      </div>
+      {{if .HeaderDescription}}<p class="text-sm mt-0.5" style="color: var(--eb-muted);">{{.HeaderDescription}}</p>{{end}}
+    </div>
+  </div>
+  {{end}}
 </header>
+<script>
+(function () {
+  const btn = document.getElementById("user-menu-btn");
+  const menu = document.getElementById("user-menu");
+  if (!btn || !menu) return;
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    menu.classList.toggle("hidden");
+  });
+  document.addEventListener("click", () => menu.classList.add("hidden"));
+})();
+</script>
 {{end}}
 {{define "layout"}}
 <!DOCTYPE html>
