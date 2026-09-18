@@ -1,0 +1,162 @@
+package main
+
+import (
+	"database/sql"
+	"errors"
+	"strings"
+	"time"
+
+	_ "modernc.org/sqlite"
+)
+
+var ErrUserExists = errors.New("un utilisateur avec cet identifiant existe déjà")
+var ErrInvalidCredentials = errors.New("identifiant ou mot de passe incorrect")
+
+type User struct {
+	ID           int64
+	Username     string
+	Email        string
+	PasswordHash string
+	Role         string
+	CreatedAt    time.Time
+}
+
+func (u *User) RoleLabel() string {
+	return roleLabel(u.Role)
+}
+
+type Store struct {
+	db *sql.DB
+}
+
+func NewStore(path string) (*Store, error) {
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		return nil, err
+	}
+	db.SetMaxOpenConns(1) // sqlite: avoid concurrent write locks
+	s := &Store{db: db}
+	if err := s.migrate(); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
+func (s *Store) migrate() error {
+	schema := `
+	CREATE TABLE IF NOT EXISTS users (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		username TEXT NOT NULL UNIQUE,
+		email TEXT NOT NULL UNIQUE,
+		password_hash TEXT NOT NULL,
+		role TEXT NOT NULL DEFAULT 'viewer',
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE TABLE IF NOT EXISTS sessions (
+		token TEXT PRIMARY KEY,
+		user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		expires_at DATETIME NOT NULL
+	);
+	`
+	_, err := s.db.Exec(schema)
+	return err
+}
+
+func (s *Store) CreateUser(username, email, passwordHash, role string) (*User, error) {
+	res, err := s.db.Exec(
+		`INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)`,
+		username, email, passwordHash, role,
+	)
+	if err != nil {
+		if isUniqueConstraintErr(err) {
+			return nil, ErrUserExists
+		}
+		return nil, err
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+	return s.GetUserByID(id)
+}
+
+func (s *Store) GetUserByUsername(username string) (*User, error) {
+	row := s.db.QueryRow(
+		`SELECT id, username, email, password_hash, role, created_at FROM users WHERE username = ?`,
+		username,
+	)
+	return scanUser(row)
+}
+
+func (s *Store) GetUserByID(id int64) (*User, error) {
+	row := s.db.QueryRow(
+		`SELECT id, username, email, password_hash, role, created_at FROM users WHERE id = ?`,
+		id,
+	)
+	return scanUser(row)
+}
+
+func (s *Store) ListUsers() ([]*User, error) {
+	rows, err := s.db.Query(`SELECT id, username, email, password_hash, role, created_at FROM users ORDER BY id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []*User
+	for rows.Next() {
+		u := &User{}
+		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.CreatedAt); err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, rows.Err()
+}
+
+func (s *Store) CountUsers() (int, error) {
+	var n int
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&n)
+	return n, err
+}
+
+func scanUser(row *sql.Row) (*User, error) {
+	u := &User{}
+	err := row.Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.CreatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return u, nil
+}
+
+func (s *Store) CreateSession(token string, userID int64, expiresAt time.Time) error {
+	_, err := s.db.Exec(
+		`INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)`,
+		token, userID, expiresAt,
+	)
+	return err
+}
+
+func (s *Store) GetSessionUser(token string) (*User, error) {
+	row := s.db.QueryRow(`
+		SELECT users.id, users.username, users.email, users.password_hash, users.role, users.created_at
+		FROM sessions
+		JOIN users ON users.id = sessions.user_id
+		WHERE sessions.token = ? AND sessions.expires_at > CURRENT_TIMESTAMP
+	`, token)
+	return scanUser(row)
+}
+
+func (s *Store) DeleteSession(token string) error {
+	_, err := s.db.Exec(`DELETE FROM sessions WHERE token = ?`, token)
+	return err
+}
+
+func isUniqueConstraintErr(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
+}
