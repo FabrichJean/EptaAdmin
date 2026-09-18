@@ -8,17 +8,6 @@
 
     <main class="flex-1 overflow-y-auto px-4 sm:px-8 py-10 pb-24">
      <div class="max-w-6xl mx-auto">
-      <div class="flex items-center gap-2 mb-1 text-sm">
-        <a href="/workspaces" class="hover:underline" style="color: var(--eb-muted);">Workspaces</a>
-        <span style="color: var(--eb-border-strong);">/</span>
-        <a href="/workspaces/{{.Workspace.Slug}}" class="hover:underline" style="color: var(--eb-muted);">{{.Workspace.Name}}</a>
-        <span style="color: var(--eb-border-strong);">/</span>
-        <span style="color: var(--eb-text);">{{.DataSource.Name}}</span>
-      </div>
-      <p class="mb-6" style="color: var(--eb-muted);">
-        {{len .Columns}} colonne{{if ne (len .Columns) 1}}s{{end}} — chacune est une liste indépendante, sans correspondance de position entre elles.
-      </p>
-
       <div id="conflict-banner" class="hidden mb-4 rounded-lg text-sm px-4 py-3 flex items-center justify-between" style="background: rgba(251,146,60,0.1); border: 1px solid rgba(251,146,60,0.3); color: var(--eb-warn);">
         <span>⚠ Cette donnée a été modifiée par un autre utilisateur pendant votre édition.</span>
         <button onclick="location.reload()" class="eb-btn-primary shrink-0 rounded-lg text-xs px-3 py-1.5 transition-colors">Recharger</button>
@@ -87,7 +76,7 @@
               {{if and .Managed $.CanEdit}}
               <div class="relative">
                 <button type="button" class="column-menu-btn eb-icon-btn text-sm px-1">⋯</button>
-                <div class="column-menu hidden absolute right-0 mt-1 w-48 rounded-lg py-1 z-20 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+                <div class="column-menu hidden fixed w-48 rounded-lg py-1 z-50 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
                   <button type="button" class="edit-description-btn w-full text-left px-3 py-2 text-sm" style="color: var(--eb-text);">Modifier la description</button>
                   {{if $.CanDelete}}
                   <button type="button" class="delete-column-btn w-full text-left px-3 py-2 text-sm" style="color: #f87171;">Supprimer la colonne</button>
@@ -152,7 +141,7 @@
               {{if and $col.Managed (or $.CanEdit $.CanDelete)}}
               <div class="relative shrink-0">
                 <button type="button" class="value-menu-btn eb-icon-btn text-sm px-1">⋮</button>
-                <div class="value-menu hidden absolute right-0 mt-1 w-36 rounded-lg py-1 z-20 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+                <div class="value-menu hidden fixed w-36 rounded-lg py-1 z-50 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
                   {{if $.CanEdit}}<button type="button" class="value-menu-edit w-full text-left px-3 py-1.5 text-sm" style="color: var(--eb-text);">Modifier</button>{{end}}
                   {{if $.CanDelete}}<button type="button" class="value-menu-delete w-full text-left px-3 py-1.5 text-sm" style="color: #f87171;">Supprimer</button>{{end}}
                 </div>
@@ -256,7 +245,9 @@
 
   // --- Generic dropdown menu helper: toggles a sibling `.xxx-menu` element
   // open/closed, and closes any other open menu when one opens or the
-  // user clicks elsewhere. ---
+  // user clicks elsewhere. These menus live inside scrolling/clipped
+  // containers (.value-list has overflow-y, .column-panel has
+  // overflow-hidden), so they're positioned `fixed` with coordinates
   function bindMenu(triggerSelector, menuClass) {
     document.querySelectorAll(triggerSelector).forEach((btn) => {
       const menu = btn.parentElement.querySelector("." + menuClass) || btn.nextElementSibling;
