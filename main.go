@@ -39,6 +39,8 @@ func main() {
 	mux.HandleFunc("GET /workspaces/{slug}/datasources/{dsSlug}", app.requireAuth(app.handleDataSourceTable))
 	mux.HandleFunc("POST /workspaces/{slug}/datasources/{dsSlug}/records", app.requireAuth(app.handleSaveRecords))
 	mux.HandleFunc("POST /workspaces/{slug}/datasources/{dsSlug}/columns", app.requireAuth(app.handleAddDataSourceColumn))
+	mux.HandleFunc("PATCH /workspaces/{slug}/datasources/{dsSlug}/columns/{key}", app.requireAuth(app.handleUpdateDataSourceColumn))
+	mux.HandleFunc("DELETE /workspaces/{slug}/datasources/{dsSlug}/columns/{key}", app.requireAuth(app.handleDeleteDataSourceColumn))
 	mux.HandleFunc("POST /workspaces/{slug}/uploads", app.requireAuth(app.handleUploadImage))
 	mux.HandleFunc("GET /workspaces/{slug}/uploads/{filename}", app.requireAuth(app.handleServeUpload))
 

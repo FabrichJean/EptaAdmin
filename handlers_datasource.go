@@ -69,7 +69,7 @@ func (a *App) handleDataSourceTable(w http.ResponseWriter, r *http.Request) {
 	// of truth from here on.
 	if len(schemaCols) == 0 && len(cs) > 0 {
 		for _, guess := range InferSchemaFromColumns(cs) {
-			if _, err := a.store.AddDataSourceColumn(ds.ID, guess.Key, guess.Type); err != nil && err != ErrColumnExists {
+			if _, err := a.store.AddDataSourceColumn(ds.ID, guess.Key, guess.Type, ""); err != nil && err != ErrColumnExists {
 				log.Printf("bootstrap schema column error: %v", err)
 				http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
 				return
@@ -267,7 +267,8 @@ func (a *App) handleSaveRecords(w http.ResponseWriter, r *http.Request) {
 }
 
 type addColumnRequest struct {
-	Key string `json:"key"`
+	Key         string `json:"key"`
+	Description string `json:"description"`
 }
 
 func (a *App) handleAddDataSourceColumn(w http.ResponseWriter, r *http.Request) {
@@ -299,7 +300,7 @@ func (a *App) handleAddDataSourceColumn(w http.ResponseWriter, r *http.Request) 
 	// Columns no longer carry a single type — each value picks its own
 	// (text/long_text/number/boolean) when it's entered. The stored "text"
 	// here is just a DB placeholder, unused by validation.
-	col, err := a.store.AddDataSourceColumn(ds.ID, key, ColumnTypeText)
+	col, err := a.store.AddDataSourceColumn(ds.ID, key, ColumnTypeText, strings.TrimSpace(req.Description))
 	if err != nil {
 		if err == ErrColumnExists {
 			writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
@@ -311,4 +312,91 @@ func (a *App) handleAddDataSourceColumn(w http.ResponseWriter, r *http.Request) 
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{"key": col.Key, "type": col.Type})
+}
+
+type updateColumnRequest struct {
+	Description string `json:"description"`
+}
+
+func (a *App) handleUpdateDataSourceColumn(w http.ResponseWriter, r *http.Request) {
+	currentUser := userFromContext(r)
+	ws, role, ok := a.loadWorkspaceMembership(w, r, currentUser)
+	if !ok {
+		return
+	}
+	if !hasPermission(role, PermDataUpdate) {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "Accès refusé."})
+		return
+	}
+	ds, ok := a.loadDataSourceInWorkspace(w, r, ws)
+	if !ok {
+		return
+	}
+	key := r.PathValue("key")
+
+	var req updateColumnRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Requête invalide."})
+		return
+	}
+
+	if err := a.store.UpdateDataSourceColumnDescription(ds.ID, key, strings.TrimSpace(req.Description)); err != nil {
+		log.Printf("update column error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+func (a *App) handleDeleteDataSourceColumn(w http.ResponseWriter, r *http.Request) {
+	currentUser := userFromContext(r)
+	ws, role, ok := a.loadWorkspaceMembership(w, r, currentUser)
+	if !ok {
+		return
+	}
+	if !hasPermission(role, PermDataDelete) {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "Accès refusé."})
+		return
+	}
+	ds, ok := a.loadDataSourceInWorkspace(w, r, ws)
+	if !ok {
+		return
+	}
+	key := r.PathValue("key")
+
+	dataWriteMu.Lock()
+	defer dataWriteMu.Unlock()
+
+	fresh, err := a.store.GetDataSource(ds.ID)
+	if err != nil {
+		log.Printf("get data source error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		return
+	}
+
+	cs, err := LoadColumnStore(fresh.StoragePath)
+	if err != nil {
+		log.Printf("load column store error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		return
+	}
+	delete(cs, key)
+	if err := SaveColumnStore(fresh.StoragePath, cs); err != nil {
+		log.Printf("save column store error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Impossible d'écrire le fichier."})
+		return
+	}
+
+	if err := a.store.DeleteDataSourceColumn(ds.ID, key); err != nil {
+		log.Printf("delete column error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		return
+	}
+
+	if _, err := a.store.BumpDataSourceVersion(fresh.ID, fresh.Version); err != nil {
+		log.Printf("bump version error: %v", err)
+	}
+
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
