@@ -1,29 +1,57 @@
-{{define "nav"}}
-<nav class="bg-white border-b border-slate-200">
-  <div class="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-    <div class="flex items-center gap-6">
-      <a href="/" class="flex items-center gap-3">
-        <div class="h-9 w-9 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold">E</div>
-        <span class="font-semibold text-slate-900">EptaAdmin</span>
-      </a>
-      <div class="hidden sm:flex items-center gap-4 text-sm">
-        <a href="/" class="text-slate-500 hover:text-slate-900 transition-colors">Tableau de bord</a>
-        {{if .CanManageMembers}}
-        <a href="/members" class="text-slate-500 hover:text-slate-900 transition-colors">Membres</a>
-        {{end}}
-      </div>
+{{define "sidebar"}}
+<aside class="w-64 shrink-0 bg-white border-r border-slate-200 flex flex-col h-full">
+  <div class="px-5 py-5 flex items-center gap-3 border-b border-slate-200">
+    <div class="h-9 w-9 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold">E</div>
+    <span class="font-semibold text-slate-900">EptaAdmin</span>
+  </div>
+
+  <nav class="flex-1 px-3 py-4 space-y-1">
+    <a href="/"
+      class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors
+        {{if eq .ActiveNav "dashboard"}}bg-indigo-50 text-indigo-700{{else}}text-slate-600 hover:bg-slate-50 hover:text-slate-900{{end}}">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+      Tableau de bord
+    </a>
+    <a href="/workspaces"
+      class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors
+        {{if eq .ActiveNav "workspaces"}}bg-indigo-50 text-indigo-700{{else}}text-slate-600 hover:bg-slate-50 hover:text-slate-900{{end}}">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+      Workspaces
+    </a>
+    {{if .CanManageMembers}}
+    <a href="/members"
+      class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors
+        {{if eq .ActiveNav "members"}}bg-indigo-50 text-indigo-700{{else}}text-slate-600 hover:bg-slate-50 hover:text-slate-900{{end}}">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Membres
+    </a>
+    {{end}}
+  </nav>
+
+  <div class="border-t border-slate-200 p-4 flex items-center gap-3">
+    <div class="h-8 w-8 shrink-0 rounded-full bg-slate-200 flex items-center justify-center text-xs font-semibold text-slate-600">
+      {{slice .CurrentUser.Username 0 1}}
     </div>
-    <div class="flex items-center gap-4">
-      <span class="text-sm text-slate-500">
-        {{.CurrentUser.Username}}
-        <span class="ml-1 text-xs text-slate-400">({{.CurrentUser.RoleLabel}})</span>
-      </span>
-      <form method="POST" action="/logout">
-        <button type="submit" class="text-sm font-medium text-slate-500 hover:text-red-600 transition-colors">Déconnexion</button>
-      </form>
+    <div class="min-w-0">
+      <p class="text-sm font-medium text-slate-900 truncate">{{.CurrentUser.Username}}</p>
+      <p class="text-xs text-slate-400 truncate">{{.CurrentUser.RoleLabel}}</p>
     </div>
   </div>
-</nav>
+</aside>
+{{end}}
+
+{{define "header"}}
+<header class="h-16 shrink-0 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-8">
+  <h1 class="text-lg font-semibold text-slate-900">{{.PageTitle}}</h1>
+  <div class="flex items-center gap-4">
+    <span class="hidden sm:inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+      {{.CurrentUser.RoleLabel}}
+    </span>
+    <form method="POST" action="/logout">
+      <button type="submit" class="text-sm font-medium text-slate-500 hover:text-red-600 transition-colors">Déconnexion</button>
+    </form>
+  </div>
+</header>
 {{end}}
 {{define "layout"}}
 <!DOCTYPE html>

@@ -1,9 +1,13 @@
 {{define "title"}}Tableau de bord — EptaAdmin{{end}}
 {{define "content"}}
-<div class="min-h-full">
-  {{template "nav" .}}
+<div class="h-full flex">
+  {{template "sidebar" .}}
 
-  <main class="max-w-5xl mx-auto px-4 sm:px-6 py-10">
+  <div class="flex-1 min-w-0 flex flex-col">
+    {{template "header" .}}
+
+    <main class="flex-1 overflow-y-auto px-4 sm:px-8 py-10">
+     <div class="max-w-4xl mx-auto">
     <h1 class="text-2xl font-semibold text-slate-900">Bienvenue, {{.CurrentUser.Username}} 👋</h1>
     <p class="text-slate-500 mt-1">Voici les utilisateurs enregistrés sur cette instance.</p>
 
@@ -59,7 +63,9 @@
         </tbody>
       </table>
     </div>
-  </main>
+     </div>
+    </main>
+  </div>
 </div>
 {{end}}
 {{template "layout" .}}
