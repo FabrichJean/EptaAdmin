@@ -85,6 +85,13 @@ func (a *App) handleDataSourceTable(w http.ResponseWriter, r *http.Request) {
 
 	columns := BuildColumns(schemaCols, cs)
 
+	members, err := a.store.ListWorkspaceMembers(ws.ID)
+	if err != nil {
+		log.Printf("list workspace members error: %v", err)
+		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
+		return
+	}
+
 	a.render(w, "datasource_table.html", map[string]any{
 		"CurrentUser":      currentUser,
 		"ActiveNav":        "workspaces",
@@ -96,7 +103,24 @@ func (a *App) handleDataSourceTable(w http.ResponseWriter, r *http.Request) {
 		"CanEdit":          hasPermission(role, PermDataUpdate),
 		"CanDelete":        hasPermission(role, PermDataDelete),
 		"CanCreate":        hasPermission(role, PermDataCreate),
+		"Breadcrumb": []Breadcrumb{
+			{Label: "Workspaces", URL: "/workspaces"},
+			{Label: ws.Name, URL: "/workspaces/" + ws.Slug},
+			{Label: ds.Name},
+		},
+		"HeaderTitle":       ds.Name,
+		"HeaderIcon":        "database",
+		"HeaderBadge":       "Actif",
+		"HeaderDescription": fmt.Sprintf("%d colonne%s — chacune est une liste indépendante, sans correspondance de position entre elles.", len(columns), pluralS(len(columns))),
+		"MemberCount":       len(members),
 	})
+}
+
+func pluralS(n int) string {
+	if n == 1 {
+		return ""
+	}
+	return "s"
 }
 
 type saveColumnsRequest struct {
