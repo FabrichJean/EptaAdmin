@@ -10,6 +10,7 @@ const (
 	ColumnTypeLongText = "long_text" // free-form, multi-line — a textarea, not an <input>
 	ColumnTypeNumber   = "number"
 	ColumnTypeBoolean  = "boolean"
+	ColumnTypeImage    = "image" // a URL, normally produced by uploading a file
 )
 
 var validColumnTypes = map[string]bool{
@@ -17,6 +18,7 @@ var validColumnTypes = map[string]bool{
 	ColumnTypeLongText: true,
 	ColumnTypeNumber:   true,
 	ColumnTypeBoolean:  true,
+	ColumnTypeImage:    true,
 }
 
 func IsValidColumnType(t string) bool {
@@ -31,6 +33,8 @@ func ColumnTypeLabel(t string) string {
 		return "Booléen"
 	case ColumnTypeLongText:
 		return "Texte long"
+	case ColumnTypeImage:
+		return "Image"
 	default:
 		return "Texte"
 	}
