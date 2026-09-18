@@ -1,0 +1,134 @@
+{{define "title"}}{{.Workspace.Name}} — EptaAdmin{{end}}
+{{define "content"}}
+<div class="h-full flex">
+  {{template "sidebar" .}}
+
+  <div class="flex-1 min-w-0 flex flex-col">
+    {{template "header" .}}
+
+    <main class="flex-1 overflow-y-auto px-4 sm:px-8 py-10">
+     <div class="max-w-5xl mx-auto">
+      <div class="flex items-center gap-3 mb-1">
+        <a href="/workspaces" class="text-sm text-slate-400 hover:text-slate-600">Workspaces</a>
+        <span class="text-slate-300">/</span>
+        <span class="text-sm text-slate-600">{{.Workspace.Name}}</span>
+      </div>
+      <p class="text-slate-500 mb-8">Slug : <code class="text-xs bg-slate-100 rounded px-1.5 py-0.5">{{.Workspace.Slug}}</code></p>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <section>
+          <h2 class="font-semibold text-slate-900 mb-4">Membres</h2>
+
+          <div class="bg-white rounded-xl border border-slate-200 overflow-hidden mb-4">
+            <table class="min-w-full divide-y divide-slate-200">
+              <thead class="bg-slate-50">
+                <tr>
+                  <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Identifiant</th>
+                  <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Rôle</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                {{range .Members}}
+                <tr>
+                  <td class="px-4 py-2.5 text-sm text-slate-800 font-medium">{{.Username}}</td>
+                  <td class="px-4 py-2.5 text-sm">
+                    <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
+                      {{if eq .Role "owner"}}bg-purple-100 text-purple-700
+                      {{else if eq .Role "admin"}}bg-indigo-100 text-indigo-700
+                      {{else if eq .Role "editor"}}bg-emerald-100 text-emerald-700
+                      {{else}}bg-slate-100 text-slate-600{{end}}">
+                      {{.RoleLabel}}
+                    </span>
+                  </td>
+                </tr>
+                {{end}}
+              </tbody>
+            </table>
+          </div>
+
+          {{if .CanManageWSMembers}}
+          <div class="bg-white rounded-xl border border-slate-200 p-5">
+            <h3 class="text-sm font-semibold text-slate-900 mb-3">Ajouter un membre</h3>
+            {{if .MemberError}}
+            <div class="mb-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">{{.MemberError}}</div>
+            {{end}}
+            <form method="POST" action="/workspaces/{{.Workspace.Slug}}/members" class="space-y-3">
+              <div>
+                <label class="block text-xs font-medium text-slate-700 mb-1" for="username">Identifiant (utilisateur existant)</label>
+                <input id="username" name="username" type="text" required
+                  class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-700 mb-1" for="role">Rôle</label>
+                <select id="role" name="role" required
+                  class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                  {{range .AssignableRoles}}
+                  <option value="{{.Value}}">{{.Label}}</option>
+                  {{end}}
+                </select>
+              </div>
+              <button type="submit"
+                class="w-full rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2 transition-colors">
+                Ajouter
+              </button>
+            </form>
+          </div>
+          {{end}}
+        </section>
+
+        <section>
+          <h2 class="font-semibold text-slate-900 mb-4">Data sources</h2>
+
+          <div class="bg-white rounded-xl border border-slate-200 overflow-hidden mb-4">
+            {{if .DataSources}}
+            <table class="min-w-full divide-y divide-slate-200">
+              <thead class="bg-slate-50">
+                <tr>
+                  <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Nom</th>
+                  <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Type</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                {{range .DataSources}}
+                <tr>
+                  <td class="px-4 py-2.5 text-sm">
+                    <a href="/workspaces/{{$.Workspace.Slug}}/datasources/{{.Slug}}" class="font-medium text-indigo-600 hover:underline">{{.Name}}</a>
+                  </td>
+                  <td class="px-4 py-2.5 text-sm text-slate-500 uppercase text-xs">{{.Type}}</td>
+                </tr>
+                {{end}}
+              </tbody>
+            </table>
+            {{else}}
+            <div class="px-4 py-8 text-center text-sm text-slate-400">Aucune source de données enregistrée.</div>
+            {{end}}
+          </div>
+
+          {{if .CanManageSource}}
+          <div class="bg-white rounded-xl border border-slate-200 p-5">
+            <h3 class="text-sm font-semibold text-slate-900 mb-3">Enregistrer une source JSON</h3>
+            {{if .SourceError}}
+            <div class="mb-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">{{.SourceError}}</div>
+            {{end}}
+            <form method="POST" action="/workspaces/{{.Workspace.Slug}}/datasources" class="space-y-3">
+              <div>
+                <label class="block text-xs font-medium text-slate-700 mb-1" for="ds-name">Nom</label>
+                <input id="ds-name" name="name" type="text" required placeholder="Domains"
+                  class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+                <p class="mt-1 text-xs text-slate-400">Epta gère l'emplacement du fichier automatiquement.</p>
+              </div>
+              <button type="submit"
+                class="w-full rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2 transition-colors">
+                Enregistrer
+              </button>
+            </form>
+          </div>
+          {{end}}
+        </section>
+      </div>
+     </div>
+    </main>
+  </div>
+</div>
+{{end}}
+{{template "layout" .}}

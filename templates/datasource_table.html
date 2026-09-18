@@ -1,0 +1,376 @@
+{{define "title"}}{{.DataSource.Name}} — EptaAdmin{{end}}
+{{define "content"}}
+<div class="h-full flex">
+  {{template "sidebar" .}}
+
+  <div class="flex-1 min-w-0 flex flex-col">
+    {{template "header" .}}
+
+    <main class="flex-1 overflow-y-auto px-4 sm:px-8 py-10 pb-24">
+     <div class="max-w-6xl mx-auto">
+      <div class="flex items-center gap-2 mb-1 text-sm">
+        <a href="/workspaces" class="text-slate-400 hover:text-slate-600">Workspaces</a>
+        <span class="text-slate-300">/</span>
+        <a href="/workspaces/{{.Workspace.Slug}}" class="text-slate-400 hover:text-slate-600">{{.Workspace.Name}}</a>
+        <span class="text-slate-300">/</span>
+        <span class="text-slate-600">{{.DataSource.Name}}</span>
+      </div>
+      <p class="text-slate-500 mb-6">
+        {{len .Columns}} colonne{{if ne (len .Columns) 1}}s{{end}} — chacune est une liste indépendante, sans correspondance de position entre elles.
+      </p>
+
+      <div id="conflict-banner" class="hidden mb-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-3 flex items-center justify-between">
+        <span>⚠ Cette donnée a été modifiée par un autre utilisateur pendant votre édition.</span>
+        <button onclick="location.reload()" class="shrink-0 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium px-3 py-1.5 transition-colors">Recharger</button>
+      </div>
+
+      <div class="mb-4 flex items-center justify-between gap-4">
+        <input id="search-input" type="text" placeholder="🔍 Rechercher..."
+          class="w-full sm:w-80 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+        {{if .CanEdit}}
+        <button id="add-column-btn" type="button" class="shrink-0 rounded-lg bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-medium px-4 py-2 transition-colors">+ Column</button>
+        {{end}}
+      </div>
+
+      <div id="add-column-form" class="hidden mb-4 flex items-center gap-2">
+        <input id="add-column-input" type="text" placeholder="nom de la colonne"
+          class="w-full sm:w-72 rounded-lg border border-indigo-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+        <select id="add-column-type" class="rounded-lg border border-indigo-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+          <option value="text">Texte</option>
+          <option value="number">Nombre</option>
+          <option value="boolean">Booléen</option>
+        </select>
+        <button id="add-column-confirm-btn" type="button" class="rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 transition-colors">Ajouter</button>
+        <button id="add-column-cancel-btn" type="button" class="rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 text-sm font-medium px-4 py-2 transition-colors">Annuler</button>
+      </div>
+
+      {{if .Columns}}
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {{range .Columns}}
+        <div class="column-panel bg-white rounded-xl border border-slate-200 flex flex-col" data-column="{{.Key}}" data-type="{{.Type}}" data-managed="{{if .Managed}}true{{else}}false{{end}}">
+          <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">{{.Key}}</span>
+            {{if .Managed}}
+            <span class="text-xs text-slate-400">{{.Type}}</span>
+            {{else}}
+            <span class="text-xs text-amber-500" title="Champ présent dans les données mais non déclaré dans le schéma">non géré</span>
+            {{end}}
+          </div>
+          <div class="value-list flex-1 divide-y divide-slate-100">
+            {{$col := .}}
+            {{range $i, $v := .Values}}
+            <div class="value-row flex items-center justify-between gap-2 px-4 py-2 text-sm" data-index="{{$i}}" data-search-value>
+              {{if and $col.Managed $.CanEdit}}
+              <span class="value-text editable flex-1 cursor-text text-slate-800" title="Double-cliquer pour modifier">{{formatValue $v}}</span>
+              {{else}}
+              <span class="flex-1 text-slate-500">{{formatValue $v}}</span>
+              {{end}}
+              {{if and $col.Managed $.CanDelete}}
+              <button type="button" class="delete-value-btn text-slate-300 hover:text-red-600 text-xs shrink-0">✕</button>
+              {{end}}
+            </div>
+            {{end}}
+          </div>
+          {{if and .Managed $.CanCreate}}
+          <div class="append-row flex items-center gap-2 px-4 py-3 border-t border-slate-100">
+            <input type="text" class="append-input flex-1 rounded border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400" placeholder="+ valeur" />
+            <button type="button" class="append-btn text-indigo-600 hover:text-indigo-800 text-sm font-medium shrink-0">Ajouter</button>
+          </div>
+          {{end}}
+        </div>
+        {{end}}
+      </div>
+      {{else}}
+      <div class="bg-white rounded-xl border border-slate-200 px-5 py-14 text-center text-sm text-slate-400">
+        Aucune colonne pour le moment. Créez-en une avec "+ Column" pour commencer.
+      </div>
+      {{end}}
+     </div>
+    </main>
+
+    {{if or .CanEdit .CanDelete .CanCreate}}
+    <div id="pending-bar" class="hidden shrink-0 border-t border-slate-200 bg-white px-4 sm:px-8 py-3 flex items-center justify-between">
+      <span id="pending-count" class="text-sm text-slate-600"></span>
+      <div class="flex items-center gap-2">
+        <button id="discard-btn" type="button" class="rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 text-sm font-medium px-4 py-2 transition-colors">Discard</button>
+        <button id="save-btn" type="button" title="Ctrl+S / ⌘S" class="rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 transition-colors"><span id="save-btn-label">Save</span> <span class="opacity-60 font-normal">⌘S</span></button>
+      </div>
+    </div>
+    {{end}}
+  </div>
+</div>
+
+<script>
+(function () {
+  const BASE_VERSION = {{.DataSource.Version}};
+  const SAVE_URL = window.location.pathname.replace(/\/$/, "") + "/records";
+  const COLUMN_URL = window.location.pathname.replace(/\/$/, "") + "/columns";
+
+  const pendingUpdates = new Map(); // "column:index" -> {column, index, value}
+  const pendingDeletes = new Map(); // "column:index" -> {column, index}
+  const pendingAppends = [];        // [{column, value, el}]
+
+  const bar = document.getElementById("pending-bar");
+  const countEl = document.getElementById("pending-count");
+  const conflictBanner = document.getElementById("conflict-banner");
+
+  function pendingTotal() {
+    return pendingUpdates.size + pendingDeletes.size + pendingAppends.length;
+  }
+  function updateBar() {
+    if (!bar) return;
+    const n = pendingTotal();
+    if (n > 0) {
+      bar.classList.remove("hidden");
+      countEl.textContent = n + (n > 1 ? " changements non enregistrés" : " changement non enregistré");
+    } else {
+      bar.classList.add("hidden");
+    }
+  }
+
+  function typedInput(type, currentValue) {
+    if (type === "boolean") {
+      const select = document.createElement("select");
+      select.className = "w-full rounded border border-indigo-400 px-1.5 py-1 text-sm focus:outline-none";
+      ["true", "false"].forEach((v) => {
+        const opt = document.createElement("option");
+        opt.value = v;
+        opt.textContent = v;
+        if (v === currentValue) opt.selected = true;
+        select.appendChild(opt);
+      });
+      return select;
+    }
+    const input = document.createElement("input");
+    input.type = type === "number" ? "number" : "text";
+    if (type === "number") input.step = "any";
+    input.className = "w-full rounded border border-indigo-400 px-1.5 py-1 text-sm focus:outline-none";
+    input.value = currentValue;
+    return input;
+  }
+
+  function startEdit(span) {
+    const row = span.closest(".value-row");
+    const panel = span.closest(".column-panel");
+    const type = panel.dataset.type;
+    const column = panel.dataset.column;
+    const index = parseInt(row.dataset.index, 10);
+    if (row.querySelector("input, select")) return;
+    const original = span.textContent;
+    const input = typedInput(type, original);
+    span.replaceWith(input);
+    input.focus();
+    if (input.select) input.select();
+
+    let settled = false;
+    function commit() {
+      if (settled) return;
+      settled = true;
+      const newVal = input.value;
+      const newSpan = document.createElement("span");
+      newSpan.className = "value-text editable flex-1 cursor-text text-slate-800";
+      newSpan.title = "Double-cliquer pour modifier";
+      newSpan.textContent = newVal;
+      bindEditableSpan(newSpan);
+      input.replaceWith(newSpan);
+      const key = column + ":" + index;
+      if (newVal !== original) {
+        row.classList.add("bg-amber-50");
+        pendingUpdates.set(key, { column, index, value: newVal });
+      } else {
+        row.classList.remove("bg-amber-50");
+        pendingUpdates.delete(key);
+      }
+      updateBar();
+    }
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); commit(); }
+      else if (e.key === "Escape") { e.preventDefault(); settled = true; const s = document.createElement("span"); s.className = "value-text editable flex-1 cursor-text text-slate-800"; s.textContent = original; bindEditableSpan(s); input.replaceWith(s); }
+    });
+    input.addEventListener("blur", commit);
+    if (input.tagName === "SELECT") input.addEventListener("change", commit);
+  }
+
+  function bindEditableSpan(span) {
+    span.addEventListener("dblclick", () => startEdit(span));
+  }
+  document.querySelectorAll(".value-text.editable").forEach(bindEditableSpan);
+
+  function toggleDelete(btn) {
+    const row = btn.closest(".value-row");
+    const panel = btn.closest(".column-panel");
+    const column = panel.dataset.column;
+    const index = parseInt(row.dataset.index, 10);
+    const key = column + ":" + index;
+    if (pendingDeletes.has(key)) {
+      pendingDeletes.delete(key);
+      row.classList.remove("opacity-40", "line-through");
+    } else {
+      pendingDeletes.set(key, { column, index });
+      row.classList.add("opacity-40", "line-through");
+    }
+    updateBar();
+  }
+  document.querySelectorAll(".delete-value-btn").forEach((btn) => {
+    btn.addEventListener("click", () => toggleDelete(btn));
+  });
+
+  // --- Append a value to a column (client-side staged, sent on Save) ---
+  document.querySelectorAll(".column-panel").forEach((panel) => {
+    const appendBtn = panel.querySelector(".append-btn");
+    const appendInput = panel.querySelector(".append-input");
+    if (!appendBtn || !appendInput) return;
+    const valueList = panel.querySelector(".value-list");
+    const column = panel.dataset.column;
+
+    function commitAppend() {
+      const value = appendInput.value;
+      if (value === "") return;
+      const row = document.createElement("div");
+      row.className = "value-row flex items-center justify-between gap-2 px-4 py-2 text-sm bg-emerald-50/50";
+      const span = document.createElement("span");
+      span.className = "flex-1 text-slate-800";
+      span.textContent = value;
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "text-slate-300 hover:text-red-600 text-xs shrink-0";
+      removeBtn.textContent = "✕";
+      row.appendChild(span);
+      row.appendChild(removeBtn);
+      valueList.appendChild(row);
+
+      const entry = { column, value, el: row };
+      pendingAppends.push(entry);
+      removeBtn.addEventListener("click", () => {
+        const idx = pendingAppends.indexOf(entry);
+        if (idx !== -1) pendingAppends.splice(idx, 1);
+        row.remove();
+        updateBar();
+      });
+
+      appendInput.value = "";
+      appendInput.focus();
+      updateBar();
+    }
+
+    appendBtn.addEventListener("click", commitAppend);
+    appendInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); commitAppend(); }
+    });
+  });
+
+  // --- Add column ---
+  const addColumnBtn = document.getElementById("add-column-btn");
+  const addColumnForm = document.getElementById("add-column-form");
+  const addColumnInput = document.getElementById("add-column-input");
+  const addColumnTypeSelect = document.getElementById("add-column-type");
+  const addColumnConfirmBtn = document.getElementById("add-column-confirm-btn");
+  const addColumnCancelBtn = document.getElementById("add-column-cancel-btn");
+
+  if (addColumnBtn) {
+    addColumnBtn.addEventListener("click", () => {
+      addColumnForm.classList.remove("hidden");
+      addColumnInput.value = "";
+      addColumnInput.focus();
+    });
+  }
+  if (addColumnCancelBtn) {
+    addColumnCancelBtn.addEventListener("click", () => addColumnForm.classList.add("hidden"));
+  }
+  async function commitNewColumn() {
+    const name = addColumnInput.value.trim();
+    if (!name) return;
+    addColumnConfirmBtn.disabled = true;
+    try {
+      const res = await fetch(COLUMN_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: name, type: addColumnTypeSelect.value }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Une erreur est survenue.");
+      }
+      location.reload();
+    } catch (e) {
+      alert(e.message);
+      addColumnConfirmBtn.disabled = false;
+    }
+  }
+  if (addColumnConfirmBtn) {
+    addColumnConfirmBtn.addEventListener("click", commitNewColumn);
+  }
+  if (addColumnInput) {
+    addColumnInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); commitNewColumn(); }
+      else if (e.key === "Escape") { e.preventDefault(); addColumnForm.classList.add("hidden"); }
+    });
+  }
+
+  const discardBtn = document.getElementById("discard-btn");
+  if (discardBtn) {
+    discardBtn.addEventListener("click", () => location.reload());
+  }
+
+  const saveBtn = document.getElementById("save-btn");
+  const saveBtnLabel = document.getElementById("save-btn-label");
+  if (saveBtn) {
+    saveBtn.addEventListener("click", async () => {
+      const updates = Array.from(pendingUpdates.values());
+      const deletes = Array.from(pendingDeletes.values());
+      const appends = pendingAppends.map((a) => ({ column: a.column, value: a.value }));
+
+      if (updates.length + deletes.length + appends.length === 0) return;
+
+      saveBtn.disabled = true;
+      saveBtnLabel.textContent = "Saving…";
+      try {
+        const res = await fetch(SAVE_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ baseVersion: BASE_VERSION, updates, deletes, appends }),
+        });
+        if (res.ok) {
+          location.reload();
+          return;
+        }
+        if (res.status === 409) {
+          conflictBanner.classList.remove("hidden");
+          return;
+        }
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Une erreur est survenue.");
+      } catch (e) {
+        alert("Impossible de contacter le serveur.");
+      } finally {
+        saveBtn.disabled = false;
+        saveBtnLabel.textContent = "Save";
+      }
+    });
+  }
+
+  // Ctrl+S / Cmd+S saves, instead of triggering the browser's save-page dialog.
+  document.addEventListener("keydown", (e) => {
+    const isSaveCombo = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s";
+    if (!isSaveCombo) return;
+    e.preventDefault();
+    if (!saveBtn || saveBtn.disabled) return;
+    if (document.activeElement && (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "SELECT")) {
+      document.activeElement.blur();
+    }
+    saveBtn.click();
+  });
+
+  const searchInput = document.getElementById("search-input");
+  if (searchInput) {
+    searchInput.addEventListener("input", () => {
+      const q = searchInput.value.trim().toLowerCase();
+      document.querySelectorAll(".value-row[data-search-value]").forEach((row) => {
+        row.style.display = !q || row.textContent.toLowerCase().includes(q) ? "" : "none";
+      });
+    });
+  }
+})();
+</script>
+{{end}}
+{{template "layout" .}}
