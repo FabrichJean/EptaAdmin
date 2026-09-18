@@ -1,69 +1,152 @@
+{{define "theme-style"}}
+<style>
+  :root {
+    --eb-bg: #0a0a0b;
+    --eb-surface: #131316;
+    --eb-surface-2: #1c1c20;
+    --eb-border: rgba(255,255,255,0.08);
+    --eb-border-strong: rgba(255,255,255,0.16);
+    --eb-text: #f4f4f5;
+    --eb-muted: #9ca3af;
+    --eb-accent: #34d399;
+    --eb-accent-strong: #10b981;
+    --eb-accent-ink: #052e1f;
+    --eb-warn: #fb923c;
+  }
+  body {
+    background-color: var(--eb-bg);
+    color: var(--eb-text);
+  }
+  .eb-dotbg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+      radial-gradient(circle at 8% 12%, rgba(16,185,129,0.30), transparent 40%),
+      radial-gradient(circle at 92% 88%, rgba(249,115,22,0.28), transparent 40%),
+      radial-gradient(rgba(255,255,255,0.14) 1px, transparent 1.5px);
+    background-size: auto, auto, 20px 20px;
+    background-repeat: no-repeat, no-repeat, repeat;
+    opacity: 0.55;
+  }
+  .eb-card { background: var(--eb-surface); border: 1px solid var(--eb-border); }
+  .eb-surface-2 { background: var(--eb-surface-2); }
+  .eb-input {
+    background: var(--eb-surface-2);
+    border: 1px solid var(--eb-border);
+    color: var(--eb-text);
+  }
+  .eb-input::placeholder { color: var(--eb-muted); }
+  .eb-input:focus { outline: none; border-color: var(--eb-accent); box-shadow: 0 0 0 2px rgba(52,211,153,0.25); }
+  .eb-btn-primary {
+    background: var(--eb-accent);
+    color: var(--eb-accent-ink);
+    font-weight: 600;
+  }
+  .eb-btn-primary:hover { background: var(--eb-accent-strong); }
+  .eb-btn-secondary {
+    background: transparent;
+    border: 1px solid var(--eb-border-strong);
+    color: var(--eb-text);
+  }
+  .eb-btn-secondary:hover { background: var(--eb-surface-2); }
+  .eb-badge { display: inline-flex; align-items: center; border-radius: 9999px; padding: 0.125rem 0.625rem; font-size: 0.75rem; font-weight: 500; }
+  .eb-badge-owner { background: rgba(192,132,252,0.15); color: #c084fc; }
+  .eb-badge-admin { background: rgba(52,211,153,0.15); color: var(--eb-accent); }
+  .eb-badge-editor { background: rgba(96,165,250,0.15); color: #93c5fd; }
+  .eb-badge-viewer { background: var(--eb-surface-2); color: var(--eb-muted); }
+  .eb-chip { display: inline-flex; align-items: center; font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--eb-muted); border: 1px solid var(--eb-border); border-radius: 0.25rem; padding: 0.125rem 0.25rem; }
+  .eb-field-sm { background: var(--eb-surface-2); border: 1px solid var(--eb-border); color: var(--eb-text); }
+  .eb-field-sm:focus { outline: none; border-color: var(--eb-accent); }
+  .eb-icon-btn { color: var(--eb-muted); }
+  .eb-icon-btn:hover { color: #f87171; }
+  .eb-icon-btn-ok { color: var(--eb-accent); }
+  .eb-icon-btn-ok:hover { color: var(--eb-accent-strong); }
+  .eb-thumb { object-fit: cover; border-radius: 0.25rem; border: 1px solid var(--eb-border); }
+  .eb-row-pending { background: rgba(251,191,36,0.10) !important; }
+  .eb-row-deleting { opacity: 0.4; text-decoration: line-through; }
+  .eb-row-new { background: rgba(52,211,153,0.07) !important; }
+  ::selection { background: rgba(52,211,153,0.35); }
+</style>
+{{end}}
+
 {{define "sidebar"}}
-<aside class="w-64 shrink-0 bg-white border-r border-slate-200 flex flex-col h-full">
-  <div class="px-5 py-5 flex items-center gap-3 border-b border-slate-200">
-    <div class="h-9 w-9 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold">E</div>
-    <span class="font-semibold text-slate-900">EptaAdmin</span>
+<aside class="w-64 shrink-0 flex flex-col h-full relative z-10" style="background: var(--eb-surface); border-right: 1px solid var(--eb-border);">
+  <div class="px-5 py-5 flex items-center gap-3" style="border-bottom: 1px solid var(--eb-border);">
+    <div class="h-9 w-9 rounded-lg flex items-center justify-center font-bold" style="background: var(--eb-accent); color: var(--eb-accent-ink);">E</div>
+    <span class="font-semibold" style="color: var(--eb-text);">EptaAdmin</span>
   </div>
 
   <nav class="flex-1 px-3 py-4 space-y-1">
     <a href="/"
-      class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors
-        {{if eq .ActiveNav "dashboard"}}bg-indigo-50 text-indigo-700{{else}}text-slate-600 hover:bg-slate-50 hover:text-slate-900{{end}}">
+      class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
+      style="{{if eq .ActiveNav "dashboard"}}background: rgba(52,211,153,0.12); color: var(--eb-accent);{{else}}color: var(--eb-muted);{{end}}"
+      onmouseover="if(!this.dataset.active)this.style.background='var(--eb-surface-2)'" onmouseout="if(!this.dataset.active)this.style.background=''"
+      {{if eq .ActiveNav "dashboard"}}data-active="true"{{end}}>
       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
       Tableau de bord
     </a>
     <a href="/workspaces"
-      class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors
-        {{if eq .ActiveNav "workspaces"}}bg-indigo-50 text-indigo-700{{else}}text-slate-600 hover:bg-slate-50 hover:text-slate-900{{end}}">
+      class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
+      style="{{if eq .ActiveNav "workspaces"}}background: rgba(52,211,153,0.12); color: var(--eb-accent);{{else}}color: var(--eb-muted);{{end}}"
+      onmouseover="if(!this.dataset.active)this.style.background='var(--eb-surface-2)'" onmouseout="if(!this.dataset.active)this.style.background=''"
+      {{if eq .ActiveNav "workspaces"}}data-active="true"{{end}}>
       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
       Workspaces
     </a>
     {{if .CanManageMembers}}
     <a href="/members"
-      class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors
-        {{if eq .ActiveNav "members"}}bg-indigo-50 text-indigo-700{{else}}text-slate-600 hover:bg-slate-50 hover:text-slate-900{{end}}">
+      class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
+      style="{{if eq .ActiveNav "members"}}background: rgba(52,211,153,0.12); color: var(--eb-accent);{{else}}color: var(--eb-muted);{{end}}"
+      onmouseover="if(!this.dataset.active)this.style.background='var(--eb-surface-2)'" onmouseout="if(!this.dataset.active)this.style.background=''"
+      {{if eq .ActiveNav "members"}}data-active="true"{{end}}>
       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       Membres
     </a>
     {{end}}
   </nav>
 
-  <div class="border-t border-slate-200 p-4 flex items-center gap-3">
-    <div class="h-8 w-8 shrink-0 rounded-full bg-slate-200 flex items-center justify-center text-xs font-semibold text-slate-600">
+  <div class="p-4 flex items-center gap-3" style="border-top: 1px solid var(--eb-border);">
+    <div class="h-8 w-8 shrink-0 rounded-full flex items-center justify-center text-xs font-semibold" style="background: var(--eb-surface-2); color: var(--eb-text);">
       {{slice .CurrentUser.Username 0 1}}
     </div>
     <div class="min-w-0">
-      <p class="text-sm font-medium text-slate-900 truncate">{{.CurrentUser.Username}}</p>
-      <p class="text-xs text-slate-400 truncate">{{.CurrentUser.RoleLabel}}</p>
+      <p class="text-sm font-medium truncate" style="color: var(--eb-text);">{{.CurrentUser.Username}}</p>
+      <p class="text-xs truncate" style="color: var(--eb-muted);">{{.CurrentUser.RoleLabel}}</p>
     </div>
   </div>
 </aside>
 {{end}}
 
 {{define "header"}}
-<header class="h-16 shrink-0 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-8">
-  <h1 class="text-lg font-semibold text-slate-900">{{.PageTitle}}</h1>
+<header class="h-16 shrink-0 flex items-center justify-between px-4 sm:px-8 relative z-10" style="background: var(--eb-surface); border-bottom: 1px solid var(--eb-border);">
+  <h1 class="text-lg font-semibold" style="color: var(--eb-text);">{{.PageTitle}}</h1>
   <div class="flex items-center gap-4">
-    <span class="hidden sm:inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+    <span class="hidden sm:inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium" style="background: var(--eb-surface-2); color: var(--eb-muted);">
       {{.CurrentUser.RoleLabel}}
     </span>
     <form method="POST" action="/logout">
-      <button type="submit" class="text-sm font-medium text-slate-500 hover:text-red-600 transition-colors">Déconnexion</button>
+      <button type="submit" class="text-sm font-medium transition-colors" style="color: var(--eb-muted);" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='var(--eb-muted)'">Déconnexion</button>
     </form>
   </div>
 </header>
 {{end}}
 {{define "layout"}}
 <!DOCTYPE html>
-<html lang="fr" class="h-full bg-slate-50">
+<html lang="fr" class="h-full">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{{block "title" .}}EptaAdmin{{end}}</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  {{template "theme-style" .}}
 </head>
-<body class="h-full font-sans text-slate-800 antialiased">
-  {{template "content" .}}
+<body class="h-full font-sans antialiased">
+  <div class="eb-dotbg"></div>
+  <div class="relative z-10 h-full">
+    {{template "content" .}}
+  </div>
 </body>
 </html>
 {{end}}
