@@ -111,7 +111,7 @@ func (a *App) handleDataSourceTable(w http.ResponseWriter, r *http.Request) {
 		"HeaderTitle":       ds.Name,
 		"HeaderIcon":        "database",
 		"HeaderBadge":       "Actif",
-		"HeaderDescription": fmt.Sprintf("%d colonne%s — chacune est une liste indépendante, sans correspondance de position entre elles.", len(columns), pluralS(len(columns))),
+		"HeaderDescription": fmt.Sprintf("%d colonne%s — ", len(columns), pluralS(len(columns))),
 		"MemberCount":       len(members),
 	})
 }
