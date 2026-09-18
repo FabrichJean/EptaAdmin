@@ -6,15 +6,17 @@ import (
 )
 
 const (
-	ColumnTypeText    = "text"
-	ColumnTypeNumber  = "number"
-	ColumnTypeBoolean = "boolean"
+	ColumnTypeText     = "text"
+	ColumnTypeLongText = "long_text" // free-form, multi-line — a textarea, not an <input>
+	ColumnTypeNumber   = "number"
+	ColumnTypeBoolean  = "boolean"
 )
 
 var validColumnTypes = map[string]bool{
-	ColumnTypeText:    true,
-	ColumnTypeNumber:  true,
-	ColumnTypeBoolean: true,
+	ColumnTypeText:     true,
+	ColumnTypeLongText: true,
+	ColumnTypeNumber:   true,
+	ColumnTypeBoolean:  true,
 }
 
 func IsValidColumnType(t string) bool {
@@ -27,6 +29,8 @@ func ColumnTypeLabel(t string) string {
 		return "Nombre"
 	case ColumnTypeBoolean:
 		return "Booléen"
+	case ColumnTypeLongText:
+		return "Texte long"
 	default:
 		return "Texte"
 	}

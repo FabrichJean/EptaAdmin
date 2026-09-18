@@ -105,10 +105,12 @@ type saveColumnsRequest struct {
 		Column string `json:"column"`
 		Index  int    `json:"index"`
 		Value  string `json:"value"`
+		Type   string `json:"type"`
 	} `json:"updates"`
 	Appends []struct {
 		Column string `json:"column"`
 		Value  string `json:"value"`
+		Type   string `json:"type"`
 	} `json:"appends"`
 	Deletes []struct {
 		Column string `json:"column"`
@@ -184,16 +186,19 @@ func (a *App) handleSaveRecords(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
 		return
 	}
-	colType := map[string]string{}
+	knownColumn := map[string]bool{}
 	for _, c := range schemaCols {
-		colType[c.Key] = c.Type
+		knownColumn[c.Key] = true
 	}
-	typedValue := func(column, raw string) (any, error) {
-		t, ok := colType[column]
-		if !ok {
+	// The type is chosen per value, not per column (a column may freely mix
+	// text/number/boolean values) — but the column itself must still be
+	// declared first via + Column, so a typo doesn't silently create a new
+	// field.
+	typedValue := func(column, raw, valueType string) (any, error) {
+		if !knownColumn[column] {
 			return nil, fmt.Errorf("la colonne %q n'existe pas encore — créez-la avec + Column", column)
 		}
-		return CoerceTyped(t, raw)
+		return CoerceTyped(valueType, raw)
 	}
 
 	for _, ch := range req.Updates {
@@ -202,7 +207,7 @@ func (a *App) handleSaveRecords(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Valeur inconnue."})
 			return
 		}
-		v, err := typedValue(ch.Column, ch.Value)
+		v, err := typedValue(ch.Column, ch.Value, ch.Type)
 		if err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
@@ -232,7 +237,7 @@ func (a *App) handleSaveRecords(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, ap := range req.Appends {
-		v, err := typedValue(ap.Column, ap.Value)
+		v, err := typedValue(ap.Column, ap.Value, ap.Type)
 		if err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
@@ -262,8 +267,7 @@ func (a *App) handleSaveRecords(w http.ResponseWriter, r *http.Request) {
 }
 
 type addColumnRequest struct {
-	Key  string `json:"key"`
-	Type string `json:"type"`
+	Key string `json:"key"`
 }
 
 func (a *App) handleAddDataSourceColumn(w http.ResponseWriter, r *http.Request) {
@@ -291,12 +295,11 @@ func (a *App) handleAddDataSourceColumn(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Le nom de la colonne est requis."})
 		return
 	}
-	if !IsValidColumnType(req.Type) {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Type de colonne invalide."})
-		return
-	}
 
-	col, err := a.store.AddDataSourceColumn(ds.ID, key, req.Type)
+	// Columns no longer carry a single type — each value picks its own
+	// (text/long_text/number/boolean) when it's entered. The stored "text"
+	// here is just a DB placeholder, unused by validation.
+	col, err := a.store.AddDataSourceColumn(ds.ID, key, ColumnTypeText)
 	if err != nil {
 		if err == ErrColumnExists {
 			writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
