@@ -25,6 +25,7 @@ var templateFuncs = template.FuncMap{
 	"typeLabel":      ColumnTypeLabel,
 	"columnIcon":     ColumnIconName,
 	"columnColorHex": ColumnColorHex,
+	"sub":            func(a, b int) int { return a - b },
 }
 
 func NewApp(store *Store) (*App, error) {
