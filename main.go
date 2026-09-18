@@ -31,6 +31,14 @@ func main() {
 	mux.HandleFunc("GET /{$}", app.requireAuth(app.handleDashboard))
 	mux.HandleFunc("GET /members", app.requireAuth(app.handleMembersPage))
 	mux.HandleFunc("POST /members", app.requireAuth(app.handleCreateMember))
+	mux.HandleFunc("GET /workspaces", app.requireAuth(app.handleWorkspacesPage))
+	mux.HandleFunc("POST /workspaces", app.requireAuth(app.handleCreateWorkspace))
+	mux.HandleFunc("GET /workspaces/{slug}", app.requireAuth(app.handleWorkspaceDetail))
+	mux.HandleFunc("POST /workspaces/{slug}/members", app.requireAuth(app.handleAddWorkspaceMember))
+	mux.HandleFunc("POST /workspaces/{slug}/datasources", app.requireAuth(app.handleCreateDataSource))
+	mux.HandleFunc("GET /workspaces/{slug}/datasources/{dsSlug}", app.requireAuth(app.handleDataSourceTable))
+	mux.HandleFunc("POST /workspaces/{slug}/datasources/{dsSlug}/records", app.requireAuth(app.handleSaveRecords))
+	mux.HandleFunc("POST /workspaces/{slug}/datasources/{dsSlug}/columns", app.requireAuth(app.handleAddDataSourceColumn))
 
 	addr := ":8080"
 	if port := os.Getenv("PORT"); port != "" {
