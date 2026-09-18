@@ -8,56 +8,50 @@
 
     <main class="flex-1 overflow-y-auto px-4 sm:px-8 py-10">
      <div class="max-w-4xl mx-auto">
-    <h1 class="text-2xl font-semibold text-slate-900">Bienvenue, {{.CurrentUser.Username}} 👋</h1>
-    <p class="text-slate-500 mt-1">Voici les utilisateurs enregistrés sur cette instance.</p>
+    <h1 class="text-2xl font-semibold" style="color: var(--eb-text);">Bienvenue, {{.CurrentUser.Username}} 👋</h1>
+    <p class="mt-1" style="color: var(--eb-muted);">Voici les utilisateurs enregistrés sur cette instance.</p>
 
     <div class="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
-      <div class="bg-white rounded-xl border border-slate-200 p-5">
-        <p class="text-sm text-slate-500">Utilisateurs</p>
-        <p class="text-2xl font-semibold text-slate-900 mt-1">{{len .Users}}</p>
+      <div class="eb-card rounded-xl p-5">
+        <p class="text-sm" style="color: var(--eb-muted);">Utilisateurs</p>
+        <p class="text-2xl font-semibold mt-1" style="color: var(--eb-text);">{{len .Users}}</p>
       </div>
-      <div class="bg-white rounded-xl border border-slate-200 p-5">
-        <p class="text-sm text-slate-500">Session</p>
-        <p class="text-2xl font-semibold text-slate-900 mt-1">Active</p>
+      <div class="eb-card rounded-xl p-5">
+        <p class="text-sm" style="color: var(--eb-muted);">Session</p>
+        <p class="text-2xl font-semibold mt-1" style="color: var(--eb-accent);">Active</p>
       </div>
-      <div class="bg-white rounded-xl border border-slate-200 p-5">
-        <p class="text-sm text-slate-500">Votre rôle</p>
-        <p class="text-2xl font-semibold text-slate-900 mt-1">{{.CurrentUser.RoleLabel}}</p>
+      <div class="eb-card rounded-xl p-5">
+        <p class="text-sm" style="color: var(--eb-muted);">Votre rôle</p>
+        <p class="text-2xl font-semibold mt-1" style="color: var(--eb-text);">{{.CurrentUser.RoleLabel}}</p>
       </div>
     </div>
 
     {{if .CanManageMembers}}
-    <div class="mt-8 rounded-xl border border-indigo-200 bg-indigo-50 px-5 py-4 flex items-center justify-between">
-      <p class="text-sm text-indigo-800">Vous pouvez créer de nouveaux membres et leur attribuer un rôle.</p>
-      <a href="/members" class="shrink-0 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 transition-colors">Gérer les membres</a>
+    <div class="mt-8 rounded-xl px-5 py-4 flex items-center justify-between" style="background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.25);">
+      <p class="text-sm" style="color: var(--eb-text);">Vous pouvez créer de nouveaux membres et leur attribuer un rôle.</p>
+      <a href="/members" class="eb-btn-primary shrink-0 rounded-lg text-sm px-4 py-2 transition-colors">Gérer les membres</a>
     </div>
     {{end}}
 
-    <div class="mt-8 bg-white rounded-xl border border-slate-200 overflow-hidden">
-      <table class="min-w-full divide-y divide-slate-200">
-        <thead class="bg-slate-50">
+    <div class="mt-8 eb-card rounded-xl overflow-hidden">
+      <table class="min-w-full" style="border-collapse: collapse;">
+        <thead style="background: var(--eb-surface-2);">
           <tr>
-            <th class="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Identifiant</th>
-            <th class="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Email</th>
-            <th class="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Rôle</th>
-            <th class="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Inscrit le</th>
+            <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide" style="color: var(--eb-muted);">Identifiant</th>
+            <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide" style="color: var(--eb-muted);">Email</th>
+            <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide" style="color: var(--eb-muted);">Rôle</th>
+            <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide" style="color: var(--eb-muted);">Inscrit le</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-100">
+        <tbody>
           {{range .Users}}
-          <tr>
-            <td class="px-5 py-3 text-sm text-slate-800 font-medium">{{.Username}}</td>
-            <td class="px-5 py-3 text-sm text-slate-500">{{.Email}}</td>
+          <tr style="border-top: 1px solid var(--eb-border);">
+            <td class="px-5 py-3 text-sm font-medium" style="color: var(--eb-text);">{{.Username}}</td>
+            <td class="px-5 py-3 text-sm" style="color: var(--eb-muted);">{{.Email}}</td>
             <td class="px-5 py-3 text-sm">
-              <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
-                {{if eq .Role "owner"}}bg-purple-100 text-purple-700
-                {{else if eq .Role "admin"}}bg-indigo-100 text-indigo-700
-                {{else if eq .Role "editor"}}bg-emerald-100 text-emerald-700
-                {{else}}bg-slate-100 text-slate-600{{end}}">
-                {{.RoleLabel}}
-              </span>
+              <span class="eb-badge eb-badge-{{.Role}}">{{.RoleLabel}}</span>
             </td>
-            <td class="px-5 py-3 text-sm text-slate-500">{{.CreatedAt.Format "02/01/2006 15:04"}}</td>
+            <td class="px-5 py-3 text-sm" style="color: var(--eb-muted);">{{.CreatedAt.Format "02/01/2006 15:04"}}</td>
           </tr>
           {{end}}
         </tbody>
