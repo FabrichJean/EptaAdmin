@@ -128,15 +128,10 @@
             {{$isLongText := eq $vt "long_text"}}
             <div class="value-row flex items-center gap-3 px-4 py-2 text-sm" data-index="{{$i}}" data-search-value data-value-type="{{$vt}}" style="border-top: 1px solid var(--eb-border);">
               <span class="type-badge eb-chip shrink-0">{{typeLabel $vt}}</span>
-              {{if $isImage}}
-              <a href="{{formatValue $v}}" target="_blank" rel="noopener" class="shrink-0 block" title="Ouvrir l'image dans un nouvel onglet">
-                <img src="{{formatValue $v}}" class="eb-thumb h-10 w-10 hover:opacity-80 transition-opacity" onerror="this.parentElement.style.display='none'" />
-              </a>
-              {{end}}
               {{if and $col.Managed $.CanEdit}}
-              <span class="value-text editable flex-1 min-w-0 cursor-text{{if $isLongText}} whitespace-pre-wrap{{end}}" data-type="{{$vt}}"{{if $isImage}} data-value="{{formatValue $v}}"{{end}} title="Double-cliquer pour modifier" style="color: var(--eb-text);">{{if $isImage}}Image{{else}}{{formatValue $v}}{{end}}</span>
+              <span class="value-text editable flex-1 min-w-0{{if $isImage}} cursor-pointer{{else}} cursor-text{{end}}{{if $isLongText}} whitespace-pre-wrap{{end}}" data-type="{{$vt}}"{{if $isImage}} data-value="{{formatValue $v}}"{{end}} title="{{if $isImage}}Cliquer pour agrandir, double-cliquer pour modifier{{else}}Double-cliquer pour modifier{{end}}" style="color: var(--eb-text);">{{if $isImage}}<span class="eb-image-chip">{{template "icon-image-sm"}} Aperçu</span>{{else}}{{formatValue $v}}{{end}}</span>
               {{else}}
-              <span class="flex-1 min-w-0{{if $isLongText}} whitespace-pre-wrap{{end}}" style="color: var(--eb-muted);">{{if $isImage}}Image{{else}}{{formatValue $v}}{{end}}</span>
+              <span class="flex-1 min-w-0{{if $isLongText}} whitespace-pre-wrap{{end}}"{{if $isImage}} data-type="image" data-value="{{formatValue $v}}"{{end}} style="color: var(--eb-muted);">{{if $isImage}}<span class="eb-image-chip">{{template "icon-image-sm"}} Aperçu</span>{{else}}{{formatValue $v}}{{end}}</span>
               {{end}}
               {{if and $col.Managed (or $.CanEdit $.CanDelete)}}
               <div class="relative shrink-0">
@@ -211,6 +206,13 @@
   </div>
 </div>
 
+<div id="image-preview-backdrop" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0,0,0,0.75);">
+  <div class="relative" style="max-width: min(90vw, 48rem); max-height: 85vh;">
+    <button id="image-preview-close-btn" type="button" class="absolute -top-3 -right-3 h-8 w-8 rounded-full flex items-center justify-center eb-card" style="color: var(--eb-text);">✕</button>
+    <img id="image-preview-img" src="" alt="" class="rounded-lg" style="max-width: 100%; max-height: 85vh; border: 1px solid var(--eb-border);" />
+  </div>
+</div>
+
 <script>
 (function () {
   const BASE_VERSION = {{.DataSource.Version}};
@@ -279,6 +281,46 @@
   document.addEventListener("click", closeAllMenus);
   document.addEventListener("scroll", closeAllMenus, true);
   window.addEventListener("resize", closeAllMenus);
+
+  const IMAGE_CHIP_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>';
+  function makeImageChip() {
+    const chip = document.createElement("span");
+    chip.className = "eb-image-chip";
+    chip.innerHTML = IMAGE_CHIP_ICON_SVG + " Aperçu";
+    return chip;
+  }
+
+  // --- Image preview modal: a chip in a cell/append-row opens this instead
+  // of a tiny inline thumbnail or a new browser tab. ---
+  const imagePreviewBackdrop = document.getElementById("image-preview-backdrop");
+  const imagePreviewImg = document.getElementById("image-preview-img");
+  function openImagePreview(url) {
+    if (!imagePreviewBackdrop || !imagePreviewImg || !url) return;
+    imagePreviewImg.src = url;
+    imagePreviewBackdrop.classList.remove("hidden");
+  }
+  function closeImagePreview() {
+    if (!imagePreviewBackdrop) return;
+    imagePreviewBackdrop.classList.add("hidden");
+    imagePreviewImg.src = "";
+  }
+  document.getElementById("image-preview-close-btn")?.addEventListener("click", closeImagePreview);
+  imagePreviewBackdrop?.addEventListener("click", (e) => { if (e.target === imagePreviewBackdrop) closeImagePreview(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeImagePreview(); });
+
+  // A double-click on an editable image cell should start editing, not open
+  // the preview — so a single click is delayed just long enough to be
+  // cancelled if a second click (i.e. a dblclick) follows right behind it.
+  let imageChipClickTimer = null;
+  document.addEventListener("click", (e) => {
+    const chip = e.target.closest("[data-type='image']");
+    if (!chip || chip.querySelector(".value-widget")) return;
+    clearTimeout(imageChipClickTimer);
+    imageChipClickTimer = setTimeout(() => openImagePreview(chip.dataset.value), 220);
+  });
+  document.addEventListener("dblclick", (e) => {
+    if (e.target.closest("[data-type='image']")) clearTimeout(imageChipClickTimer);
+  });
 
   function typedInput(type, currentValue) {
     if (type === "boolean") {
@@ -493,40 +535,19 @@
     let settled = false;
     function buildValueSpan(type, value) {
       const span = document.createElement("span");
-      span.className = "value-text editable flex-1 min-w-0 cursor-text" + (type === "long_text" ? " whitespace-pre-wrap" : "");
+      span.className = "value-text editable flex-1 min-w-0" + (type === "image" ? " cursor-pointer" : " cursor-text") + (type === "long_text" ? " whitespace-pre-wrap" : "");
       span.style.color = "var(--eb-text)";
-      span.title = "Double-cliquer pour modifier";
       span.dataset.type = type;
       if (type === "image") {
         span.dataset.value = value;
-        span.textContent = "Image";
+        span.title = "Cliquer pour agrandir, double-cliquer pour modifier";
+        span.appendChild(makeImageChip());
       } else {
+        span.title = "Double-cliquer pour modifier";
         span.textContent = value;
       }
       bindEditableSpan(span);
       return span;
-    }
-    function syncThumbnail(row, newSpan, type, value) {
-      let link = row.querySelector("a.value-thumb-link");
-      if (type === "image") {
-        if (!link) {
-          link = document.createElement("a");
-          link.className = "value-thumb-link shrink-0 block";
-          link.target = "_blank";
-          link.rel = "noopener";
-          const thumb = document.createElement("img");
-          thumb.className = "eb-thumb h-10 w-10 hover:opacity-80 transition-opacity";
-          thumb.addEventListener("error", () => { link.style.display = "none"; });
-          thumb.addEventListener("load", () => { link.style.display = ""; });
-          link.appendChild(thumb);
-          newSpan.before(link);
-        }
-        link.href = value;
-        link.title = "Ouvrir l'image dans un nouvel onglet";
-        link.querySelector("img").src = value;
-      } else if (link) {
-        link.remove();
-      }
     }
     function commit() {
       if (settled) return;
@@ -536,7 +557,6 @@
       const newSpan = buildValueSpan(newType, newVal);
       wrapper.replaceWith(newSpan);
       row.dataset.valueType = newType;
-      syncThumbnail(row, newSpan, newType, newVal);
       if (badge) {
         badge.textContent = TYPE_LABELS[newType];
         badge.classList.remove("hidden");
@@ -556,7 +576,6 @@
       settled = true;
       const s = buildValueSpan(originalType, original);
       wrapper.replaceWith(s);
-      syncThumbnail(row, s, originalType, original);
       if (badge) badge.classList.remove("hidden");
     }
     confirmBtn.addEventListener("click", commit);
@@ -734,28 +753,21 @@
       badge.className = "type-badge eb-chip shrink-0";
       badge.textContent = TYPE_LABELS[type];
       const span = document.createElement("span");
-      span.className = "flex-1 min-w-0" + (type === "long_text" ? " whitespace-pre-wrap" : "");
+      span.className = "flex-1 min-w-0" + (type === "image" ? " cursor-pointer" : "") + (type === "long_text" ? " whitespace-pre-wrap" : "");
       span.style.color = "var(--eb-text)";
-      span.textContent = type === "image" ? "Image" : value;
+      if (type === "image") {
+        span.dataset.type = "image";
+        span.dataset.value = value;
+        span.title = "Cliquer pour agrandir";
+        span.appendChild(makeImageChip());
+      } else {
+        span.textContent = value;
+      }
       const removeBtn = document.createElement("button");
       removeBtn.type = "button";
       removeBtn.className = "eb-icon-btn text-xs shrink-0";
       removeBtn.textContent = "✕";
       row.appendChild(badge);
-      if (type === "image") {
-        const link = document.createElement("a");
-        link.className = "shrink-0 block";
-        link.href = value;
-        link.target = "_blank";
-        link.rel = "noopener";
-        link.title = "Ouvrir l'image dans un nouvel onglet";
-        const thumb = document.createElement("img");
-        thumb.className = "eb-thumb h-10 w-10 hover:opacity-80 transition-opacity";
-        thumb.src = value;
-        thumb.addEventListener("error", () => { link.style.display = "none"; });
-        link.appendChild(thumb);
-        row.appendChild(link);
-      }
       row.appendChild(span);
       row.appendChild(removeBtn);
       valueList.appendChild(row);
