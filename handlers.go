@@ -14,6 +14,8 @@ type App struct {
 
 var templateFuncs = template.FuncMap{
 	"formatValue": FormatValue,
+	"valueType":   ValueType,
+	"typeLabel":   ColumnTypeLabel,
 }
 
 func NewApp(store *Store) (*App, error) {

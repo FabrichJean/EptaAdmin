@@ -182,6 +182,25 @@ func inferType(v any) string {
 	}
 }
 
+// ValueType reports the practical type of an already-stored value, so the
+// UI can show a per-value type badge and pre-select the right widget when
+// editing — since type now lives on each value, not on the column.
+func ValueType(v any) string {
+	switch val := v.(type) {
+	case bool:
+		return ColumnTypeBoolean
+	case float64:
+		return ColumnTypeNumber
+	case string:
+		if strings.Contains(val, "\n") {
+			return ColumnTypeLongText
+		}
+		return ColumnTypeText
+	default:
+		return ColumnTypeText
+	}
+}
+
 // FormatValue renders a raw JSON value as a display string.
 func FormatValue(v any) string {
 	switch val := v.(type) {
