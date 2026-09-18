@@ -182,6 +182,22 @@ func inferType(v any) string {
 	}
 }
 
+// looksLikeImage heuristically flags a string value as an image reference:
+// either one of our own uploaded-file URLs, a data URI, or a URL/path
+// ending in a common image extension.
+func looksLikeImage(s string) bool {
+	if strings.Contains(s, "/uploads/") || strings.HasPrefix(s, "data:image/") {
+		return true
+	}
+	lower := strings.ToLower(s)
+	for ext := range allowedImageExtensions {
+		if strings.HasSuffix(lower, ext) {
+			return true
+		}
+	}
+	return false
+}
+
 // ValueType reports the practical type of an already-stored value, so the
 // UI can show a per-value type badge and pre-select the right widget when
 // editing — since type now lives on each value, not on the column.
@@ -192,6 +208,9 @@ func ValueType(v any) string {
 	case float64:
 		return ColumnTypeNumber
 	case string:
+		if looksLikeImage(val) {
+			return ColumnTypeImage
+		}
 		if strings.Contains(val, "\n") {
 			return ColumnTypeLongText
 		}

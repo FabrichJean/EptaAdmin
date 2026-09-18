@@ -55,10 +55,13 @@
             {{range $i, $v := .Values}}
             <div class="value-row flex items-center gap-2 px-4 py-2 text-sm" data-index="{{$i}}" data-search-value>
               <span class="type-badge shrink-0 text-[10px] uppercase tracking-wide text-slate-400 border border-slate-200 rounded px-1 py-0.5">{{typeLabel (valueType $v)}}</span>
+              {{if eq (valueType $v) "image"}}
+              <img src="{{formatValue $v}}" class="h-8 w-8 object-cover rounded border border-slate-200 shrink-0" onerror="this.style.display='none'" />
+              {{end}}
               {{if and $col.Managed $.CanEdit}}
-              <span class="value-text editable flex-1 cursor-text text-slate-800{{if eq (valueType $v) "long_text"}} whitespace-pre-wrap{{end}}" data-type="{{valueType $v}}" title="Double-cliquer pour modifier">{{formatValue $v}}</span>
+              <span class="value-text editable flex-1 min-w-0 cursor-text text-slate-800{{if eq (valueType $v) "long_text"}} whitespace-pre-wrap{{end}}{{if eq (valueType $v) "image"}} truncate text-xs text-slate-400{{end}}" data-type="{{valueType $v}}" title="Double-cliquer pour modifier">{{formatValue $v}}</span>
               {{else}}
-              <span class="flex-1 text-slate-500{{if eq (valueType $v) "long_text"}} whitespace-pre-wrap{{end}}">{{formatValue $v}}</span>
+              <span class="flex-1 min-w-0 text-slate-500{{if eq (valueType $v) "long_text"}} whitespace-pre-wrap{{end}}{{if eq (valueType $v) "image"}} truncate text-xs{{end}}">{{formatValue $v}}</span>
               {{end}}
               {{if and $col.Managed $.CanDelete}}
               <button type="button" class="delete-value-btn text-slate-300 hover:text-red-600 text-xs shrink-0">✕</button>
@@ -73,6 +76,7 @@
               <option value="long_text">Texte long</option>
               <option value="number">Nombre</option>
               <option value="boolean">Booléen</option>
+              <option value="image">Image</option>
             </select>
             <div class="append-value-container flex-1">
               <input type="text" class="append-input w-full rounded border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400" placeholder="+ valeur" />
@@ -108,10 +112,14 @@
   const BASE_VERSION = {{.DataSource.Version}};
   const SAVE_URL = window.location.pathname.replace(/\/$/, "") + "/records";
   const COLUMN_URL = window.location.pathname.replace(/\/$/, "") + "/columns";
+  const WORKSPACE_SLUG = window.location.pathname.split("/").filter(Boolean)[1];
+  const UPLOAD_URL = "/workspaces/" + WORKSPACE_SLUG + "/uploads";
 
   const pendingUpdates = new Map(); // "column:index" -> {column, index, value}
   const pendingDeletes = new Map(); // "column:index" -> {column, index}
   const pendingAppends = [];        // [{column, value, el}]
+
+  const TYPE_LABELS = { text: "Texte", long_text: "Texte long", number: "Nombre", boolean: "Booléen", image: "Image" };
 
   const bar = document.getElementById("pending-bar");
   const countEl = document.getElementById("pending-count");
@@ -151,6 +159,9 @@
       textarea.value = currentValue;
       return textarea;
     }
+    if (type === "image") {
+      return imageWidget(currentValue);
+    }
     const input = document.createElement("input");
     input.type = type === "number" ? "number" : "text";
     if (type === "number") input.step = "any";
@@ -159,10 +170,77 @@
     return input;
   }
 
+  // An "image" value is a URL, normally produced by uploading a file. The
+  // returned node behaves like a plain input for the rest of the code
+  // (.value / .focus() work) even though it bundles a thumbnail preview,
+  // a URL field and a file picker that uploads in place.
+  function imageWidget(currentValue) {
+    const wrapper = document.createElement("span");
+    wrapper.className = "flex items-center gap-2 flex-1 min-w-0";
+
+    const thumb = document.createElement("img");
+    thumb.className = "h-10 w-10 object-cover rounded border border-slate-200 shrink-0";
+    thumb.style.display = currentValue ? "" : "none";
+    if (currentValue) thumb.src = currentValue;
+    thumb.addEventListener("error", () => { thumb.style.display = "none"; });
+    thumb.addEventListener("load", () => { thumb.style.display = ""; });
+
+    const urlInput = document.createElement("input");
+    urlInput.type = "text";
+    urlInput.placeholder = "URL de l'image";
+    urlInput.className = "flex-1 min-w-0 rounded border border-indigo-400 px-1.5 py-1 text-sm focus:outline-none";
+    urlInput.value = currentValue || "";
+    urlInput.addEventListener("input", () => { thumb.src = urlInput.value; });
+
+    const fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.accept = "image/*";
+    fileInput.className = "text-xs w-24 shrink-0";
+
+    const status = document.createElement("span");
+    status.className = "text-xs text-slate-400 shrink-0";
+
+    fileInput.addEventListener("change", async () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      status.textContent = "Envoi…";
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await fetch(UPLOAD_URL, { method: "POST", body: formData });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || "Échec de l'upload.");
+        }
+        const data = await res.json();
+        urlInput.value = data.url;
+        thumb.src = data.url;
+        status.textContent = "";
+      } catch (e) {
+        status.textContent = e.message;
+      } finally {
+        fileInput.value = "";
+      }
+    });
+
+    wrapper.appendChild(thumb);
+    wrapper.appendChild(urlInput);
+    wrapper.appendChild(fileInput);
+    wrapper.appendChild(status);
+
+    Object.defineProperty(wrapper, "value", {
+      get() { return urlInput.value; },
+      set(v) { urlInput.value = v; thumb.src = v; thumb.style.display = v ? "" : "none"; },
+    });
+    wrapper.focus = () => urlInput.focus();
+
+    return wrapper;
+  }
+
   function typeSelect(initialType) {
     const select = document.createElement("select");
     select.className = "type-select shrink-0 rounded border border-indigo-300 px-1 py-1 text-xs bg-white focus:outline-none";
-    [["text", "Texte"], ["long_text", "Texte long"], ["number", "Nombre"], ["boolean", "Booléen"]].forEach(([v, label]) => {
+    [["text", "Texte"], ["long_text", "Texte long"], ["number", "Nombre"], ["boolean", "Booléen"], ["image", "Image"]].forEach(([v, label]) => {
       const opt = document.createElement("option");
       opt.value = v;
       opt.textContent = label;
@@ -232,14 +310,29 @@
       const newVal = valueWidget.value;
       const newType = tSelect.value;
       const newSpan = document.createElement("span");
-      newSpan.className = "value-text editable flex-1 cursor-text text-slate-800" + (newType === "long_text" ? " whitespace-pre-wrap" : "");
+      newSpan.className = "value-text editable flex-1 min-w-0 cursor-text text-slate-800" +
+        (newType === "long_text" ? " whitespace-pre-wrap" : "") +
+        (newType === "image" ? " truncate text-xs text-slate-400" : "");
       newSpan.title = "Double-cliquer pour modifier";
       newSpan.dataset.type = newType;
       newSpan.textContent = newVal;
       bindEditableSpan(newSpan);
       wrapper.replaceWith(newSpan);
+      let thumb = row.querySelector("img");
+      if (newType === "image") {
+        if (!thumb) {
+          thumb = document.createElement("img");
+          thumb.className = "h-8 w-8 object-cover rounded border border-slate-200 shrink-0";
+          thumb.addEventListener("error", () => { thumb.style.display = "none"; });
+          newSpan.before(thumb);
+        }
+        thumb.style.display = "";
+        thumb.src = newVal;
+      } else if (thumb) {
+        thumb.remove();
+      }
       if (badge) {
-        badge.textContent = {text: "Texte", long_text: "Texte long", number: "Nombre", boolean: "Booléen"}[newType];
+        badge.textContent = TYPE_LABELS[newType];
         badge.classList.remove("hidden");
       }
       const key = column + ":" + index;
@@ -342,15 +435,24 @@
       row.className = "value-row flex items-center gap-2 px-4 py-2 text-sm bg-emerald-50/50";
       const badge = document.createElement("span");
       badge.className = "type-badge shrink-0 text-[10px] uppercase tracking-wide text-slate-400 border border-slate-200 rounded px-1 py-0.5";
-      badge.textContent = {text: "Texte", long_text: "Texte long", number: "Nombre", boolean: "Booléen"}[type];
+      badge.textContent = TYPE_LABELS[type];
       const span = document.createElement("span");
-      span.className = "flex-1 text-slate-800" + (type === "long_text" ? " whitespace-pre-wrap" : "");
+      span.className = "flex-1 min-w-0 text-slate-800" +
+        (type === "long_text" ? " whitespace-pre-wrap" : "") +
+        (type === "image" ? " truncate text-xs text-slate-400" : "");
       span.textContent = value;
       const removeBtn = document.createElement("button");
       removeBtn.type = "button";
       removeBtn.className = "text-slate-300 hover:text-red-600 text-xs shrink-0";
       removeBtn.textContent = "✕";
       row.appendChild(badge);
+      if (type === "image") {
+        const thumb = document.createElement("img");
+        thumb.className = "h-8 w-8 object-cover rounded border border-slate-200 shrink-0";
+        thumb.src = value;
+        thumb.addEventListener("error", () => { thumb.style.display = "none"; });
+        row.appendChild(thumb);
+      }
       row.appendChild(span);
       row.appendChild(removeBtn);
       valueList.appendChild(row);
