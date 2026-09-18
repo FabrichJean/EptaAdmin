@@ -248,6 +248,16 @@
   // user clicks elsewhere. These menus live inside scrolling/clipped
   // containers (.value-list has overflow-y, .column-panel has
   // overflow-hidden), so they're positioned `fixed` with coordinates
+  // computed from the trigger button — `absolute` would just get cut off
+  // by those ancestors instead of floating over the whole page.
+  function positionFixedMenu(btn, menu) {
+    const rect = btn.getBoundingClientRect();
+    menu.style.top = (rect.bottom + 4) + "px";
+    const menuWidth = menu.offsetWidth || 160;
+    let left = rect.right - menuWidth;
+    left = Math.max(8, Math.min(left, window.innerWidth - menuWidth - 8));
+    menu.style.left = left + "px";
+  }
   function bindMenu(triggerSelector, menuClass) {
     document.querySelectorAll(triggerSelector).forEach((btn) => {
       const menu = btn.parentElement.querySelector("." + menuClass) || btn.nextElementSibling;
@@ -256,7 +266,10 @@
         e.stopPropagation();
         const isHidden = menu.classList.contains("hidden");
         closeAllMenus();
-        if (isHidden) menu.classList.remove("hidden");
+        if (isHidden) {
+          menu.classList.remove("hidden");
+          positionFixedMenu(btn, menu);
+        }
       });
     });
   }
@@ -264,6 +277,8 @@
     document.querySelectorAll(".column-menu, .value-menu, #filters-menu, #sort-menu, #page-menu").forEach((m) => m.classList.add("hidden"));
   }
   document.addEventListener("click", closeAllMenus);
+  document.addEventListener("scroll", closeAllMenus, true);
+  window.addEventListener("resize", closeAllMenus);
 
   function typedInput(type, currentValue) {
     if (type === "boolean") {
