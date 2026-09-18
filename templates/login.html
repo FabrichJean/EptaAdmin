@@ -1,39 +1,39 @@
 {{define "title"}}Connexion — EptaAdmin{{end}}
 {{define "content"}}
 <div class="min-h-full flex items-center justify-center px-4">
-  <div class="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+  <div class="w-full max-w-sm eb-card rounded-2xl p-8">
     <div class="text-center mb-8">
-      <div class="mx-auto h-12 w-12 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-xl">E</div>
-      <h1 class="mt-4 text-xl font-semibold text-slate-900">Connexion</h1>
-      <p class="text-sm text-slate-500 mt-1">Accédez à votre espace EptaAdmin</p>
+      <div class="mx-auto h-12 w-12 rounded-xl flex items-center justify-center font-bold text-xl" style="background: var(--eb-accent); color: var(--eb-accent-ink);">E</div>
+      <h1 class="mt-4 text-xl font-semibold" style="color: var(--eb-text);">Connexion</h1>
+      <p class="text-sm mt-1" style="color: var(--eb-muted);">Accédez à votre espace EptaAdmin</p>
     </div>
 
     {{if .Error}}
-    <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3">
+    <div class="mb-4 rounded-lg text-sm px-4 py-3" style="background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: #fca5a5;">
       {{.Error}}
     </div>
     {{end}}
 
     <form method="POST" action="/login" class="space-y-4">
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1" for="username">Identifiant</label>
+        <label class="block text-sm font-medium mb-1" style="color: var(--eb-muted);" for="username">Identifiant</label>
         <input id="username" name="username" type="text" required autofocus
-          class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+          class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
       </div>
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1" for="password">Mot de passe</label>
+        <label class="block text-sm font-medium mb-1" style="color: var(--eb-muted);" for="password">Mot de passe</label>
         <input id="password" name="password" type="password" required
-          class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+          class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
       </div>
       <button type="submit"
-        class="w-full rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2.5 transition-colors">
+        class="eb-btn-primary w-full rounded-lg text-sm py-2.5 transition-colors">
         Se connecter
       </button>
     </form>
 
-    <p class="mt-6 text-center text-sm text-slate-500">
+    <p class="mt-6 text-center text-sm" style="color: var(--eb-muted);">
       Pas encore de compte ?
-      <a href="/register" class="text-indigo-600 font-medium hover:underline">Créer un compte</a>
+      <a href="/register" class="font-medium hover:underline" style="color: var(--eb-accent);">Créer un compte</a>
     </p>
   </div>
 </div>
