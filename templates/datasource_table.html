@@ -35,13 +35,9 @@
       <div id="add-column-form" class="hidden mb-4 flex items-center gap-2">
         <input id="add-column-input" type="text" placeholder="nom de la colonne"
           class="w-full sm:w-72 rounded-lg border border-indigo-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
-        <select id="add-column-type" class="rounded-lg border border-indigo-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-          <option value="text">Texte</option>
-          <option value="number">Nombre</option>
-          <option value="boolean">Booléen</option>
-        </select>
         <button id="add-column-confirm-btn" type="button" class="rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 transition-colors">Ajouter</button>
         <button id="add-column-cancel-btn" type="button" class="rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 text-sm font-medium px-4 py-2 transition-colors">Annuler</button>
+        <span class="text-xs text-slate-400">Le type se choisit à chaque valeur, pas pour la colonne entière.</span>
       </div>
 
       {{if .Columns}}
@@ -50,20 +46,19 @@
         <div class="column-panel bg-white rounded-xl border border-slate-200 flex flex-col" data-column="{{.Key}}" data-type="{{.Type}}" data-managed="{{if .Managed}}true{{else}}false{{end}}">
           <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
             <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">{{.Key}}</span>
-            {{if .Managed}}
-            <span class="text-xs text-slate-400">{{.Type}}</span>
-            {{else}}
+            {{if not .Managed}}
             <span class="text-xs text-amber-500" title="Champ présent dans les données mais non déclaré dans le schéma">non géré</span>
             {{end}}
           </div>
           <div class="value-list flex-1 divide-y divide-slate-100">
             {{$col := .}}
             {{range $i, $v := .Values}}
-            <div class="value-row flex items-center justify-between gap-2 px-4 py-2 text-sm" data-index="{{$i}}" data-search-value>
+            <div class="value-row flex items-center gap-2 px-4 py-2 text-sm" data-index="{{$i}}" data-search-value>
+              <span class="type-badge shrink-0 text-[10px] uppercase tracking-wide text-slate-400 border border-slate-200 rounded px-1 py-0.5">{{typeLabel (valueType $v)}}</span>
               {{if and $col.Managed $.CanEdit}}
-              <span class="value-text editable flex-1 cursor-text text-slate-800" title="Double-cliquer pour modifier">{{formatValue $v}}</span>
+              <span class="value-text editable flex-1 cursor-text text-slate-800{{if eq (valueType $v) "long_text"}} whitespace-pre-wrap{{end}}" data-type="{{valueType $v}}" title="Double-cliquer pour modifier">{{formatValue $v}}</span>
               {{else}}
-              <span class="flex-1 text-slate-500">{{formatValue $v}}</span>
+              <span class="flex-1 text-slate-500{{if eq (valueType $v) "long_text"}} whitespace-pre-wrap{{end}}">{{formatValue $v}}</span>
               {{end}}
               {{if and $col.Managed $.CanDelete}}
               <button type="button" class="delete-value-btn text-slate-300 hover:text-red-600 text-xs shrink-0">✕</button>
@@ -72,8 +67,16 @@
             {{end}}
           </div>
           {{if and .Managed $.CanCreate}}
-          <div class="append-row flex items-center gap-2 px-4 py-3 border-t border-slate-100">
-            <input type="text" class="append-input flex-1 rounded border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400" placeholder="+ valeur" />
+          <div class="append-row flex items-start gap-2 px-4 py-3 border-t border-slate-100">
+            <select class="append-type rounded border border-slate-300 px-1 py-1 text-xs bg-white focus:outline-none shrink-0">
+              <option value="text">Texte</option>
+              <option value="long_text">Texte long</option>
+              <option value="number">Nombre</option>
+              <option value="boolean">Booléen</option>
+            </select>
+            <div class="append-value-container flex-1">
+              <input type="text" class="append-input w-full rounded border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400" placeholder="+ valeur" />
+            </div>
             <button type="button" class="append-btn text-indigo-600 hover:text-indigo-800 text-sm font-medium shrink-0">Ajouter</button>
           </div>
           {{end}}
@@ -141,6 +144,13 @@
       });
       return select;
     }
+    if (type === "long_text") {
+      const textarea = document.createElement("textarea");
+      textarea.className = "w-full rounded border border-indigo-400 px-1.5 py-1 text-sm focus:outline-none";
+      textarea.rows = 3;
+      textarea.value = currentValue;
+      return textarea;
+    }
     const input = document.createElement("input");
     input.type = type === "number" ? "number" : "text";
     if (type === "number") input.step = "any";
@@ -149,46 +159,123 @@
     return input;
   }
 
+  function typeSelect(initialType) {
+    const select = document.createElement("select");
+    select.className = "type-select shrink-0 rounded border border-indigo-300 px-1 py-1 text-xs bg-white focus:outline-none";
+    [["text", "Texte"], ["long_text", "Texte long"], ["number", "Nombre"], ["boolean", "Booléen"]].forEach(([v, label]) => {
+      const opt = document.createElement("option");
+      opt.value = v;
+      opt.textContent = label;
+      if (v === initialType) opt.selected = true;
+      select.appendChild(opt);
+    });
+    return select;
+  }
+
+  // Editing a value now involves two independent controls (its type and its
+  // value), so — unlike a single plain input — we can't rely on blur to
+  // know the user is done. Commit/cancel are explicit instead.
   function startEdit(span) {
     const row = span.closest(".value-row");
+    const badge = row.querySelector(".type-badge");
     const panel = span.closest(".column-panel");
-    const type = panel.dataset.type;
     const column = panel.dataset.column;
     const index = parseInt(row.dataset.index, 10);
-    if (row.querySelector("input, select")) return;
+    if (row.querySelector(".edit-wrapper")) return;
     const original = span.textContent;
-    const input = typedInput(type, original);
-    span.replaceWith(input);
-    input.focus();
-    if (input.select) input.select();
+    const originalType = span.dataset.type || "text";
+
+    const wrapper = document.createElement("span");
+    wrapper.className = "edit-wrapper flex-1 flex items-start gap-1";
+
+    const tSelect = typeSelect(originalType);
+    let valueWidget = typedInput(originalType, original);
+    valueWidget.className += " value-widget";
+
+    const confirmBtn = document.createElement("button");
+    confirmBtn.type = "button";
+    confirmBtn.className = "edit-confirm-btn text-emerald-600 hover:text-emerald-800 text-xs shrink-0 mt-1";
+    confirmBtn.textContent = "✓";
+    const cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.className = "text-slate-300 hover:text-red-600 text-xs shrink-0 mt-1";
+    cancelBtn.textContent = "✕";
+
+    const widgetContainer = document.createElement("span");
+    widgetContainer.className = "flex-1";
+    widgetContainer.appendChild(valueWidget);
+
+    wrapper.appendChild(tSelect);
+    wrapper.appendChild(widgetContainer);
+    wrapper.appendChild(confirmBtn);
+    wrapper.appendChild(cancelBtn);
+
+    if (badge) badge.classList.add("hidden");
+    span.replaceWith(wrapper);
+    valueWidget.focus();
+    if (valueWidget.select) valueWidget.select();
+
+    tSelect.addEventListener("change", () => {
+      const carry = valueWidget.value;
+      const fresh = typedInput(tSelect.value, carry);
+      fresh.className += " value-widget";
+      widgetContainer.replaceChildren(fresh);
+      valueWidget = fresh;
+      valueWidget.focus();
+      bindCommitKeys();
+    });
 
     let settled = false;
     function commit() {
       if (settled) return;
       settled = true;
-      const newVal = input.value;
+      const newVal = valueWidget.value;
+      const newType = tSelect.value;
       const newSpan = document.createElement("span");
-      newSpan.className = "value-text editable flex-1 cursor-text text-slate-800";
+      newSpan.className = "value-text editable flex-1 cursor-text text-slate-800" + (newType === "long_text" ? " whitespace-pre-wrap" : "");
       newSpan.title = "Double-cliquer pour modifier";
+      newSpan.dataset.type = newType;
       newSpan.textContent = newVal;
       bindEditableSpan(newSpan);
-      input.replaceWith(newSpan);
+      wrapper.replaceWith(newSpan);
+      if (badge) {
+        badge.textContent = {text: "Texte", long_text: "Texte long", number: "Nombre", boolean: "Booléen"}[newType];
+        badge.classList.remove("hidden");
+      }
       const key = column + ":" + index;
-      if (newVal !== original) {
+      if (newVal !== original || newType !== originalType) {
         row.classList.add("bg-amber-50");
-        pendingUpdates.set(key, { column, index, value: newVal });
+        pendingUpdates.set(key, { column, index, value: newVal, type: newType });
       } else {
         row.classList.remove("bg-amber-50");
         pendingUpdates.delete(key);
       }
       updateBar();
     }
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { e.preventDefault(); commit(); }
-      else if (e.key === "Escape") { e.preventDefault(); settled = true; const s = document.createElement("span"); s.className = "value-text editable flex-1 cursor-text text-slate-800"; s.textContent = original; bindEditableSpan(s); input.replaceWith(s); }
-    });
-    input.addEventListener("blur", commit);
-    if (input.tagName === "SELECT") input.addEventListener("change", commit);
+    function cancelEdit() {
+      if (settled) return;
+      settled = true;
+      const s = document.createElement("span");
+      s.className = "value-text editable flex-1 cursor-text text-slate-800" + (originalType === "long_text" ? " whitespace-pre-wrap" : "");
+      s.title = "Double-cliquer pour modifier";
+      s.dataset.type = originalType;
+      s.textContent = original;
+      bindEditableSpan(s);
+      wrapper.replaceWith(s);
+      if (badge) badge.classList.remove("hidden");
+    }
+    confirmBtn.addEventListener("click", commit);
+    cancelBtn.addEventListener("click", cancelEdit);
+    function bindCommitKeys() {
+      valueWidget.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") { e.preventDefault(); cancelEdit(); return; }
+        if (e.key !== "Enter") return;
+        if (valueWidget.tagName === "TEXTAREA" && !(e.ctrlKey || e.metaKey)) return;
+        e.preventDefault();
+        commit();
+      });
+    }
+    bindCommitKeys();
   }
 
   function bindEditableSpan(span) {
@@ -218,28 +305,57 @@
   // --- Append a value to a column (client-side staged, sent on Save) ---
   document.querySelectorAll(".column-panel").forEach((panel) => {
     const appendBtn = panel.querySelector(".append-btn");
-    const appendInput = panel.querySelector(".append-input");
-    if (!appendBtn || !appendInput) return;
+    const appendTypeSelect = panel.querySelector(".append-type");
+    const appendValueContainer = panel.querySelector(".append-value-container");
+    if (!appendBtn || !appendTypeSelect || !appendValueContainer) return;
     const valueList = panel.querySelector(".value-list");
     const column = panel.dataset.column;
 
+    let appendInput = appendValueContainer.querySelector(".append-input");
+
+    function bindAppendKeys() {
+      appendInput.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter") return;
+        // Textarea: plain Enter inserts a newline; Ctrl/Cmd+Enter appends.
+        if (appendInput.tagName === "TEXTAREA" && !(e.ctrlKey || e.metaKey)) return;
+        e.preventDefault();
+        commitAppend();
+      });
+    }
+    bindAppendKeys();
+
+    appendTypeSelect.addEventListener("change", () => {
+      const carry = appendInput.value;
+      const fresh = typedInput(appendTypeSelect.value, carry);
+      fresh.className += " append-input";
+      appendValueContainer.replaceChildren(fresh);
+      appendInput = fresh;
+      appendInput.focus();
+      bindAppendKeys();
+    });
+
     function commitAppend() {
       const value = appendInput.value;
+      const type = appendTypeSelect.value;
       if (value === "") return;
       const row = document.createElement("div");
-      row.className = "value-row flex items-center justify-between gap-2 px-4 py-2 text-sm bg-emerald-50/50";
+      row.className = "value-row flex items-center gap-2 px-4 py-2 text-sm bg-emerald-50/50";
+      const badge = document.createElement("span");
+      badge.className = "type-badge shrink-0 text-[10px] uppercase tracking-wide text-slate-400 border border-slate-200 rounded px-1 py-0.5";
+      badge.textContent = {text: "Texte", long_text: "Texte long", number: "Nombre", boolean: "Booléen"}[type];
       const span = document.createElement("span");
-      span.className = "flex-1 text-slate-800";
+      span.className = "flex-1 text-slate-800" + (type === "long_text" ? " whitespace-pre-wrap" : "");
       span.textContent = value;
       const removeBtn = document.createElement("button");
       removeBtn.type = "button";
       removeBtn.className = "text-slate-300 hover:text-red-600 text-xs shrink-0";
       removeBtn.textContent = "✕";
+      row.appendChild(badge);
       row.appendChild(span);
       row.appendChild(removeBtn);
       valueList.appendChild(row);
 
-      const entry = { column, value, el: row };
+      const entry = { column, value, type, el: row };
       pendingAppends.push(entry);
       removeBtn.addEventListener("click", () => {
         const idx = pendingAppends.indexOf(entry);
@@ -254,16 +370,12 @@
     }
 
     appendBtn.addEventListener("click", commitAppend);
-    appendInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { e.preventDefault(); commitAppend(); }
-    });
   });
 
   // --- Add column ---
   const addColumnBtn = document.getElementById("add-column-btn");
   const addColumnForm = document.getElementById("add-column-form");
   const addColumnInput = document.getElementById("add-column-input");
-  const addColumnTypeSelect = document.getElementById("add-column-type");
   const addColumnConfirmBtn = document.getElementById("add-column-confirm-btn");
   const addColumnCancelBtn = document.getElementById("add-column-cancel-btn");
 
@@ -285,7 +397,7 @@
       const res = await fetch(COLUMN_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: name, type: addColumnTypeSelect.value }),
+        body: JSON.stringify({ key: name }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -318,7 +430,7 @@
     saveBtn.addEventListener("click", async () => {
       const updates = Array.from(pendingUpdates.values());
       const deletes = Array.from(pendingDeletes.values());
-      const appends = pendingAppends.map((a) => ({ column: a.column, value: a.value }));
+      const appends = pendingAppends.map((a) => ({ column: a.column, value: a.value, type: a.type }));
 
       if (updates.length + deletes.length + appends.length === 0) return;
 
@@ -355,9 +467,10 @@
     if (!isSaveCombo) return;
     e.preventDefault();
     if (!saveBtn || saveBtn.disabled) return;
-    if (document.activeElement && (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "SELECT")) {
-      document.activeElement.blur();
-    }
+    // Editing a value is a two-control (type + value) affair with an
+    // explicit confirm button rather than commit-on-blur — so force any
+    // in-progress edit through that same confirm button before saving.
+    document.querySelectorAll(".edit-confirm-btn").forEach((btn) => btn.click());
     saveBtn.click();
   });
 
