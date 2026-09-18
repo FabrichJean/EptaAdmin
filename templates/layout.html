@@ -1,0 +1,41 @@
+{{define "nav"}}
+<nav class="bg-white border-b border-slate-200">
+  <div class="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-6">
+      <a href="/" class="flex items-center gap-3">
+        <div class="h-9 w-9 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold">E</div>
+        <span class="font-semibold text-slate-900">EptaAdmin</span>
+      </a>
+      <div class="hidden sm:flex items-center gap-4 text-sm">
+        <a href="/" class="text-slate-500 hover:text-slate-900 transition-colors">Tableau de bord</a>
+        {{if .CanManageMembers}}
+        <a href="/members" class="text-slate-500 hover:text-slate-900 transition-colors">Membres</a>
+        {{end}}
+      </div>
+    </div>
+    <div class="flex items-center gap-4">
+      <span class="text-sm text-slate-500">
+        {{.CurrentUser.Username}}
+        <span class="ml-1 text-xs text-slate-400">({{.CurrentUser.RoleLabel}})</span>
+      </span>
+      <form method="POST" action="/logout">
+        <button type="submit" class="text-sm font-medium text-slate-500 hover:text-red-600 transition-colors">Déconnexion</button>
+      </form>
+    </div>
+  </div>
+</nav>
+{{end}}
+{{define "layout"}}
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-slate-50">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{block "title" .}}EptaAdmin{{end}}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="h-full font-sans text-slate-800 antialiased">
+  {{template "content" .}}
+</body>
+</html>
+{{end}}
