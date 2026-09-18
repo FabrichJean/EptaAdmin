@@ -6,6 +6,34 @@ import (
 	"strings"
 )
 
+// workspaceDetailData builds the common template data for
+// workspace_detail.html, so the header context (breadcrumb, icon, badge...)
+// stays consistent across the initial render and the two form-error
+// redisplays.
+func workspaceDetailData(currentUser *User, ws *Workspace, role string, members []*WorkspaceMember, dataSources []*DataSource) map[string]any {
+	return map[string]any{
+		"CurrentUser":        currentUser,
+		"ActiveNav":          "workspaces",
+		"PageTitle":          ws.Name,
+		"Workspace":          ws,
+		"Members":            members,
+		"DataSources":        dataSources,
+		"CanManageMembers":   canManageMembers(currentUser.Role),
+		"CanManageWSMembers": hasPermission(role, PermMembersManage),
+		"CanManageSource":    hasPermission(role, PermSettingsManage),
+		"AssignableRoles":    assignableRolesWithLabels(role),
+		"Breadcrumb": []Breadcrumb{
+			{Label: "Workspaces", URL: "/workspaces"},
+			{Label: ws.Name},
+		},
+		"HeaderTitle":       ws.Name,
+		"HeaderIcon":        "workspace",
+		"HeaderBadge":       "Workspace actif",
+		"HeaderDescription": "Slug : " + ws.Slug,
+		"MemberCount":       len(members),
+	}
+}
+
 func (a *App) handleWorkspacesPage(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
 	workspaces, err := a.store.ListWorkspacesForUser(currentUser.ID)
@@ -112,18 +140,7 @@ func (a *App) handleWorkspaceDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.render(w, "workspace_detail.html", map[string]any{
-		"CurrentUser":        currentUser,
-		"ActiveNav":          "workspaces",
-		"PageTitle":          ws.Name,
-		"Workspace":          ws,
-		"Members":            members,
-		"DataSources":        dataSources,
-		"CanManageMembers":   canManageMembers(currentUser.Role),
-		"CanManageWSMembers": hasPermission(role, PermMembersManage),
-		"CanManageSource":    hasPermission(role, PermSettingsManage),
-		"AssignableRoles":    assignableRolesWithLabels(role),
-	})
+	a.render(w, "workspace_detail.html", workspaceDetailData(currentUser, ws, role, members, dataSources))
 }
 
 func (a *App) handleAddWorkspaceMember(w http.ResponseWriter, r *http.Request) {
@@ -153,19 +170,9 @@ func (a *App) handleAddWorkspaceMember(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
 			return
 		}
-		a.render(w, "workspace_detail.html", map[string]any{
-			"CurrentUser":        currentUser,
-			"ActiveNav":          "workspaces",
-			"PageTitle":          ws.Name,
-			"Workspace":          ws,
-			"Members":            members,
-			"DataSources":        dataSources,
-			"CanManageMembers":   canManageMembers(currentUser.Role),
-			"CanManageWSMembers": hasPermission(role, PermMembersManage),
-			"CanManageSource":    hasPermission(role, PermSettingsManage),
-			"AssignableRoles":    assignableRolesWithLabels(role),
-			"MemberError":        msg,
-		})
+		data := workspaceDetailData(currentUser, ws, role, members, dataSources)
+		data["MemberError"] = msg
+		a.render(w, "workspace_detail.html", data)
 	}
 
 	if username == "" || !canAssignRole(role, targetRole) {
@@ -223,19 +230,9 @@ func (a *App) handleCreateDataSource(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
 			return
 		}
-		a.render(w, "workspace_detail.html", map[string]any{
-			"CurrentUser":        currentUser,
-			"ActiveNav":          "workspaces",
-			"PageTitle":          ws.Name,
-			"Workspace":          ws,
-			"Members":            members,
-			"DataSources":        dataSources,
-			"CanManageMembers":   canManageMembers(currentUser.Role),
-			"CanManageWSMembers": hasPermission(role, PermMembersManage),
-			"CanManageSource":    hasPermission(role, PermSettingsManage),
-			"AssignableRoles":    assignableRolesWithLabels(role),
-			"SourceError":        msg,
-		})
+		data := workspaceDetailData(currentUser, ws, role, members, dataSources)
+		data["SourceError"] = msg
+		a.render(w, "workspace_detail.html", data)
 	}
 
 	if name == "" {
