@@ -12,6 +12,13 @@ type App struct {
 	templates map[string]*template.Template
 }
 
+// Breadcrumb is one link (or the current page, when URL is empty) in the
+// header's breadcrumb trail.
+type Breadcrumb struct {
+	Label string
+	URL   string
+}
+
 var templateFuncs = template.FuncMap{
 	"formatValue":    FormatValue,
 	"valueType":      ValueType,
