@@ -33,15 +33,30 @@ func (w *UserWorkspace) RoleLabel() string {
 }
 
 type WorkspaceMember struct {
-	UserID    int64
-	Username  string
-	Email     string
-	Role      string
-	CreatedAt time.Time
+	UserID       int64
+	Username     string
+	Email        string
+	Role         string
+	AvatarSeed   string
+	AvatarUpload string
+	CreatedAt    time.Time
 }
 
 func (m *WorkspaceMember) RoleLabel() string {
 	return roleLabel(m.Role)
+}
+
+// AvatarImageURL mirrors User.AvatarImageURL — a member's avatar follows
+// the same custom-upload-then-generated-seed-then-username priority.
+func (m *WorkspaceMember) AvatarImageURL() string {
+	if m.AvatarUpload != "" {
+		return m.AvatarUpload
+	}
+	seed := m.AvatarSeed
+	if seed == "" {
+		seed = m.Username
+	}
+	return AvatarURL(seed)
 }
 
 type DataSource struct {
@@ -190,7 +205,7 @@ func (s *Store) GetWorkspaceMemberRole(workspaceID, userID int64) (string, error
 
 func (s *Store) ListWorkspaceMembers(workspaceID int64) ([]*WorkspaceMember, error) {
 	rows, err := s.db.Query(`
-		SELECT users.id, users.username, users.email, workspace_members.role, workspace_members.created_at
+		SELECT users.id, users.username, users.email, workspace_members.role, users.avatar_seed, users.avatar_upload, workspace_members.created_at
 		FROM workspace_members
 		JOIN users ON users.id = workspace_members.user_id
 		WHERE workspace_members.workspace_id = ?
@@ -204,7 +219,7 @@ func (s *Store) ListWorkspaceMembers(workspaceID int64) ([]*WorkspaceMember, err
 	var out []*WorkspaceMember
 	for rows.Next() {
 		m := &WorkspaceMember{}
-		if err := rows.Scan(&m.UserID, &m.Username, &m.Email, &m.Role, &m.CreatedAt); err != nil {
+		if err := rows.Scan(&m.UserID, &m.Username, &m.Email, &m.Role, &m.AvatarSeed, &m.AvatarUpload, &m.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, m)

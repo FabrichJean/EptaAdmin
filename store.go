@@ -19,11 +19,27 @@ type User struct {
 	Email        string
 	PasswordHash string
 	Role         string
+	AvatarSeed   string
+	AvatarUpload string
 	CreatedAt    time.Time
 }
 
 func (u *User) RoleLabel() string {
 	return roleLabel(u.Role)
+}
+
+// AvatarImageURL resolves the avatar to display for this user: a custom
+// upload takes priority over the generated one, which falls back to the
+// username itself when no seed has been explicitly chosen.
+func (u *User) AvatarImageURL() string {
+	if u.AvatarUpload != "" {
+		return u.AvatarUpload
+	}
+	seed := u.AvatarSeed
+	if seed == "" {
+		seed = u.Username
+	}
+	return AvatarURL(seed)
 }
 
 type Store struct {
@@ -110,6 +126,8 @@ func (s *Store) migrate() error {
 	for _, alter := range []string{
 		`ALTER TABLE data_sources ADD COLUMN slug TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE data_source_columns ADD COLUMN description TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE users ADD COLUMN avatar_seed TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE users ADD COLUMN avatar_upload TEXT NOT NULL DEFAULT ''`,
 	} {
 		if _, err := s.db.Exec(alter); err != nil {
 			if !strings.Contains(err.Error(), "duplicate column name") {
@@ -170,24 +188,20 @@ func (s *Store) CreateUser(username, email, passwordHash, role string) (*User, e
 	return s.GetUserByID(id)
 }
 
+const userColumns = `id, username, email, password_hash, role, avatar_seed, avatar_upload, created_at`
+
 func (s *Store) GetUserByUsername(username string) (*User, error) {
-	row := s.db.QueryRow(
-		`SELECT id, username, email, password_hash, role, created_at FROM users WHERE username = ?`,
-		username,
-	)
+	row := s.db.QueryRow(`SELECT `+userColumns+` FROM users WHERE username = ?`, username)
 	return scanUser(row)
 }
 
 func (s *Store) GetUserByID(id int64) (*User, error) {
-	row := s.db.QueryRow(
-		`SELECT id, username, email, password_hash, role, created_at FROM users WHERE id = ?`,
-		id,
-	)
+	row := s.db.QueryRow(`SELECT `+userColumns+` FROM users WHERE id = ?`, id)
 	return scanUser(row)
 }
 
 func (s *Store) ListUsers() ([]*User, error) {
-	rows, err := s.db.Query(`SELECT id, username, email, password_hash, role, created_at FROM users ORDER BY id`)
+	rows, err := s.db.Query(`SELECT ` + userColumns + ` FROM users ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -196,12 +210,26 @@ func (s *Store) ListUsers() ([]*User, error) {
 	var users []*User
 	for rows.Next() {
 		u := &User{}
-		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.CreatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.AvatarSeed, &u.AvatarUpload, &u.CreatedAt); err != nil {
 			return nil, err
 		}
 		users = append(users, u)
 	}
 	return users, rows.Err()
+}
+
+// UpdateUserAvatarSeed switches the user to a generated avatar variant,
+// discarding any custom upload since the two are mutually exclusive.
+func (s *Store) UpdateUserAvatarSeed(id int64, seed string) error {
+	_, err := s.db.Exec(`UPDATE users SET avatar_seed = ?, avatar_upload = '' WHERE id = ?`, seed, id)
+	return err
+}
+
+// UpdateUserAvatarUpload sets a custom uploaded image as the user's avatar,
+// which takes priority over any generated variant.
+func (s *Store) UpdateUserAvatarUpload(id int64, url string) error {
+	_, err := s.db.Exec(`UPDATE users SET avatar_upload = ? WHERE id = ?`, url, id)
+	return err
 }
 
 // UpdateUserEmail changes a user's own email address (self-service profile
@@ -232,7 +260,7 @@ func (s *Store) CountUsers() (int, error) {
 
 func scanUser(row *sql.Row) (*User, error) {
 	u := &User{}
-	err := row.Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.CreatedAt)
+	err := row.Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.AvatarSeed, &u.AvatarUpload, &u.CreatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -252,7 +280,7 @@ func (s *Store) CreateSession(token string, userID int64, expiresAt time.Time) e
 
 func (s *Store) GetSessionUser(token string) (*User, error) {
 	row := s.db.QueryRow(`
-		SELECT users.id, users.username, users.email, users.password_hash, users.role, users.created_at
+		SELECT users.id, users.username, users.email, users.password_hash, users.role, users.avatar_seed, users.avatar_upload, users.created_at
 		FROM sessions
 		JOIN users ON users.id = sessions.user_id
 		WHERE sessions.token = ? AND sessions.expires_at > CURRENT_TIMESTAMP
