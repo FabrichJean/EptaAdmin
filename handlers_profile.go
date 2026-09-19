@@ -3,6 +3,8 @@ package main
 import (
 	"log"
 	"net/http"
+	"net/url"
+	"path/filepath"
 	"strings"
 )
 
@@ -22,6 +24,9 @@ func (a *App) handleProfilePage(w http.ResponseWriter, r *http.Request) {
 	data := profilePageData(currentUser)
 	if updated := r.URL.Query().Get("updated"); updated != "" {
 		data["Updated"] = updated
+	}
+	if avatarError := r.URL.Query().Get("avatarError"); avatarError != "" {
+		data["AvatarError"] = avatarError
 	}
 	a.render(w, "profile.html", data)
 }
@@ -93,4 +98,72 @@ func (a *App) handleUpdateProfilePassword(w http.ResponseWriter, r *http.Request
 	}
 
 	http.Redirect(w, r, "/profile?updated=password", http.StatusSeeOther)
+}
+
+// handleUpdateProfileAvatarSeed switches the user to a generated avatar
+// variant (a gallery of candidate seeds is built client-side in
+// profile.html; this just persists the one the user clicked).
+func (a *App) handleUpdateProfileAvatarSeed(w http.ResponseWriter, r *http.Request) {
+	currentUser := userFromContext(r)
+	seed := strings.TrimSpace(r.FormValue("seed"))
+	if seed == "" {
+		http.Error(w, "Graine d'avatar manquante.", http.StatusBadRequest)
+		return
+	}
+
+	oldUpload := currentUser.AvatarUpload
+	if err := a.store.UpdateUserAvatarSeed(currentUser.ID, seed); err != nil {
+		log.Printf("update avatar seed error: %v", err)
+		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
+		return
+	}
+	removeAvatarUpload(oldUpload)
+
+	http.Redirect(w, r, "/profile?updated=avatar", http.StatusSeeOther)
+}
+
+// handleUploadProfileAvatar sets a custom uploaded image as the user's
+// avatar, replacing (and cleaning up) any previous custom upload.
+func (a *App) handleUploadProfileAvatar(w http.ResponseWriter, r *http.Request) {
+	currentUser := userFromContext(r)
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize+1<<20)
+	if err := r.ParseMultipartForm(maxUploadSize + 1<<20); err != nil {
+		http.Redirect(w, r, "/profile?avatarError=Fichier+trop+volumineux+ou+requête+invalide.", http.StatusSeeOther)
+		return
+	}
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		http.Redirect(w, r, "/profile?avatarError=Aucun+fichier+reçu.", http.StatusSeeOther)
+		return
+	}
+	defer file.Close()
+
+	filename, err := SaveAvatarUpload(header.Filename, file, header.Size)
+	if err != nil {
+		if err != ErrUnsupportedImageType && err != ErrImageTooLarge {
+			log.Printf("save avatar upload error: %v", err)
+		}
+		http.Redirect(w, r, "/profile?avatarError="+url.QueryEscape(err.Error()), http.StatusSeeOther)
+		return
+	}
+
+	oldUpload := currentUser.AvatarUpload
+	if err := a.store.UpdateUserAvatarUpload(currentUser.ID, avatarUploadURL(filename)); err != nil {
+		log.Printf("update avatar upload error: %v", err)
+		removeAvatarUpload(avatarUploadURL(filename))
+		http.Redirect(w, r, "/profile?avatarError=Une+erreur+est+survenue,+réessayez.", http.StatusSeeOther)
+		return
+	}
+	removeAvatarUpload(oldUpload)
+
+	http.Redirect(w, r, "/profile?updated=avatar", http.StatusSeeOther)
+}
+
+// handleServeAvatar serves a custom avatar upload. Unlike workspace data
+// uploads, avatars aren't workspace-scoped — any authenticated user can see
+// any other user's avatar, since that's exactly what member lists do.
+func (a *App) handleServeAvatar(w http.ResponseWriter, r *http.Request) {
+	filename := filepath.Base(r.PathValue("filename"))
+	http.ServeFile(w, r, filepath.Join(avatarUploadDir(), filename))
 }
