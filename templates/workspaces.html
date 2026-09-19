@@ -7,79 +7,106 @@
     {{template "header" .}}
 
     <main class="flex-1 overflow-y-auto px-4 sm:px-8 py-10">
-     <div class="max-w-3xl mx-auto">
+     <div class="max-w-4xl mx-auto">
       <p class="mb-6" style="color: var(--eb-muted);">Chaque workspace regroupe ses propres membres, rôles et sources de données JSON.</p>
 
-      <section class="eb-card rounded-xl overflow-hidden flex flex-col">
-        <div class="px-5 py-4 flex items-center justify-between gap-2" style="border-bottom: 1px solid var(--eb-border);">
-          <div class="flex items-center gap-3 min-w-0">
-            <div class="h-9 w-9 rounded-lg flex items-center justify-center shrink-0" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">
-              {{template "col-icon" "workspace"}}
+      <div class="flex items-center gap-3 mb-8">
+        <div class="relative flex-1">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--eb-muted);"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input id="workspace-search" type="text" placeholder="Rechercher un workspace..."
+            class="eb-input w-full rounded-xl pl-12 pr-4 py-3.5 text-base" />
+        </div>
+        <button id="toggle-add-workspace-btn" type="button" class="eb-btn-primary shrink-0 rounded-xl text-sm font-semibold px-5 py-3.5 transition-colors">+ Nouveau</button>
+      </div>
+
+      <div id="add-workspace-form" class="hidden eb-card rounded-xl p-5 mb-8 space-y-3">
+        {{if .Error}}
+        <div class="rounded-lg text-sm px-3 py-2" style="background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: #fca5a5;">{{.Error}}</div>
+        {{end}}
+        <form method="POST" action="/workspaces" class="flex items-end gap-3">
+          <div class="flex-1">
+            <label class="block text-xs font-medium mb-1" style="color: var(--eb-muted);" for="name">Nom</label>
+            <input id="name" name="name" type="text" required value="{{.Name}}" placeholder="Production"
+              class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <button type="submit" class="eb-btn-primary rounded-lg text-sm px-4 py-2 transition-colors shrink-0">Créer</button>
+        </form>
+        <p class="text-xs" style="color: var(--eb-muted);">Vous en devenez automatiquement le Propriétaire.</p>
+      </div>
+
+      <h2 class="text-sm font-semibold mb-3" style="color: var(--eb-text);">Vos workspaces</h2>
+
+      {{if .Workspaces}}
+      <div class="relative">
+        <div id="workspace-scroll" class="flex gap-3 overflow-x-auto pb-2" style="scroll-behavior: smooth;">
+          {{range .Workspaces}}
+          <a href="/workspaces/{{.Slug}}" data-workspace-name="{{.Name}}"
+            class="workspace-chip shrink-0 flex items-center gap-3 rounded-xl px-4 py-3 transition-colors eb-card"
+            style="min-width: 200px;"
+            onmouseover="this.style.borderColor='var(--eb-border-strong)'" onmouseout="this.style.borderColor='var(--eb-border)'">
+            <div class="h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0" style="background: {{columnColorHex .Name}}26; color: {{columnColorHex .Name}};">
+              {{slice .Name 0 1}}
             </div>
             <div class="min-w-0">
-              <h2 class="text-sm font-semibold" style="color: var(--eb-text);">Vos workspaces</h2>
-              <p class="text-xs" style="color: var(--eb-muted);">{{len .Workspaces}} workspace{{if ne (len .Workspaces) 1}}s{{end}}</p>
+              <p class="text-sm font-semibold truncate" style="color: var(--eb-text);">{{.Name}}</p>
+              <p class="text-xs truncate" style="color: var(--eb-muted);">{{.RoleLabel}}</p>
             </div>
-          </div>
-          <button id="toggle-add-workspace-btn" type="button" class="eb-btn-secondary shrink-0 rounded-full text-xs font-medium px-3 py-1.5 transition-colors" style="border-color: var(--eb-accent); color: var(--eb-accent);">+ Ajouter</button>
-        </div>
-
-        <div id="add-workspace-form" class="hidden px-5 py-4 space-y-3" style="border-bottom: 1px solid var(--eb-border); background: var(--eb-surface-2);">
-          {{if .Error}}
-          <div class="rounded-lg text-sm px-3 py-2" style="background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: #fca5a5;">{{.Error}}</div>
-          {{end}}
-          <form method="POST" action="/workspaces" class="space-y-3">
-            <div>
-              <label class="block text-xs font-medium mb-1" style="color: var(--eb-muted);" for="name">Nom</label>
-              <input id="name" name="name" type="text" required value="{{.Name}}" placeholder="Production"
-                class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
-            </div>
-            <button type="submit" class="eb-btn-primary w-full rounded-lg text-sm py-2 transition-colors">Créer le workspace</button>
-            <p class="text-xs" style="color: var(--eb-muted);">Vous en devenez automatiquement le Propriétaire.</p>
-          </form>
-        </div>
-
-        <div class="flex-1">
-          {{range $i, $ws := .Workspaces}}
-          <a href="/workspaces/{{$ws.Slug}}"
-            class="px-5 py-3 flex items-center justify-between gap-2 transition-colors" style="{{if $i}}border-top: 1px solid var(--eb-border);{{end}}"
-            onmouseover="this.style.background='var(--eb-surface-2)'" onmouseout="this.style.background=''">
-            <div class="flex items-center gap-3 min-w-0">
-              <div class="h-8 w-8 rounded-lg flex items-center justify-center shrink-0" style="background: var(--eb-surface-2); color: var(--eb-muted);">
-                {{template "col-icon" "workspace"}}
-              </div>
-              <div class="min-w-0">
-                <span class="text-sm font-medium truncate block" style="color: var(--eb-accent);">{{$ws.Name}}</span>
-                <span class="text-xs" style="color: var(--eb-muted);">Créé le {{$ws.CreatedAt.Format "02/01/2006 15:04"}}</span>
-              </div>
-            </div>
-            <span class="eb-badge eb-badge-{{$ws.Role}} shrink-0">{{$ws.RoleLabel}}</span>
           </a>
           {{end}}
-          {{if not .Workspaces}}
-          <div class="px-5 py-10 text-center text-sm" style="color: var(--eb-muted);">
-            Aucun workspace pour le moment. Créez-en un pour commencer.
-          </div>
-          {{end}}
         </div>
-      </section>
+        <button id="workspace-scroll-right" type="button" class="hidden sm:flex absolute right-0 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full items-center justify-center eb-card" style="color: var(--eb-text); box-shadow: 0 4px 12px rgba(0,0,0,0.4);">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+      </div>
+      {{else}}
+      <div class="eb-card rounded-xl px-5 py-10 text-center text-sm" style="color: var(--eb-muted);">
+        Aucun workspace pour le moment. Créez-en un pour commencer.
+      </div>
+      {{end}}
      </div>
     </main>
 
     <script>
     (function () {
-      const btn = document.getElementById("toggle-add-workspace-btn");
-      const form = document.getElementById("add-workspace-form");
-      if (btn && form) {
-        btn.addEventListener("click", () => {
-          form.classList.toggle("hidden");
-          if (!form.classList.contains("hidden")) {
-            const input = form.querySelector("input");
+      const addBtn = document.getElementById("toggle-add-workspace-btn");
+      const addForm = document.getElementById("add-workspace-form");
+      if (addBtn && addForm) {
+        addBtn.addEventListener("click", () => {
+          addForm.classList.toggle("hidden");
+          if (!addForm.classList.contains("hidden")) {
+            const input = addForm.querySelector("input");
             if (input) input.focus();
           }
         });
       }
-      {{if .Error}}form?.classList.remove("hidden");{{end}}
+      {{if .Error}}addForm?.classList.remove("hidden");{{end}}
+
+      const searchInput = document.getElementById("workspace-search");
+      if (searchInput) {
+        searchInput.addEventListener("input", () => {
+          const q = searchInput.value.trim().toLowerCase();
+          document.querySelectorAll(".workspace-chip").forEach((chip) => {
+            const name = (chip.dataset.workspaceName || "").toLowerCase();
+            chip.style.display = !q || name.includes(q) ? "" : "none";
+          });
+        });
+      }
+
+      const scrollContainer = document.getElementById("workspace-scroll");
+      const scrollRightBtn = document.getElementById("workspace-scroll-right");
+      if (scrollContainer && scrollRightBtn) {
+        function updateScrollBtn() {
+          const canScroll = scrollContainer.scrollWidth > scrollContainer.clientWidth + 4;
+          const atEnd = scrollContainer.scrollLeft + scrollContainer.clientWidth >= scrollContainer.scrollWidth - 4;
+          scrollRightBtn.classList.toggle("hidden", !canScroll || atEnd);
+        }
+        scrollRightBtn.addEventListener("click", () => {
+          scrollContainer.scrollBy({ left: 320, behavior: "smooth" });
+        });
+        scrollContainer.addEventListener("scroll", updateScrollBtn);
+        window.addEventListener("resize", updateScrollBtn);
+        updateScrollBtn();
+      }
     })();
     </script>
   </div>
