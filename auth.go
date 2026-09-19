@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -97,4 +99,40 @@ func (a *App) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 func userFromContext(r *http.Request) *User {
 	u, _ := r.Context().Value(userContextKey).(*User)
 	return u
+}
+
+const bearerPrefix = "Bearer "
+
+// requireAPIKey authenticates requests via a personal API key sent as a
+// Bearer token, for the public read-only API (handlers_api.go). External
+// callers — the JS SDK, a script, another backend — can't hold a session
+// cookie, so this is a separate auth path from requireAuth, sharing only
+// the same userContextKey downstream handlers already read from.
+func (a *App) requireAPIKey(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		header := r.Header.Get("Authorization")
+		if !strings.HasPrefix(header, bearerPrefix) {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "Clé API manquante (en-tête Authorization: Bearer <clé>)."})
+			return
+		}
+		token := strings.TrimSpace(strings.TrimPrefix(header, bearerPrefix))
+		if token == "" {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "Clé API manquante (en-tête Authorization: Bearer <clé>)."})
+			return
+		}
+
+		user, err := a.store.GetUserByAPIKeyToken(token)
+		if err != nil {
+			log.Printf("api key lookup error: %v", err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+			return
+		}
+		if user == nil {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "Clé API invalide."})
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), userContextKey, user)
+		next(w, r.WithContext(ctx))
+	}
 }
