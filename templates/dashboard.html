@@ -46,7 +46,12 @@
         <tbody>
           {{range .Users}}
           <tr style="border-top: 1px solid var(--eb-border);">
-            <td class="px-5 py-3 text-sm font-medium" style="color: var(--eb-text);">{{.Username}}</td>
+            <td class="px-5 py-3 text-sm font-medium" style="color: var(--eb-text);">
+              <div class="flex items-center gap-2.5">
+                <img src="{{avatarURL .Username}}" alt="" class="h-7 w-7 rounded-full shrink-0" style="background: var(--eb-surface-2);" />
+                {{.Username}}
+              </div>
+            </td>
             <td class="px-5 py-3 text-sm" style="color: var(--eb-muted);">{{.Email}}</td>
             <td class="px-5 py-3 text-sm">
               <span class="eb-badge eb-badge-{{.Role}}">{{.RoleLabel}}</span>
