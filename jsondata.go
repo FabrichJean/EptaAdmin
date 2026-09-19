@@ -247,6 +247,45 @@ func FormatValue(v any) string {
 	}
 }
 
+// SearchHit is one column value that matched a search query. Index is the
+// value's position within its column's list, so the UI can scroll straight
+// to it (e.g. .column-panel[data-column=Column] .value-row[data-index=Index]).
+type SearchHit struct {
+	Column string
+	Index  int
+	Value  string
+}
+
+// SearchColumnStore scans every value of every column for a case-insensitive
+// substring match, returning at most limit hits (0 means unlimited). Values
+// are compared via FormatValue so e.g. numbers and booleans are searchable
+// as their displayed text.
+func SearchColumnStore(cs ColumnStore, query string, limit int) []SearchHit {
+	query = strings.ToLower(strings.TrimSpace(query))
+	if query == "" {
+		return nil
+	}
+	keys := make([]string, 0, len(cs))
+	for k := range cs {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	var hits []SearchHit
+	for _, k := range keys {
+		for i, v := range cs[k] {
+			text := FormatValue(v)
+			if strings.Contains(strings.ToLower(text), query) {
+				hits = append(hits, SearchHit{Column: k, Index: i, Value: text})
+				if limit > 0 && len(hits) >= limit {
+					return hits
+				}
+			}
+		}
+	}
+	return hits
+}
+
 // CoerceTyped validates and converts a user-submitted string to match a
 // column's declared schema type, rejecting values that don't fit rather
 // than silently guessing.
