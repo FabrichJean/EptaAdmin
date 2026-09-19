@@ -150,8 +150,11 @@
       {{if $b.URL}}<a href="{{$b.URL}}" class="hover:underline truncate" style="color: var(--eb-muted);">{{$b.Label}}</a>{{else}}<span class="truncate" style="color: var(--eb-text);">{{$b.Label}}</span>{{end}}
       {{end}}
     </div>
-    {{else if not .HeaderTitle}}
-    <h1 class="text-lg font-semibold" style="color: var(--eb-text);">{{.PageTitle}}</h1>
+    {{else}}
+    <h1 class="flex items-center gap-2 text-lg font-semibold" style="color: var(--eb-text);">
+      {{if .HeaderIcon}}<span style="color: var(--eb-accent);">{{template "col-icon" .HeaderIcon}}</span>{{end}}
+      {{if .HeaderTitle}}{{.HeaderTitle}}{{else}}{{.PageTitle}}{{end}}
+    </h1>
     {{end}}
 
     <div class="flex items-center gap-3 shrink-0 ml-auto">

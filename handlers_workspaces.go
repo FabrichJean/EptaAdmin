@@ -34,16 +34,18 @@ func workspaceDetailData(currentUser *User, ws *Workspace, role string, members 
 	}
 }
 
+// This page has no breadcrumb (nothing sits "above" it), so it keeps the
+// plain single-line header instead of the icon/title/description block —
+// that richer header exists to pair with a breadcrumb that says something
+// the big title doesn't already say (see workspaceDetailData).
 func workspacesPageData(currentUser *User, workspaces []*UserWorkspace) map[string]any {
 	return map[string]any{
-		"CurrentUser":       currentUser,
-		"Workspaces":        workspaces,
-		"ActiveNav":         "workspaces",
-		"PageTitle":         "Workspaces",
-		"CanManageMembers":  canManageMembers(currentUser.Role),
-		"HeaderTitle":       "Workspaces",
-		"HeaderIcon":        "workspace",
-		"HeaderDescription": "Chaque workspace regroupe ses propres membres, rôles et sources de données JSON.",
+		"CurrentUser":      currentUser,
+		"Workspaces":       workspaces,
+		"ActiveNav":        "workspaces",
+		"PageTitle":        "Workspaces",
+		"CanManageMembers": canManageMembers(currentUser.Role),
+		"HeaderIcon":       "workspace",
 	}
 }
 
