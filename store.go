@@ -11,6 +11,7 @@ import (
 
 var ErrUserExists = errors.New("un utilisateur avec cet identifiant existe déjà")
 var ErrInvalidCredentials = errors.New("identifiant ou mot de passe incorrect")
+var ErrEmailExists = errors.New("cet email est déjà utilisé par un autre compte")
 
 type User struct {
 	ID           int64
@@ -201,6 +202,26 @@ func (s *Store) ListUsers() ([]*User, error) {
 		users = append(users, u)
 	}
 	return users, rows.Err()
+}
+
+// UpdateUserEmail changes a user's own email address (self-service profile
+// editing), rejecting a value already taken by another account.
+func (s *Store) UpdateUserEmail(id int64, email string) error {
+	_, err := s.db.Exec(`UPDATE users SET email = ? WHERE id = ?`, email, id)
+	if err != nil {
+		if isUniqueConstraintErr(err) {
+			return ErrEmailExists
+		}
+		return err
+	}
+	return nil
+}
+
+// UpdateUserPassword replaces a user's password hash (self-service profile
+// editing, after the caller has verified the current password).
+func (s *Store) UpdateUserPassword(id int64, passwordHash string) error {
+	_, err := s.db.Exec(`UPDATE users SET password_hash = ? WHERE id = ?`, passwordHash, id)
+	return err
 }
 
 func (s *Store) CountUsers() (int, error) {
