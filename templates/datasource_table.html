@@ -1008,6 +1008,27 @@
       if (isHidden) pageMenu.classList.remove("hidden");
     });
   }
+
+  // --- Deep link from the global search results (workspaces.html): scroll
+  // to the specific cell and flash-highlight it so its presence is obvious.
+  (function highlightFromSearch() {
+    const params = new URLSearchParams(window.location.search);
+    const col = params.get("highlightColumn");
+    const idx = params.get("highlightIndex");
+    if (col === null || idx === null) return;
+
+    const panel = document.querySelector('.column-panel[data-column="' + CSS.escape(col) + '"]');
+    const row = panel && panel.querySelector('.value-row[data-index="' + CSS.escape(idx) + '"]');
+    if (row) {
+      row.scrollIntoView({ behavior: "smooth", block: "center" });
+      row.classList.add("eb-row-highlight");
+      setTimeout(() => row.classList.remove("eb-row-highlight"), 2500);
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.delete("highlightColumn");
+    url.searchParams.delete("highlightIndex");
+    window.history.replaceState({}, "", url);
+  })();
 })();
 </script>
 {{end}}
