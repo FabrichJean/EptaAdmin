@@ -13,7 +13,7 @@
         <div class="flex items-center" style="padding-left: 4px;">
           {{range $i, $m := .Members}}
           {{if lt $i 5}}
-          <img src="{{avatarURL $m.Username}}" alt="" class="h-8 w-8 rounded-full" style="background: var(--eb-surface-2); border: 2px solid var(--eb-bg); margin-left: -8px;" />
+          <img src="{{$m.AvatarImageURL}}" alt="" class="h-8 w-8 rounded-full" style="background: var(--eb-surface-2); border: 2px solid var(--eb-bg); margin-left: -8px;" />
           {{end}}
           {{end}}
           {{if gt (len .Members) 5}}
@@ -94,7 +94,7 @@
       {{range $i, $m := .Members}}
       <div class="px-5 py-3 flex items-center justify-between gap-2" style="{{if $i}}border-top: 1px solid var(--eb-border);{{end}}">
         <div class="flex items-center gap-3 min-w-0">
-          <img src="{{avatarURL $m.Username}}" alt="" class="h-8 w-8 rounded-full shrink-0" style="background: var(--eb-surface-2);" />
+          <img src="{{$m.AvatarImageURL}}" alt="" class="h-8 w-8 rounded-full shrink-0" style="background: var(--eb-surface-2);" />
           <span class="text-sm font-medium truncate" style="color: var(--eb-text);">{{$m.Username}}</span>
         </div>
         <span class="eb-badge eb-badge-{{$m.Role}} shrink-0">{{$m.RoleLabel}}</span>
