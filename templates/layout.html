@@ -116,7 +116,7 @@
   </nav>
 
   <div class="p-4 flex items-center gap-3" style="border-top: 1px solid var(--eb-border);">
-    <img src="{{avatarURL .CurrentUser.Username}}" alt="" class="h-8 w-8 shrink-0 rounded-full" style="background: var(--eb-surface-2);" />
+    <img src="{{.CurrentUser.AvatarImageURL}}" alt="" class="h-8 w-8 shrink-0 rounded-full" style="background: var(--eb-surface-2);" />
     <div class="min-w-0">
       <p class="text-sm font-medium truncate" style="color: var(--eb-text);">{{.CurrentUser.Username}}</p>
       <p class="text-xs truncate" style="color: var(--eb-muted);">{{.CurrentUser.RoleLabel}}</p>
@@ -168,7 +168,7 @@
       {{end}}
       <div class="relative">
         <button id="user-menu-btn" type="button" class="flex items-center gap-2">
-          <img src="{{avatarURL .CurrentUser.Username}}" alt="" class="h-8 w-8 rounded-full shrink-0" style="background: var(--eb-accent);" />
+          <img src="{{.CurrentUser.AvatarImageURL}}" alt="" class="h-8 w-8 rounded-full shrink-0" style="background: var(--eb-accent);" />
           <div class="hidden sm:block text-left leading-tight">
             <p class="text-sm font-medium" style="color: var(--eb-text);">{{.CurrentUser.Username}}</p>
             <p class="text-xs" style="color: var(--eb-muted);">{{.CurrentUser.RoleLabel}}</p>
