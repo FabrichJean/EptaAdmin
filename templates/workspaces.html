@@ -13,8 +13,11 @@
       <div class="flex items-center gap-3 mb-8">
         <div class="relative flex-1">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--eb-muted);"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-          <input id="workspace-search" type="text" placeholder="Rechercher un workspace..."
+          <input id="workspace-search" type="text" placeholder="Rechercher un workspace ou une donnée..." autocomplete="off"
             class="eb-input w-full rounded-xl pl-12 pr-4 py-3.5 text-base" />
+          <div id="search-results-panel" class="hidden absolute left-0 right-0 top-full mt-2 rounded-xl overflow-hidden eb-card z-20" style="box-shadow: 0 12px 32px rgba(0,0,0,0.5);">
+            <div id="search-results-list" class="max-h-80 overflow-y-auto"></div>
+          </div>
         </div>
         <button id="toggle-add-workspace-btn" type="button" class="eb-btn-primary shrink-0 rounded-xl text-sm font-semibold px-5 py-3.5 transition-colors">+ Nouveau</button>
       </div>
@@ -82,13 +85,96 @@
       {{if .Error}}addForm?.classList.remove("hidden");{{end}}
 
       const searchInput = document.getElementById("workspace-search");
+      const resultsPanel = document.getElementById("search-results-panel");
+      const resultsList = document.getElementById("search-results-list");
+      let searchDebounce = null;
+      let searchSeq = 0;
+
+      function hideResultsPanel() {
+        resultsPanel.classList.add("hidden");
+        resultsList.innerHTML = "";
+      }
+
+      function renderResults(items, query) {
+        resultsList.innerHTML = "";
+        if (!items.length) {
+          const empty = document.createElement("div");
+          empty.className = "px-4 py-4 text-sm text-center";
+          empty.style.color = "var(--eb-muted)";
+          empty.textContent = "Aucune donnée trouvée pour « " + query + " ».";
+          resultsList.appendChild(empty);
+          resultsPanel.classList.remove("hidden");
+          return;
+        }
+        items.forEach((item, i) => {
+          const row = document.createElement("a");
+          row.href = "/workspaces/" + item.workspaceSlug + "/datasources/" + item.dataSourceSlug
+            + "?highlightColumn=" + encodeURIComponent(item.column) + "&highlightIndex=" + item.index;
+          row.className = "flex items-center justify-between gap-3 px-4 py-3 transition-colors";
+          row.style.color = "var(--eb-text)";
+          if (i > 0) row.style.borderTop = "1px solid var(--eb-border)";
+          row.onmouseover = () => { row.style.background = "var(--eb-surface-hover, rgba(255,255,255,0.04))"; };
+          row.onmouseout = () => { row.style.background = ""; };
+
+          const left = document.createElement("div");
+          left.className = "min-w-0";
+          const title = document.createElement("p");
+          title.className = "text-sm font-semibold truncate";
+          title.textContent = item.dataSourceName + " · " + item.column;
+          const sub = document.createElement("p");
+          sub.className = "text-xs truncate";
+          sub.style.color = "var(--eb-muted);";
+          sub.textContent = item.value || "(vide)";
+          left.appendChild(title);
+          left.appendChild(sub);
+
+          const badge = document.createElement("span");
+          badge.className = "eb-badge eb-badge-viewer shrink-0";
+          badge.textContent = item.workspaceName;
+
+          row.appendChild(left);
+          row.appendChild(badge);
+          resultsList.appendChild(row);
+        });
+        resultsPanel.classList.remove("hidden");
+      }
+
+      function runDataSearch(q) {
+        const seq = ++searchSeq;
+        fetch("/api/search?q=" + encodeURIComponent(q))
+          .then((res) => (res.ok ? res.json() : []))
+          .then((items) => {
+            if (seq !== searchSeq) return; // a newer query superseded this one
+            renderResults(items || [], q);
+          })
+          .catch(() => { if (seq === searchSeq) hideResultsPanel(); });
+      }
+
       if (searchInput) {
         searchInput.addEventListener("input", () => {
-          const q = searchInput.value.trim().toLowerCase();
+          const q = searchInput.value.trim();
+          const qLower = q.toLowerCase();
           document.querySelectorAll(".workspace-chip").forEach((chip) => {
             const name = (chip.dataset.workspaceName || "").toLowerCase();
-            chip.style.display = !q || name.includes(q) ? "" : "none";
+            chip.style.display = !qLower || name.includes(qLower) ? "" : "none";
           });
+
+          clearTimeout(searchDebounce);
+          if (q.length < 2) {
+            searchSeq++;
+            hideResultsPanel();
+            return;
+          }
+          searchDebounce = setTimeout(() => runDataSearch(q), 250);
+        });
+
+        document.addEventListener("click", (e) => {
+          if (!resultsPanel.contains(e.target) && e.target !== searchInput) {
+            hideResultsPanel();
+          }
+        });
+        searchInput.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") hideResultsPanel();
         });
       }
 
