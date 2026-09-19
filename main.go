@@ -32,6 +32,7 @@ func main() {
 	mux.HandleFunc("GET /members", app.requireAuth(app.handleMembersPage))
 	mux.HandleFunc("POST /members", app.requireAuth(app.handleCreateMember))
 	mux.HandleFunc("GET /workspaces", app.requireAuth(app.handleWorkspacesPage))
+	mux.HandleFunc("GET /api/search", app.requireAuth(app.handleGlobalSearch))
 	mux.HandleFunc("POST /workspaces", app.requireAuth(app.handleCreateWorkspace))
 	mux.HandleFunc("GET /workspaces/{slug}", app.requireAuth(app.handleWorkspaceDetail))
 	mux.HandleFunc("POST /workspaces/{slug}/members", app.requireAuth(app.handleAddWorkspaceMember))

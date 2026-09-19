@@ -69,6 +69,11 @@
   .eb-image-chip-thumb { height: 1.125rem; width: 1.125rem; border-radius: 9999px; object-fit: cover; flex-shrink: 0; background: var(--eb-surface); }
   .eb-row-pending { background: rgba(251,191,36,0.10) !important; }
   .eb-row-deleting { opacity: 0.4; text-decoration: line-through; }
+  .eb-row-highlight { animation: eb-row-highlight-fade 2.5s ease-out; }
+  @keyframes eb-row-highlight-fade {
+    0% { background: rgba(52,211,153,0.35); }
+    100% { background: transparent; }
+  }
   .eb-row-new { background: rgba(52,211,153,0.07) !important; }
   ::selection { background: rgba(52,211,153,0.35); }
 </style>
