@@ -25,7 +25,6 @@ var templateFuncs = template.FuncMap{
 	"typeLabel":      ColumnTypeLabel,
 	"columnIcon":     ColumnIconName,
 	"columnColorHex": ColumnColorHex,
-	"avatarURL":      AvatarURL,
 	"sub":            func(a, b int) int { return a - b },
 }
 

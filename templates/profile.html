@@ -11,17 +11,56 @@
 
       {{if .Updated}}
       <div class="rounded-xl px-5 py-4 text-sm" style="background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.25); color: var(--eb-accent);">
-        {{if eq .Updated "email"}}Email mis à jour avec succès.{{else if eq .Updated "password"}}Mot de passe mis à jour avec succès.{{end}}
+        {{if eq .Updated "email"}}Email mis à jour avec succès.{{else if eq .Updated "password"}}Mot de passe mis à jour avec succès.{{else if eq .Updated "avatar"}}Avatar mis à jour avec succès.{{end}}
       </div>
       {{end}}
 
       <div class="eb-card rounded-xl p-6 flex items-center gap-4">
-        <img src="{{avatarURL .CurrentUser.Username}}" alt="" class="h-16 w-16 rounded-full shrink-0" style="background: var(--eb-surface-2);" />
+        <img src="{{.CurrentUser.AvatarImageURL}}" alt="" class="h-16 w-16 rounded-full shrink-0" style="background: var(--eb-surface-2);" />
         <div class="min-w-0">
           <p class="text-lg font-semibold truncate" style="color: var(--eb-text);">{{.CurrentUser.Username}}</p>
           <div class="flex items-center gap-2 mt-1">
             <span class="eb-badge eb-badge-{{.CurrentUser.Role}}">{{.CurrentUser.RoleLabel}}</span>
             <span class="text-xs" style="color: var(--eb-muted);">Membre depuis le {{.CurrentUser.CreatedAt.Format "02/01/2006"}}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="eb-card rounded-xl p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="font-semibold" style="color: var(--eb-text);">Avatar</h2>
+            <p class="text-xs mt-0.5" style="color: var(--eb-muted);">Généré automatiquement à partir de votre identifiant, ou personnalisez-le.</p>
+          </div>
+          <button id="toggle-avatar-section-btn" type="button" class="eb-btn-secondary shrink-0 rounded-lg text-sm px-4 py-2 transition-colors">Modifier l'avatar</button>
+        </div>
+
+        <div id="avatar-manage-section" class="hidden mt-5 pt-5" style="border-top: 1px solid var(--eb-border);">
+          {{if .AvatarError}}
+          <div class="mb-4 rounded-lg text-sm px-4 py-3" style="background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: #fca5a5;">
+            {{.AvatarError}}
+          </div>
+          {{end}}
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-xs" style="color: var(--eb-muted);">Choisissez une variante générée, ou importez votre propre image.</p>
+            <button id="regen-avatar-btn" type="button" class="eb-btn-secondary shrink-0 rounded-lg text-xs px-3 py-1.5 transition-colors">↻ Régénérer</button>
+          </div>
+          <div id="avatar-gallery" class="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-5"></div>
+          <form id="avatar-upload-form" method="POST" action="/profile/avatar/upload" enctype="multipart/form-data" class="flex items-center gap-3 pt-4" style="border-top: 1px solid var(--eb-border);">
+            <input id="avatar-upload-input" type="file" name="file" accept=".png,.jpg,.jpeg,.gif,.webp,.svg" required
+              class="flex-1 text-sm" style="color: var(--eb-muted);" />
+            <button type="submit" class="eb-btn-secondary rounded-lg text-sm px-4 py-2 transition-colors shrink-0">Importer une image</button>
+          </form>
+        </div>
+      </div>
+
+      <div id="avatar-confirm-backdrop" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0,0,0,0.6);">
+        <div class="eb-card rounded-xl p-6 w-full max-w-xs text-center">
+          <p class="text-sm font-medium mb-4" style="color: var(--eb-text);">Utiliser cet avatar ?</p>
+          <img id="avatar-confirm-preview" src="" alt="" class="h-20 w-20 rounded-full mx-auto mb-5" style="background: var(--eb-surface-2);" />
+          <div class="flex gap-3">
+            <button id="avatar-confirm-cancel-btn" type="button" class="eb-btn-secondary flex-1 rounded-lg text-sm py-2 transition-colors">Annuler</button>
+            <button id="avatar-confirm-ok-btn" type="button" class="eb-btn-primary flex-1 rounded-lg text-sm py-2 transition-colors">Confirmer</button>
           </div>
         </div>
       </div>
@@ -75,6 +114,104 @@
 
      </div>
     </main>
+
+    <script>
+    (function () {
+      const gallery = document.getElementById("avatar-gallery");
+      const regenBtn = document.getElementById("regen-avatar-btn");
+      const toggleBtn = document.getElementById("toggle-avatar-section-btn");
+      const manageSection = document.getElementById("avatar-manage-section");
+      const uploadForm = document.getElementById("avatar-upload-form");
+      const uploadInput = document.getElementById("avatar-upload-input");
+      const confirmBackdrop = document.getElementById("avatar-confirm-backdrop");
+      const confirmPreview = document.getElementById("avatar-confirm-preview");
+      const confirmOkBtn = document.getElementById("avatar-confirm-ok-btn");
+      const confirmCancelBtn = document.getElementById("avatar-confirm-cancel-btn");
+      if (!gallery) return;
+
+      if (toggleBtn && manageSection) {
+        toggleBtn.addEventListener("click", () => manageSection.classList.toggle("hidden"));
+        {{if .AvatarError}}manageSection.classList.remove("hidden");{{end}}
+      }
+
+      let pendingForm = null;
+      function openConfirm(previewSrc, form) {
+        confirmPreview.src = previewSrc;
+        pendingForm = form;
+        confirmBackdrop.classList.remove("hidden");
+      }
+      function closeConfirm() {
+        confirmBackdrop.classList.add("hidden");
+        pendingForm = null;
+      }
+      if (confirmOkBtn) confirmOkBtn.addEventListener("click", () => {
+        const form = pendingForm;
+        closeConfirm();
+        if (form) form.submit(); // .submit() bypasses the "submit" listeners below
+      });
+      if (confirmCancelBtn) confirmCancelBtn.addEventListener("click", closeConfirm);
+      confirmBackdrop.addEventListener("click", (e) => { if (e.target === confirmBackdrop) closeConfirm(); });
+
+      function randomSeed() {
+        return Math.random().toString(36).slice(2, 10);
+      }
+      function avatarSrc(seed) {
+        return "https://api.dicebear.com/9.x/notionists/svg?seed=" + encodeURIComponent(seed) + "&backgroundType=gradientLinear";
+      }
+      function renderGallery() {
+        gallery.innerHTML = "";
+        for (let i = 0; i < 6; i++) {
+          const seed = randomSeed();
+          const src = avatarSrc(seed);
+          const form = document.createElement("form");
+          form.method = "POST";
+          form.action = "/profile/avatar/seed";
+          form.addEventListener("submit", (e) => {
+            e.preventDefault();
+            openConfirm(src, form);
+          });
+
+          const hidden = document.createElement("input");
+          hidden.type = "hidden";
+          hidden.name = "seed";
+          hidden.value = seed;
+
+          const btn = document.createElement("button");
+          btn.type = "submit";
+          btn.title = "Choisir cet avatar";
+          btn.className = "block w-full aspect-square rounded-lg overflow-hidden transition-colors";
+          btn.style.border = "2px solid var(--eb-border)";
+          btn.onmouseover = () => { btn.style.borderColor = "var(--eb-accent)"; };
+          btn.onmouseout = () => { btn.style.borderColor = "var(--eb-border)"; };
+
+          const img = document.createElement("img");
+          img.src = src;
+          img.alt = "";
+          img.className = "w-full h-full";
+          img.style.background = "var(--eb-surface-2)";
+
+          btn.appendChild(img);
+          form.appendChild(hidden);
+          form.appendChild(btn);
+          gallery.appendChild(form);
+        }
+      }
+
+      renderGallery();
+      if (regenBtn) regenBtn.addEventListener("click", renderGallery);
+
+      if (uploadForm && uploadInput) {
+        uploadForm.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const file = uploadInput.files && uploadInput.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = () => openConfirm(reader.result, uploadForm);
+          reader.readAsDataURL(file);
+        });
+      }
+    })();
+    </script>
   </div>
 </div>
 {{end}}
