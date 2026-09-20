@@ -204,6 +204,19 @@ func (s *Store) GetWorkspaceMemberRole(workspaceID, userID int64) (string, error
 	return role, nil
 }
 
+// IsWorkspaceOwner reports whether a user owns at least one workspace —
+// the only accounts allowed to create/manage their own member roster
+// (see /members), since owning nothing means having nowhere to assign a
+// member to.
+func (s *Store) IsWorkspaceOwner(userID int64) (bool, error) {
+	var exists bool
+	err := s.db.QueryRow(
+		`SELECT EXISTS(SELECT 1 FROM workspace_members WHERE user_id = ? AND role = ?)`,
+		userID, RoleOwner,
+	).Scan(&exists)
+	return exists, err
+}
+
 func (s *Store) ListWorkspaceMembers(workspaceID int64) ([]*WorkspaceMember, error) {
 	rows, err := s.db.Query(`
 		SELECT users.id, users.username, users.email, workspace_members.role, users.avatar_seed, users.avatar_upload, workspace_members.created_at

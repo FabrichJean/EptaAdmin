@@ -28,8 +28,29 @@ func (a *App) membersPageData(lang string, currentUser *User) (map[string]any, e
 	}, nil
 }
 
+// requireWorkspaceOwner blocks the members roster for anyone who doesn't
+// own at least one workspace — someone with nowhere to assign a member has
+// no legitimate reason to create platform accounts. Writes the access-denied
+// response itself when refusing.
+func (a *App) requireWorkspaceOwner(w http.ResponseWriter, r *http.Request, currentUser *User) bool {
+	owner, err := a.store.IsWorkspaceOwner(currentUser.ID)
+	if err != nil {
+		log.Printf("check workspace owner error: %v", err)
+		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
+		return false
+	}
+	if !owner {
+		http.Error(w, T(a.resolveLang(r), "common.access_denied"), http.StatusForbidden)
+		return false
+	}
+	return true
+}
+
 func (a *App) handleMembersPage(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
+	if !a.requireWorkspaceOwner(w, r, currentUser) {
+		return
+	}
 	lang := a.resolveLang(r)
 	data, err := a.membersPageData(lang, currentUser)
 	if err != nil {
@@ -42,6 +63,9 @@ func (a *App) handleMembersPage(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) handleCreateMember(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
+	if !a.requireWorkspaceOwner(w, r, currentUser) {
+		return
+	}
 	lang := a.resolveLang(r)
 
 	username := strings.TrimSpace(r.FormValue("username"))
@@ -94,6 +118,9 @@ func (a *App) handleCreateMember(w http.ResponseWriter, r *http.Request) {
 // guessing an ID).
 func (a *App) handleDeleteMember(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
+	if !a.requireWorkspaceOwner(w, r, currentUser) {
+		return
+	}
 	targetID, err := strconv.ParseInt(r.PathValue("userID"), 10, 64)
 	if err != nil {
 		http.NotFound(w, r)

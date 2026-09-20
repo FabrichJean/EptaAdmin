@@ -58,6 +58,20 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, page string, data a
 		if _, exists := m["Lang"]; !exists {
 			m["Lang"] = a.resolveLang(r)
 		}
+		// The "Membres" nav link and the /members roster only make sense for
+		// someone who owns at least one workspace to assign members into —
+		// resolved once here so every page (not just the members page
+		// itself) can hide the link for everyone else.
+		if _, exists := m["CanAccessMembers"]; !exists {
+			if u, ok := m["CurrentUser"].(*User); ok {
+				owner, err := a.store.IsWorkspaceOwner(u.ID)
+				if err != nil {
+					log.Printf("check workspace owner error: %v", err)
+				} else {
+					m["CanAccessMembers"] = owner
+				}
+			}
+		}
 		// Pages that set "Workspace" (workspace_detail, datasource_table) get
 		// a storage gauge for free in the sidebar, computed once here rather
 		// than duplicated in every handler that builds one of those pages.
