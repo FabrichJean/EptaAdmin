@@ -1059,6 +1059,22 @@
     const matchesGlobal = !q || row.textContent.toLowerCase().includes(q);
     const matchesLocal = !lq || row.textContent.toLowerCase().includes(lq);
     row.style.display = (matchesGlobal && matchesLocal && typeOk) ? "" : "none";
+    updateColumnPanelVisibility(row.closest(".column-panel"));
+  }
+
+  // A column with at least one value but none of them currently matching
+  // (search/filter) is hidden entirely, rather than left showing as an
+  // empty card — a genuinely empty column (no rows at all) is untouched,
+  // since that's its normal "no records yet" empty-state, not a filter result.
+  function updateColumnPanelVisibility(panel) {
+    if (!panel) return;
+    const rows = panel.querySelectorAll(".value-row[data-search-value]");
+    if (rows.length === 0) {
+      panel.style.display = "";
+      return;
+    }
+    const anyVisible = Array.from(rows).some((r) => r.style.display !== "none");
+    panel.style.display = anyVisible ? "" : "none";
   }
 
   const globalSearchInput = document.getElementById("global-search-input");
