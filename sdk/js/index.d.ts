@@ -22,8 +22,13 @@ export declare class EptaAdminError extends Error {
 }
 
 export interface EptaAdminClientOptions {
-  /** A personal API key generated from the EptaAdmin profile page. */
-  apiKey: string;
+  /**
+   * A personal API key generated from the EptaAdmin profile page. Only
+   * required for calls that actually reach the network — a call fully
+   * served from build-time-prefetched data (see eptaadmin-sdk/vite) never
+   * needs one.
+   */
+  apiKey?: string;
   /** The URL of your EptaAdmin instance. Defaults to http://localhost:8080. */
   baseUrl?: string;
 }

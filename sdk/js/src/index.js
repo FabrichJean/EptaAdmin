@@ -31,21 +31,35 @@ function resolveImageURLs(value, baseUrl) {
   return Array.isArray(value) ? value.map((v) => resolveImageURL(v, baseUrl)) : resolveImageURL(value, baseUrl);
 }
 
+// Populated by build tooling (see eptaadmin-sdk/vite) via a bundler `define`
+// so the exact same `client.getDataSource()` / `client.getValue()` calls
+// resolve from build-time-fetched data in a production bundle, with zero
+// runtime request — while resolving live in dev, where that identifier is
+// either undefined or defined as `{}`. `typeof` is deliberate: it's the one
+// operator that never throws on an identifier no bundler has declared at
+// all, so the SDK works unmodified outside of Vite too.
+const PREFETCHED = typeof __EPTAADMIN_PREFETCH_DATA__ !== "undefined" ? __EPTAADMIN_PREFETCH_DATA__ : {};
+
 export class EptaAdminClient {
   /**
-   * @param {{ apiKey: string, baseUrl?: string }} options
+   * @param {{ apiKey?: string, baseUrl?: string }} options
    *   apiKey  — a personal API key generated from the EptaAdmin profile page.
+   *             Only required for calls that actually reach the network —
+   *             a call fully served from build-time-prefetched data (see
+   *             eptaadmin-sdk/vite) never needs one, so it's fine to leave
+   *             unset in a production bundle that only reads prefetched
+   *             sources.
    *   baseUrl — the URL of your EptaAdmin instance (default: http://localhost:8080).
    */
   constructor({ apiKey, baseUrl = "http://localhost:8080" } = {}) {
-    if (!apiKey) {
-      throw new Error("EptaAdminClient requires an apiKey");
-    }
     this.apiKey = apiKey;
     this.baseUrl = baseUrl.replace(/\/$/, "");
   }
 
   async _request(path) {
+    if (!this.apiKey) {
+      throw new Error("EptaAdminClient requires an apiKey for this call (it wasn't served from prefetched data)");
+    }
     const res = await fetch(this.baseUrl + path, {
       headers: { Authorization: `Bearer ${this.apiKey}` },
     });
@@ -74,9 +88,12 @@ export class EptaAdminClient {
    * object of `{ [columnKey]: value[] }`.
    */
   async getDataSource(workspaceSlug, dataSourceSlug) {
-    const body = await this._request(
-      `/api/v1/workspaces/${encodeURIComponent(workspaceSlug)}/datasources/${encodeURIComponent(dataSourceSlug)}`
-    );
+    const cached = PREFETCHED[`${workspaceSlug}/${dataSourceSlug}`];
+    const body = cached
+      ? { name: cached.name, slug: cached.slug, columns: { ...cached.columns } }
+      : await this._request(
+          `/api/v1/workspaces/${encodeURIComponent(workspaceSlug)}/datasources/${encodeURIComponent(dataSourceSlug)}`
+        );
     for (const key of Object.keys(body.columns || {})) {
       body.columns[key] = resolveImageURLs(body.columns[key], this.baseUrl);
     }
@@ -99,6 +116,20 @@ export class EptaAdminClient {
       );
     }
     const [workspaceSlug, dataSourceSlug, column, index] = segments;
+
+    const cached = PREFETCHED[`${workspaceSlug}/${dataSourceSlug}`];
+    if (cached) {
+      const values = (cached.columns || {})[column];
+      if (values === undefined) {
+        throw new EptaAdminError(`column "${column}" not found`, 404);
+      }
+      const result = index !== undefined ? values[Number(index)] : values;
+      if (index !== undefined && result === undefined) {
+        throw new EptaAdminError(`index ${index} out of range for column "${column}"`, 404);
+      }
+      return resolveImageURLs(result, this.baseUrl);
+    }
+
     let url =
       `/api/v1/workspaces/${encodeURIComponent(workspaceSlug)}` +
       `/datasources/${encodeURIComponent(dataSourceSlug)}` +
