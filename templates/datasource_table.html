@@ -59,6 +59,10 @@
             <p class="px-3 pt-1.5 text-xs" style="color: var(--eb-muted); border-top: 1px solid var(--eb-border);">{{t .Lang "datasource.sort_display_only"}}</p>
           </div>
         </div>
+        <button id="freeform-toggle-btn" type="button" class="eb-btn-secondary rounded-lg text-sm font-medium px-4 py-2.5 transition-colors flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>
+          {{t .Lang "datasource.freeform_button"}}
+        </button>
         <div class="relative">
           <button id="page-menu-btn" type="button" class="eb-btn-secondary rounded-lg px-3 py-2.5 transition-colors">⋯</button>
           <div id="page-menu" class="hidden absolute right-0 mt-2 w-44 rounded-lg py-1 z-20 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
@@ -74,11 +78,58 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <!-- Schema view: the data source presented as a single entity card
+           (icon, name, field list with types), the same visual language as
+           an ER-diagram table box — every column aligned as one row in the
+           same table, not scattered into separate cards. -->
+      <div id="schema-panel" class="hidden mb-6">
+        <div class="eb-card rounded-xl overflow-hidden" style="max-width: 420px; border-top: 3px solid var(--eb-accent);">
+          <div class="px-4 py-3 flex items-center justify-between gap-3" style="border-bottom: 1px solid var(--eb-border);">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <div class="h-8 w-8 rounded-lg flex items-center justify-center shrink-0" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">{{template "col-icon" "database"}}</div>
+              <div class="min-w-0">
+                <p class="text-sm font-bold truncate" style="color: var(--eb-text);">{{.DataSource.Name}}</p>
+                <span class="eb-chip" style="font-size: 0.65rem;">{{t .Lang "datasource.entity_badge"}}</span>
+              </div>
+            </div>
+            <span class="text-xs shrink-0" style="color: var(--eb-muted);">{{len .Columns}} {{t .Lang "datasource.fields_word"}}</span>
+          </div>
+
+          {{range $i, $c := .Columns}}
+          {{$colorHex := columnColorHex $c.Key}}
+          <div class="schema-field-row px-4 py-2 flex items-center justify-between gap-3 text-sm{{if ge $i 6}} hidden{{end}}" style="{{if $i}}border-top: 1px solid var(--eb-border);{{end}}">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <span class="h-2 w-2 rounded-full shrink-0" style="background: {{$colorHex}};"></span>
+              <span class="truncate" style="color: var(--eb-text);">{{$c.Key}}</span>
+            </div>
+            <span class="shrink-0 text-xs" style="color: var(--eb-muted); font-family: ui-monospace, 'SF Mono', Menlo, monospace;">{{if $c.Type}}{{typeLabel $.Lang $c.Type}}{{else}}—{{end}}</span>
+          </div>
+          {{end}}
+
+          {{if gt (len .Columns) 6}}
+          <button type="button" id="schema-expand-btn" class="w-full text-left px-4 py-2.5 text-xs transition-colors" style="color: var(--eb-accent); border-top: 1px solid var(--eb-border);">
+            + {{sub (len .Columns) 6}} {{t .Lang "datasource.other_fields_word"}}
+          </button>
+          {{end}}
+
+          {{if not .Columns}}
+          <div class="px-4 py-8 text-center text-sm" style="color: var(--eb-muted);">{{t .Lang "datasource.no_columns"}}</div>
+          {{end}}
+        </div>
+      </div>
+
+      <div id="columns-viewport" class="relative">
+        <div id="freeform-controls" class="hidden absolute top-2 left-2 z-20 flex flex-col gap-1.5">
+          <button type="button" id="freeform-zoom-in" class="eb-btn-secondary rounded-lg h-8 w-8 flex items-center justify-center text-base leading-none">+</button>
+          <button type="button" id="freeform-zoom-out" class="eb-btn-secondary rounded-lg h-8 w-8 flex items-center justify-center text-base leading-none">−</button>
+          <button type="button" id="freeform-zoom-reset" class="eb-btn-secondary rounded-lg h-8 w-8 flex items-center justify-center text-xs leading-none">⤢</button>
+        </div>
+      <div id="columns-canvas" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" data-position-url="/workspaces/{{.Workspace.Slug}}/datasources/{{.DataSource.Slug}}/columns/__KEY__/position">
         {{range .Columns}}
         {{$colorHex := columnColorHex .Key}}
         {{$icon := columnIcon .Key}}
-        <div class="column-panel eb-card rounded-xl flex flex-col overflow-hidden" style="border-top: 3px solid {{$colorHex}};" data-column="{{.Key}}" data-managed="{{if .Managed}}true{{else}}false{{end}}">
+        {{$pos := index $.ColumnPositions .Key}}
+        <div class="column-panel eb-card rounded-xl flex flex-col overflow-hidden" style="border-top: 3px solid {{$colorHex}};" data-column="{{.Key}}" data-managed="{{if .Managed}}true{{else}}false{{end}}"{{if $pos}} data-pos-x="{{$pos.X}}" data-pos-y="{{$pos.Y}}"{{end}}>
           <div class="px-4 py-3 flex items-start justify-between gap-2" style="border-bottom: 1px solid var(--eb-border);">
             <div class="flex items-start gap-3 min-w-0">
               <div class="h-10 w-10 rounded-lg flex items-center justify-center shrink-0" style="background: {{$colorHex}}26; color: {{$colorHex}};">
@@ -214,6 +265,7 @@
           </div>
         </div>
         {{end}}
+      </div>
       </div>
      </div>
     </main>
@@ -1321,6 +1373,191 @@
       });
     });
   }
+
+  // --- Schema view toggle ---
+  const schemaToggleBtn = document.getElementById("schema-toggle-btn");
+  const schemaPanel = document.getElementById("schema-panel");
+  if (schemaToggleBtn && schemaPanel) {
+    schemaToggleBtn.addEventListener("click", () => {
+      schemaPanel.classList.toggle("hidden");
+    });
+  }
+  const schemaExpandBtn = document.getElementById("schema-expand-btn");
+  if (schemaExpandBtn) {
+    schemaExpandBtn.addEventListener("click", () => {
+      document.querySelectorAll(".schema-field-row.hidden").forEach((row) => row.classList.remove("hidden"));
+      schemaExpandBtn.remove();
+    });
+  }
+
+  // --- Freeform layout: each column card becomes a freely draggable "sticky
+  // note" on a pannable/zoomable canvas, like a whiteboard diagram tool —
+  // no relationship lines, since columns here are independent. Toggling
+  // off just clears the inline styles this adds, letting the underlying
+  // CSS grid classes (never removed) take back over. ---
+  (function () {
+    const toggleBtn = document.getElementById("freeform-toggle-btn");
+    const viewport = document.getElementById("columns-viewport");
+    const canvas = document.getElementById("columns-canvas");
+    const controls = document.getElementById("freeform-controls");
+    if (!toggleBtn || !viewport || !canvas || !controls) return;
+
+    // Positions are shared, server-side (see column_canvas_positions):
+    // whatever a workspace member drags a card to is saved via the URL
+    // template below (the literal "__KEY__" is swapped for the real,
+    // URL-encoded column key) and shown identically to every other member.
+    const positionURLTemplate = canvas.dataset.positionUrl;
+    let active = false;
+    let scale = 1, panX = 0, panY = 0;
+    let draggingCard = null, dragStartX, dragStartY, dragOrigLeft, dragOrigTop;
+    let panning = false, panStartX, panStartY, panOrigX, panOrigY;
+
+    function cardKey(card) {
+      return card.dataset.column || "";
+    }
+    function savePosition(key, left, top) {
+      if (!key || !positionURLTemplate) return; // the "+ add column" card has no key to save
+      const url = positionURLTemplate.replace("__KEY__", encodeURIComponent(key));
+      fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ x: Math.round(left), y: Math.round(top) }),
+      }).catch(() => {});
+    }
+    function applyTransform() {
+      canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+    }
+
+    function enableFreeform() {
+      const cards = Array.from(canvas.querySelectorAll(".column-panel, .column-panel-empty"));
+      // Freeze each card's current CSS-grid-computed position before
+      // switching to absolute, so the default layout (first time, nothing
+      // saved yet) looks exactly like the grid it's replacing.
+      const naturalRects = cards.map((c) => ({ left: c.offsetLeft, top: c.offsetTop, width: c.offsetWidth }));
+      let maxRight = 0, maxBottom = 0;
+      cards.forEach((card, i) => {
+        const hasSaved = card.dataset.posX !== undefined && card.dataset.posY !== undefined;
+        const left = hasSaved ? parseInt(card.dataset.posX, 10) : naturalRects[i].left;
+        const top = hasSaved ? parseInt(card.dataset.posY, 10) : naturalRects[i].top;
+        card.style.position = "absolute";
+        card.style.left = left + "px";
+        card.style.top = top + "px";
+        card.style.width = naturalRects[i].width + "px";
+        card.style.margin = "0";
+        maxRight = Math.max(maxRight, left + naturalRects[i].width + 80);
+        maxBottom = Math.max(maxBottom, top + 560);
+      });
+      canvas.style.position = "relative";
+      canvas.style.width = Math.max(maxRight, 1600) + "px";
+      canvas.style.height = Math.max(maxBottom, 900) + "px";
+      canvas.style.transformOrigin = "0 0";
+
+      viewport.style.height = "75vh";
+      viewport.style.overflow = "hidden";
+      viewport.style.borderRadius = "0.75rem";
+      viewport.style.border = "1px solid var(--eb-border)";
+      viewport.style.backgroundImage = "radial-gradient(circle, var(--eb-border) 1px, transparent 1px)";
+      viewport.style.backgroundSize = "22px 22px";
+      viewport.style.cursor = "grab";
+      controls.classList.remove("hidden");
+
+      scale = 1; panX = 0; panY = 0;
+      applyTransform();
+    }
+
+    function disableFreeform() {
+      canvas.querySelectorAll(".column-panel, .column-panel-empty").forEach((card) => {
+        card.style.position = "";
+        card.style.left = "";
+        card.style.top = "";
+        card.style.width = "";
+        card.style.margin = "";
+        card.style.zIndex = "";
+      });
+      canvas.style.position = "";
+      canvas.style.width = "";
+      canvas.style.height = "";
+      canvas.style.transform = "";
+      canvas.style.transformOrigin = "";
+      viewport.style.height = "";
+      viewport.style.overflow = "";
+      viewport.style.borderRadius = "";
+      viewport.style.border = "";
+      viewport.style.backgroundImage = "";
+      viewport.style.backgroundSize = "";
+      viewport.style.cursor = "";
+      controls.classList.add("hidden");
+    }
+
+    toggleBtn.addEventListener("click", () => {
+      active = !active;
+      toggleBtn.classList.toggle("eb-btn-primary", active);
+      if (active) enableFreeform(); else disableFreeform();
+    });
+
+    document.getElementById("freeform-zoom-in")?.addEventListener("click", () => { scale = Math.min(scale * 1.2, 2.5); applyTransform(); });
+    document.getElementById("freeform-zoom-out")?.addEventListener("click", () => { scale = Math.max(scale / 1.2, 0.3); applyTransform(); });
+    document.getElementById("freeform-zoom-reset")?.addEventListener("click", () => { scale = 1; panX = 0; panY = 0; applyTransform(); });
+
+    viewport.addEventListener("wheel", (e) => {
+      if (!active) return;
+      e.preventDefault();
+      const delta = e.deltaY < 0 ? 1.1 : 0.9;
+      scale = Math.min(Math.max(scale * delta, 0.3), 2.5);
+      applyTransform();
+    }, { passive: false });
+
+    // Panning: drag the canvas's empty background (not a card).
+    viewport.addEventListener("mousedown", (e) => {
+      if (!active || e.target.closest(".column-panel, .column-panel-empty")) return;
+      panning = true;
+      panStartX = e.clientX; panStartY = e.clientY;
+      panOrigX = panX; panOrigY = panY;
+      viewport.style.cursor = "grabbing";
+    });
+
+    // Dragging a card: anywhere on it except its interactive areas (value
+    // list, buttons, inputs, menus) so editing/scrolling values still works.
+    canvas.addEventListener("mousedown", (e) => {
+      if (!active) return;
+      const card = e.target.closest(".column-panel, .column-panel-empty");
+      if (!card) return;
+      if (e.target.closest("button, input, select, a, textarea, .value-list, .append-row, .edit-description-form")) return;
+      draggingCard = card;
+      dragStartX = e.clientX; dragStartY = e.clientY;
+      dragOrigLeft = parseFloat(card.style.left) || 0;
+      dragOrigTop = parseFloat(card.style.top) || 0;
+      card.style.zIndex = "10";
+      e.preventDefault();
+    });
+
+    window.addEventListener("mousemove", (e) => {
+      if (draggingCard) {
+        const dx = (e.clientX - dragStartX) / scale;
+        const dy = (e.clientY - dragStartY) / scale;
+        draggingCard.style.left = (dragOrigLeft + dx) + "px";
+        draggingCard.style.top = (dragOrigTop + dy) + "px";
+        return;
+      }
+      if (panning) {
+        panX = panOrigX + (e.clientX - panStartX);
+        panY = panOrigY + (e.clientY - panStartY);
+        applyTransform();
+      }
+    });
+
+    window.addEventListener("mouseup", () => {
+      if (draggingCard) {
+        savePosition(cardKey(draggingCard), parseFloat(draggingCard.style.left), parseFloat(draggingCard.style.top));
+        draggingCard.style.zIndex = "";
+        draggingCard = null;
+      }
+      if (panning) {
+        panning = false;
+        viewport.style.cursor = "grab";
+      }
+    });
+  })();
 
   // --- Page-level "..." menu ---
   const pageMenuBtn = document.getElementById("page-menu-btn");
