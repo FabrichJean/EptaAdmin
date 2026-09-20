@@ -27,18 +27,15 @@
 
       <div class="eb-card rounded-xl p-6">
         <h2 class="font-semibold mb-2" style="color: var(--eb-text);">2. Installer le SDK JavaScript</h2>
-        <p class="text-sm mb-3" style="color: var(--eb-muted);">Le package n'est pas encore publié sur le registre npm : ajoutez-le comme dépendance locale ou copiez le dossier <code class="font-mono">sdk/js</code> dans votre projet.</p>
+        <p class="text-sm mb-3" style="color: var(--eb-muted);">Le package est publié sur le <a href="https://www.npmjs.com/package/eptaadmin-sdk" target="_blank" rel="noopener" class="hover:underline" style="color: var(--eb-accent);">registre npm</a> et versionné automatiquement depuis ce dépôt.</p>
         <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--eb-border);">
           <div class="flex items-center justify-between px-4 py-2" style="background: var(--eb-surface-2); border-bottom: 1px solid var(--eb-border);">
-            <span class="text-xs font-mono" style="color: var(--eb-muted);">package.json</span>
+            <span class="text-xs font-mono" style="color: var(--eb-muted);">shell</span>
             <button class="copy-code-btn text-xs transition-colors" type="button" style="color: var(--eb-muted);">Copier</button>
           </div>
-          <pre class="eb-code" style="border: none; border-radius: 0;"><code class="language-json">{
-  "dependencies": {
-    "eptaadmin-sdk": "file:../path/to/EptaAdmin/sdk/js"
-  }
-}</code></pre>
+          <pre class="eb-code" style="border: none; border-radius: 0;"><code class="language-bash">npm install eptaadmin-sdk</code></pre>
         </div>
+        <p class="text-xs mt-3" style="color: var(--eb-muted);">Pour tester un changement pas encore publié, pointez plutôt vers le dossier local : <code class="font-mono">"eptaadmin-sdk": "file:../path/to/EptaAdmin/sdk/js"</code> dans votre <code class="font-mono">package.json</code>.</p>
       </div>
 
       <div class="eb-card rounded-xl p-6">
