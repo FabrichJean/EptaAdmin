@@ -93,7 +93,7 @@
       onmouseover="if(!this.dataset.active)this.style.background='var(--eb-surface-2)'" onmouseout="if(!this.dataset.active)this.style.background=''"
       {{if eq .ActiveNav "dashboard"}}data-active="true"{{end}}>
       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
-      Tableau de bord
+      {{t .Lang "nav.dashboard"}}
     </a>
     <a href="/workspaces"
       class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
@@ -101,7 +101,7 @@
       onmouseover="if(!this.dataset.active)this.style.background='var(--eb-surface-2)'" onmouseout="if(!this.dataset.active)this.style.background=''"
       {{if eq .ActiveNav "workspaces"}}data-active="true"{{end}}>
       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
-      Workspaces
+      {{t .Lang "nav.workspaces"}}
     </a>
     <a href="/integration"
       class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
@@ -109,7 +109,7 @@
       onmouseover="if(!this.dataset.active)this.style.background='var(--eb-surface-2)'" onmouseout="if(!this.dataset.active)this.style.background=''"
       {{if eq .ActiveNav "integration"}}data-active="true"{{end}}>
       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-      Intégration
+      {{t .Lang "nav.integration"}}
     </a>
     {{if .CanManageMembers}}
     <a href="/members"
@@ -118,7 +118,7 @@
       onmouseover="if(!this.dataset.active)this.style.background='var(--eb-surface-2)'" onmouseout="if(!this.dataset.active)this.style.background=''"
       {{if eq .ActiveNav "members"}}data-active="true"{{end}}>
       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      Membres
+      {{t .Lang "nav.members"}}
     </a>
     {{end}}
   </nav>
@@ -127,7 +127,7 @@
     <img src="{{.CurrentUser.AvatarImageURL}}" alt="" class="h-8 w-8 shrink-0 rounded-full" style="background: var(--eb-surface-2);" />
     <div class="min-w-0">
       <p class="text-sm font-medium truncate" style="color: var(--eb-text);">{{.CurrentUser.Username}}</p>
-      <p class="text-xs truncate" style="color: var(--eb-muted);">{{.CurrentUser.RoleLabel}}</p>
+      <p class="text-xs truncate" style="color: var(--eb-muted);">{{.CurrentUser.RoleLabel .Lang}}</p>
     </div>
   </div>
 </aside>
@@ -174,19 +174,23 @@
         {{.MemberCount}}
       </span>
       {{end}}
+      <form method="POST" action="/profile/language" class="hidden sm:flex items-center text-xs font-medium rounded-lg overflow-hidden shrink-0" style="border: 1px solid var(--eb-border);">
+        <button type="submit" name="language" value="fr" class="px-2 py-1 transition-colors" style="{{if eq .Lang "fr"}}background: var(--eb-surface-2); color: var(--eb-text);{{else}}color: var(--eb-muted);{{end}}">FR</button>
+        <button type="submit" name="language" value="en" class="px-2 py-1 transition-colors" style="{{if eq .Lang "en"}}background: var(--eb-surface-2); color: var(--eb-text);{{else}}color: var(--eb-muted);{{end}}">EN</button>
+      </form>
       <div class="relative">
         <button id="user-menu-btn" type="button" class="flex items-center gap-2">
           <img src="{{.CurrentUser.AvatarImageURL}}" alt="" class="h-8 w-8 rounded-full shrink-0" style="background: var(--eb-accent);" />
           <div class="hidden sm:block text-left leading-tight">
             <p class="text-sm font-medium" style="color: var(--eb-text);">{{.CurrentUser.Username}}</p>
-            <p class="text-xs" style="color: var(--eb-muted);">{{.CurrentUser.RoleLabel}}</p>
+            <p class="text-xs" style="color: var(--eb-muted);">{{.CurrentUser.RoleLabel .Lang}}</p>
           </div>
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 hidden sm:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--eb-muted);"><path d="m6 9 6 6 6-6"/></svg>
         </button>
         <div id="user-menu" class="hidden absolute right-0 mt-2 w-44 rounded-lg py-1 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
-          <a href="/profile" class="block w-full text-left px-3 py-2 text-sm" style="color: var(--eb-text);">Mon profil</a>
+          <a href="/profile" class="block w-full text-left px-3 py-2 text-sm" style="color: var(--eb-text);">{{t .Lang "nav.profile"}}</a>
           <form method="POST" action="/logout">
-            <button type="submit" class="w-full text-left px-3 py-2 text-sm" style="color: #f87171;">Déconnexion</button>
+            <button type="submit" class="w-full text-left px-3 py-2 text-sm" style="color: #f87171;">{{t .Lang "nav.logout"}}</button>
           </form>
         </div>
       </div>
@@ -227,7 +231,7 @@
 {{end}}
 {{define "layout"}}
 <!DOCTYPE html>
-<html lang="fr" class="h-full">
+<html lang="{{.Lang}}" class="h-full">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />

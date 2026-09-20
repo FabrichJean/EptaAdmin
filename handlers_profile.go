@@ -12,7 +12,7 @@ import (
 // profilePageData builds the common template data for profile.html, reused
 // by the initial render and by every form-error redisplay below — including
 // the user's API keys, since that section is always visible on the page.
-func (a *App) profilePageData(currentUser *User) map[string]any {
+func (a *App) profilePageData(lang string, currentUser *User) map[string]any {
 	keys, err := a.store.ListAPIKeys(currentUser.ID)
 	if err != nil {
 		log.Printf("list api keys error: %v", err)
@@ -20,7 +20,7 @@ func (a *App) profilePageData(currentUser *User) map[string]any {
 	return map[string]any{
 		"CurrentUser": currentUser,
 		"ActiveNav":   "",
-		"PageTitle":   "Mon profil",
+		"PageTitle":   T(lang, "profile.title"),
 		"HeaderIcon":  "person",
 		"APIKeys":     keys,
 	}
@@ -28,38 +28,39 @@ func (a *App) profilePageData(currentUser *User) map[string]any {
 
 func (a *App) handleProfilePage(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
-	data := a.profilePageData(currentUser)
+	data := a.profilePageData(a.resolveLang(r), currentUser)
 	if updated := r.URL.Query().Get("updated"); updated != "" {
 		data["Updated"] = updated
 	}
 	if avatarError := r.URL.Query().Get("avatarError"); avatarError != "" {
 		data["AvatarError"] = avatarError
 	}
-	a.render(w, "profile.html", data)
+	a.render(w, r, "profile.html", data)
 }
 
 func (a *App) handleUpdateProfileEmail(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
+	lang := a.resolveLang(r)
 	email := strings.TrimSpace(r.FormValue("email"))
 
 	renderError := func(msg string) {
-		data := a.profilePageData(currentUser)
+		data := a.profilePageData(lang, currentUser)
 		data["EmailError"] = msg
 		data["Email"] = email
-		a.render(w, "profile.html", data)
+		a.render(w, r, "profile.html", data)
 	}
 
 	if email == "" {
-		renderError("Merci de renseigner un email.")
+		renderError(T(lang, "profile.email_required"))
 		return
 	}
 
 	if err := a.store.UpdateUserEmail(currentUser.ID, email); err != nil {
 		if err == ErrEmailExists {
-			renderError(err.Error())
+			renderError(T(lang, "profile.email_exists"))
 		} else {
 			log.Printf("update email error: %v", err)
-			renderError("Une erreur est survenue, réessayez.")
+			renderError(T(lang, "common.error_generic_retry"))
 		}
 		return
 	}
@@ -69,42 +70,68 @@ func (a *App) handleUpdateProfileEmail(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) handleUpdateProfilePassword(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
+	lang := a.resolveLang(r)
 	current := r.FormValue("current_password")
 	next := r.FormValue("new_password")
 	confirm := r.FormValue("confirm_password")
 
 	renderError := func(msg string) {
-		data := a.profilePageData(currentUser)
+		data := a.profilePageData(lang, currentUser)
 		data["PasswordError"] = msg
-		a.render(w, "profile.html", data)
+		a.render(w, r, "profile.html", data)
 	}
 
 	if !checkPassword(currentUser.PasswordHash, current) {
-		renderError("Mot de passe actuel incorrect.")
+		renderError(T(lang, "profile.wrong_current_password"))
 		return
 	}
 	if len(next) < 8 {
-		renderError("Le nouveau mot de passe doit contenir au moins 8 caractères.")
+		renderError(T(lang, "profile.password_too_short"))
 		return
 	}
 	if next != confirm {
-		renderError("La confirmation ne correspond pas au nouveau mot de passe.")
+		renderError(T(lang, "profile.password_mismatch"))
 		return
 	}
 
 	hash, err := hashPassword(next)
 	if err != nil {
 		log.Printf("hash error: %v", err)
-		renderError("Une erreur est survenue, réessayez.")
+		renderError(T(lang, "common.error_generic_retry"))
 		return
 	}
 	if err := a.store.UpdateUserPassword(currentUser.ID, hash); err != nil {
 		log.Printf("update password error: %v", err)
-		renderError("Une erreur est survenue, réessayez.")
+		renderError(T(lang, "common.error_generic_retry"))
 		return
 	}
 
 	http.Redirect(w, r, "/profile?updated=password", http.StatusSeeOther)
+}
+
+// handleUpdateProfileLanguage switches the account's persisted UI
+// language. Unlike the pre-login cookie fallback, this follows the user
+// across devices since it's stored on the account itself.
+func (a *App) handleUpdateProfileLanguage(w http.ResponseWriter, r *http.Request) {
+	currentUser := userFromContext(r)
+	lang := strings.TrimSpace(r.FormValue("language"))
+	if !supportedLangs[lang] {
+		http.Error(w, "Unsupported language.", http.StatusBadRequest)
+		return
+	}
+	if err := a.store.UpdateUserLanguage(currentUser.ID, lang); err != nil {
+		log.Printf("update language error: %v", err)
+		http.Error(w, T(lang, "common.error_generic"), http.StatusInternalServerError)
+		return
+	}
+	// Switched from the profile page's own dropdown: show the confirmation
+	// banner there. Switched from the header (any other page): stay put
+	// instead of jumping to /profile.
+	if ref, err := url.Parse(r.Referer()); err == nil && ref.Path != "" && ref.Path != "/profile" {
+		http.Redirect(w, r, ref.RequestURI(), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/profile?updated=language", http.StatusSeeOther)
 }
 
 // handleUpdateProfileAvatarSeed switches the user to a generated avatar
@@ -114,7 +141,7 @@ func (a *App) handleUpdateProfileAvatarSeed(w http.ResponseWriter, r *http.Reque
 	currentUser := userFromContext(r)
 	seed := strings.TrimSpace(r.FormValue("seed"))
 	if seed == "" {
-		http.Error(w, "Graine d'avatar manquante.", http.StatusBadRequest)
+		http.Error(w, T(a.resolveLang(r), "profile.avatar_seed_missing"), http.StatusBadRequest)
 		return
 	}
 
@@ -133,15 +160,16 @@ func (a *App) handleUpdateProfileAvatarSeed(w http.ResponseWriter, r *http.Reque
 // avatar, replacing (and cleaning up) any previous custom upload.
 func (a *App) handleUploadProfileAvatar(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
+	lang := a.resolveLang(r)
 
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize+1<<20)
 	if err := r.ParseMultipartForm(maxUploadSize + 1<<20); err != nil {
-		http.Redirect(w, r, "/profile?avatarError=Fichier+trop+volumineux+ou+requête+invalide.", http.StatusSeeOther)
+		http.Redirect(w, r, "/profile?avatarError="+url.QueryEscape(T(lang, "profile.avatar_upload_too_large")), http.StatusSeeOther)
 		return
 	}
 	file, header, err := r.FormFile("file")
 	if err != nil {
-		http.Redirect(w, r, "/profile?avatarError=Aucun+fichier+reçu.", http.StatusSeeOther)
+		http.Redirect(w, r, "/profile?avatarError="+url.QueryEscape(T(lang, "profile.avatar_upload_missing")), http.StatusSeeOther)
 		return
 	}
 	defer file.Close()
@@ -151,7 +179,7 @@ func (a *App) handleUploadProfileAvatar(w http.ResponseWriter, r *http.Request) 
 		if err != ErrUnsupportedImageType && err != ErrImageTooLarge {
 			log.Printf("save avatar upload error: %v", err)
 		}
-		http.Redirect(w, r, "/profile?avatarError="+url.QueryEscape(err.Error()), http.StatusSeeOther)
+		http.Redirect(w, r, "/profile?avatarError="+url.QueryEscape(uploadErrorMessage(lang, err)), http.StatusSeeOther)
 		return
 	}
 
@@ -159,7 +187,7 @@ func (a *App) handleUploadProfileAvatar(w http.ResponseWriter, r *http.Request) 
 	if err := a.store.UpdateUserAvatarUpload(currentUser.ID, avatarUploadURL(filename)); err != nil {
 		log.Printf("update avatar upload error: %v", err)
 		removeAvatarUpload(avatarUploadURL(filename))
-		http.Redirect(w, r, "/profile?avatarError=Une+erreur+est+survenue,+réessayez.", http.StatusSeeOther)
+		http.Redirect(w, r, "/profile?avatarError="+url.QueryEscape(T(lang, "common.error_generic_retry")), http.StatusSeeOther)
 		return
 	}
 	removeAvatarUpload(oldUpload)
@@ -181,23 +209,24 @@ func (a *App) handleServeAvatar(w http.ResponseWriter, r *http.Request) {
 // user exactly once.
 func (a *App) handleCreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
+	lang := a.resolveLang(r)
 	name := strings.TrimSpace(r.FormValue("name"))
 	if name == "" {
-		name = "Sans nom"
+		name = T(lang, "profile.unnamed_key")
 	}
 
 	plaintext, _, err := a.store.CreateAPIKey(currentUser.ID, name)
 	if err != nil {
 		log.Printf("create api key error: %v", err)
-		data := a.profilePageData(currentUser)
-		data["APIKeyError"] = "Une erreur est survenue, réessayez."
-		a.render(w, "profile.html", data)
+		data := a.profilePageData(lang, currentUser)
+		data["APIKeyError"] = T(lang, "common.error_generic_retry")
+		a.render(w, r, "profile.html", data)
 		return
 	}
 
-	data := a.profilePageData(currentUser)
+	data := a.profilePageData(lang, currentUser)
 	data["NewAPIKey"] = plaintext
-	a.render(w, "profile.html", data)
+	a.render(w, r, "profile.html", data)
 }
 
 // handleDeleteAPIKey revokes a key. DeleteAPIKey scopes the deletion to the
