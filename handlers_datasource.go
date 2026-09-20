@@ -96,16 +96,15 @@ func (a *App) handleDataSourceTable(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.render(w, r, "datasource_table.html", map[string]any{
-		"CurrentUser":      currentUser,
-		"ActiveNav":        "workspaces",
-		"PageTitle":        ds.Name,
-		"CanManageMembers": canManageMembers(currentUser.Role),
-		"Workspace":        ws,
-		"DataSource":       ds,
-		"Columns":          columns,
-		"CanEdit":          hasPermission(role, PermDataUpdate),
-		"CanDelete":        hasPermission(role, PermDataDelete),
-		"CanCreate":        hasPermission(role, PermDataCreate),
+		"CurrentUser": currentUser,
+		"ActiveNav":   "workspaces",
+		"PageTitle":   ds.Name,
+		"Workspace":   ws,
+		"DataSource":  ds,
+		"Columns":     columns,
+		"CanEdit":     hasPermission(role, PermDataUpdate),
+		"CanDelete":   hasPermission(role, PermDataDelete),
+		"CanCreate":   hasPermission(role, PermDataCreate),
 		"Breadcrumb": []Breadcrumb{
 			{Label: T(lang, "nav.workspaces"), URL: "/workspaces"},
 			{Label: ws.Name, URL: "/workspaces/" + ws.Slug},

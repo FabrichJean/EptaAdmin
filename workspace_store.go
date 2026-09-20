@@ -13,6 +13,7 @@ var ErrWorkspaceExists = errors.New("un workspace avec ce nom existe déjà")
 var ErrAlreadyMember = errors.New("cet utilisateur est déjà membre de ce workspace")
 var ErrDataSourceExists = errors.New("un data source avec ce nom existe déjà dans ce workspace")
 var ErrNotFound = errors.New("introuvable")
+var ErrLastOwner = errors.New("impossible de retirer le dernier propriétaire du workspace")
 
 type Workspace struct {
 	ID        int64
@@ -235,6 +236,61 @@ func (s *Store) AddWorkspaceMember(workspaceID, userID int64, role string) error
 	if isUniqueConstraintErr(err) {
 		return ErrAlreadyMember
 	}
+	return err
+}
+
+// UpdateWorkspaceMemberRole changes a member's role within a workspace.
+// Demoting the workspace's only Owner is refused for the same reason
+// RemoveWorkspaceMember refuses to remove one — every workspace needs at
+// least one Owner able to manage it.
+func (s *Store) UpdateWorkspaceMemberRole(workspaceID, userID int64, newRole string) error {
+	current, err := s.GetWorkspaceMemberRole(workspaceID, userID)
+	if err != nil {
+		return err
+	}
+	if current == RoleOwner && newRole != RoleOwner {
+		var ownerCount int
+		if err := s.db.QueryRow(
+			`SELECT COUNT(*) FROM workspace_members WHERE workspace_id = ? AND role = ?`,
+			workspaceID, RoleOwner,
+		).Scan(&ownerCount); err != nil {
+			return err
+		}
+		if ownerCount <= 1 {
+			return ErrLastOwner
+		}
+	}
+	_, err = s.db.Exec(
+		`UPDATE workspace_members SET role = ? WHERE workspace_id = ? AND user_id = ?`,
+		newRole, workspaceID, userID,
+	)
+	return err
+}
+
+// RemoveWorkspaceMember revokes a member's access to a workspace. Removing
+// the workspace's only Owner is refused — every workspace must keep
+// exactly one, or nobody could manage it (or remaining members) afterward.
+func (s *Store) RemoveWorkspaceMember(workspaceID, userID int64) error {
+	role, err := s.GetWorkspaceMemberRole(workspaceID, userID)
+	if err != nil {
+		return err
+	}
+	if role == RoleOwner {
+		var ownerCount int
+		if err := s.db.QueryRow(
+			`SELECT COUNT(*) FROM workspace_members WHERE workspace_id = ? AND role = ?`,
+			workspaceID, RoleOwner,
+		).Scan(&ownerCount); err != nil {
+			return err
+		}
+		if ownerCount <= 1 {
+			return ErrLastOwner
+		}
+	}
+	_, err = s.db.Exec(
+		`DELETE FROM workspace_members WHERE workspace_id = ? AND user_id = ?`,
+		workspaceID, userID,
+	)
 	return err
 }
 
