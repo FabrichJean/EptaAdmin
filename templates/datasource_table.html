@@ -240,7 +240,11 @@
 <div id="text-preview-backdrop" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0,0,0,0.75);">
   <div class="relative eb-card rounded-xl w-full" style="max-width: min(90vw, 40rem); max-height: 80vh; display: flex; flex-direction: column;">
     <button id="text-preview-close-btn" type="button" class="absolute -top-3 -right-3 h-8 w-8 rounded-full flex items-center justify-center eb-card" style="color: var(--eb-text);">✕</button>
-    <div id="text-preview-content" class="p-5 overflow-y-auto text-sm whitespace-pre-wrap" style="color: var(--eb-text);"></div>
+    <textarea id="text-preview-textarea" class="flex-1 p-5 text-sm eb-field-sm" style="color: var(--eb-text); background: transparent; border: none; resize: none; min-height: 240px; font-family: inherit;" spellcheck="false"></textarea>
+    <div id="text-preview-actions" class="hidden px-5 py-3 flex items-center justify-end gap-2" style="border-top: 1px solid var(--eb-border);">
+      <button id="text-preview-cancel-btn" type="button" class="eb-btn-secondary rounded-lg text-sm px-4 py-2 transition-colors">{{t .Lang "common.cancel"}}</button>
+      <button id="text-preview-save-btn" type="button" class="eb-btn-primary rounded-lg text-sm px-4 py-2 transition-colors">{{t .Lang "common.save"}}</button>
+    </div>
   </div>
 </div>
 
@@ -404,23 +408,63 @@
   });
 
   // --- Long text preview modal: the cell itself only shows a clamped
-  // (2-line) preview via CSS, the full value is already in its
-  // textContent — clicking it just shows that same text unclamped. ---
+  // (2-line) preview via CSS. Opening it shows the full value in a
+  // textarea — editable in place when the cell itself is editable, so
+  // editing a long value doesn't have to happen inside the cramped card. ---
   const textPreviewBackdrop = document.getElementById("text-preview-backdrop");
-  const textPreviewContent = document.getElementById("text-preview-content");
-  function openTextPreview(text) {
-    if (!textPreviewBackdrop || !textPreviewContent) return;
-    textPreviewContent.textContent = text;
+  const textPreviewTextarea = document.getElementById("text-preview-textarea");
+  const textPreviewActions = document.getElementById("text-preview-actions");
+  const textPreviewSaveBtn = document.getElementById("text-preview-save-btn");
+  let textPreviewSpan = null;
+  function openTextPreview(span) {
+    if (!textPreviewBackdrop || !textPreviewTextarea) return;
+    textPreviewSpan = span;
+    const editable = span.classList.contains("editable");
+    textPreviewTextarea.value = span.textContent;
+    textPreviewTextarea.readOnly = !editable;
+    textPreviewActions.classList.toggle("hidden", !editable);
     textPreviewBackdrop.classList.remove("hidden");
+    if (editable) textPreviewTextarea.focus();
   }
   function closeTextPreview() {
     if (!textPreviewBackdrop) return;
     textPreviewBackdrop.classList.add("hidden");
-    textPreviewContent.textContent = "";
+    textPreviewTextarea.value = "";
+    textPreviewSpan = null;
+  }
+  function saveTextPreview() {
+    if (!textPreviewSpan) return;
+    const row = textPreviewSpan.closest(".value-row");
+    const panel = textPreviewSpan.closest(".column-panel");
+    const column = panel.dataset.column;
+    const index = parseInt(row.dataset.index, 10);
+    const type = textPreviewSpan.dataset.type || "text";
+    const original = textPreviewSpan.textContent;
+    const newVal = textPreviewTextarea.value;
+    textPreviewSpan.textContent = newVal;
+    const key = column + ":" + index;
+    if (newVal !== original) {
+      row.classList.add("eb-row-pending");
+      pendingUpdates.set(key, { column, index, value: newVal, type });
+    } else {
+      row.classList.remove("eb-row-pending");
+      pendingUpdates.delete(key);
+    }
+    updateBar();
+    closeTextPreview();
   }
   document.getElementById("text-preview-close-btn")?.addEventListener("click", closeTextPreview);
+  document.getElementById("text-preview-cancel-btn")?.addEventListener("click", closeTextPreview);
+  textPreviewSaveBtn?.addEventListener("click", saveTextPreview);
   textPreviewBackdrop?.addEventListener("click", (e) => { if (e.target === textPreviewBackdrop) closeTextPreview(); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeTextPreview(); });
+  document.addEventListener("keydown", (e) => {
+    if (!textPreviewBackdrop || textPreviewBackdrop.classList.contains("hidden")) return;
+    if (e.key === "Escape") { closeTextPreview(); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !textPreviewTextarea.readOnly) {
+      e.preventDefault();
+      saveTextPreview();
+    }
+  });
 
   // Same single-click-delayed-by-a-dblclick trick as the image preview
   // above, so an editable long-text cell's double-click-to-edit still works.
@@ -429,7 +473,7 @@
     const el = e.target.closest("[data-preview-text]");
     if (!el || el.querySelector(".value-widget")) return;
     clearTimeout(longTextClickTimer);
-    longTextClickTimer = setTimeout(() => openTextPreview(el.textContent.trim()), 220);
+    longTextClickTimer = setTimeout(() => openTextPreview(el), 220);
   });
   document.addEventListener("dblclick", (e) => {
     if (e.target.closest("[data-preview-text]")) clearTimeout(longTextClickTimer);
