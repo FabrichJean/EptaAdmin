@@ -25,8 +25,12 @@ const (
 	ActionAPIKeyCreate   = "apikey.create"
 	ActionAPIKeyDelete   = "apikey.delete"
 
-	ActionWorkspaceCreate = "workspace.create"
-	ActionMemberAdd       = "member.add"
+	ActionWorkspaceCreate  = "workspace.create"
+	ActionMemberAdd        = "member.add"
+	ActionMemberRemove     = "member.remove"
+	ActionMemberRoleChange = "member.role_change"
+	ActionMemberCreate     = "member.create"
+	ActionMemberDelete     = "member.delete"
 
 	ActionDataSourceCreate = "datasource.create"
 	ActionImport           = "datasource.import"
@@ -123,6 +127,14 @@ func (e *ActivityEntry) Describe(lang string) string {
 		return T(lang, "activity.desc.workspace.create", actor, detailString(d, "name"))
 	case ActionMemberAdd:
 		return T(lang, "activity.desc.member.add", actor, detailString(d, "username"), detailString(d, "role"))
+	case ActionMemberRemove:
+		return T(lang, "activity.desc.member.remove", actor, detailString(d, "username"))
+	case ActionMemberRoleChange:
+		return T(lang, "activity.desc.member.role_change", actor, detailString(d, "username"), detailString(d, "role"))
+	case ActionMemberCreate:
+		return T(lang, "activity.desc.member.create", actor, detailString(d, "username"))
+	case ActionMemberDelete:
+		return T(lang, "activity.desc.member.delete", actor, detailString(d, "username"))
 	case ActionDataSourceCreate:
 		return T(lang, "activity.desc.datasource.create", actor, detailString(d, "name"))
 	case ActionImport:
@@ -352,14 +364,13 @@ func (a *App) handleGlobalActivity(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.render(w, r, "activity.html", map[string]any{
-		"CurrentUser":      currentUser,
-		"ActiveNav":        "activity",
-		"PageTitle":        T(lang, "activity.title"),
-		"Rows":             rows,
-		"Global":           true,
-		"CanManageMembers": canManageMembers(currentUser.Role),
-		"HeaderTitle":      T(lang, "activity.title"),
-		"HeaderIcon":       "code",
+		"CurrentUser": currentUser,
+		"ActiveNav":   "activity",
+		"PageTitle":   T(lang, "activity.title"),
+		"Rows":        rows,
+		"Global":      true,
+		"HeaderTitle": T(lang, "activity.title"),
+		"HeaderIcon":  "code",
 	})
 }
 
@@ -415,15 +426,14 @@ func (a *App) handleWorkspaceActivity(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.render(w, r, "activity.html", map[string]any{
-		"CurrentUser":      currentUser,
-		"ActiveNav":        "workspaces",
-		"PageTitle":        T(lang, "activity.title"),
-		"Workspace":        ws,
-		"Rows":             rows,
-		"DataSources":      dataSources,
-		"DSNames":          dsNames,
-		"FilterDS":         r.URL.Query().Get("ds"),
-		"CanManageMembers": canManageMembers(currentUser.Role),
+		"CurrentUser": currentUser,
+		"ActiveNav":   "workspaces",
+		"PageTitle":   T(lang, "activity.title"),
+		"Workspace":   ws,
+		"Rows":        rows,
+		"DataSources": dataSources,
+		"DSNames":     dsNames,
+		"FilterDS":    r.URL.Query().Get("ds"),
 		"Breadcrumb": []Breadcrumb{
 			{Label: T(lang, "nav.workspaces"), URL: "/workspaces"},
 			{Label: ws.Name, URL: "/workspaces/" + ws.Slug},
