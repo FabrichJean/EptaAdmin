@@ -9,16 +9,30 @@
     ".": {
       "types": "./index.d.ts",
       "import": "./src/index.js"
+    },
+    "./vite": {
+      "types": "./vite-plugin.d.ts",
+      "import": "./vite-plugin.js"
     }
   },
   "files": [
     "src",
     "bin",
     "index.d.ts",
+    "vite-plugin.js",
+    "vite-plugin.d.ts",
     "README.md"
   ],
   "bin": {
     "eptaadmin-prefetch": "./bin/prefetch.js"
+  },
+  "peerDependencies": {
+    "vite": ">=4"
+  },
+  "peerDependenciesMeta": {
+    "vite": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=18"
