@@ -81,7 +81,7 @@ func (a *App) signImageValue(v any) any {
 }
 
 // signImageValues applies signImageValue across a slice, returning a new
-// slice (the original ColumnStore's backing array is never mutated).
+// slice (the original backing array is never mutated).
 func (a *App) signImageValues(values []any) []any {
 	out := make([]any, len(values))
 	for i, v := range values {
@@ -90,10 +90,11 @@ func (a *App) signImageValues(values []any) []any {
 	return out
 }
 
-// signImageValuesInColumnStore returns a copy of cs with every column's
-// values passed through signImageValues.
-func (a *App) signImageValuesInColumnStore(cs ColumnStore) ColumnStore {
-	out := make(ColumnStore, len(cs))
+// signImageValuesInColumnsMap returns a copy of a projected columns map
+// (see RecordStore.ToColumnsMap) with every column's values passed through
+// signImageValues.
+func (a *App) signImageValuesInColumnsMap(cs map[string][]any) map[string][]any {
+	out := make(map[string][]any, len(cs))
 	for key, values := range cs {
 		out[key] = a.signImageValues(values)
 	}
