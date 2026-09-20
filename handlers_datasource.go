@@ -36,12 +36,13 @@ func (a *App) loadDataSourceInWorkspace(w http.ResponseWriter, r *http.Request, 
 
 func (a *App) handleDataSourceTable(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
+	lang := a.resolveLang(r)
 	ws, role, ok := a.loadWorkspaceMembership(w, r, currentUser)
 	if !ok {
 		return
 	}
 	if !hasPermission(role, PermDataRead) {
-		http.Error(w, "Accès refusé.", http.StatusForbidden)
+		http.Error(w, T(lang, "common.access_denied"), http.StatusForbidden)
 		return
 	}
 	ds, ok := a.loadDataSourceInWorkspace(w, r, ws)
@@ -52,7 +53,7 @@ func (a *App) handleDataSourceTable(w http.ResponseWriter, r *http.Request) {
 	cs, err := LoadColumnStore(ds.StoragePath)
 	if err != nil {
 		log.Printf("load column store error: %v", err)
-		http.Error(w, "Impossible de lire ce data source.", http.StatusInternalServerError)
+		http.Error(w, T(lang, "datasource.read_error"), http.StatusInternalServerError)
 		return
 	}
 
@@ -92,7 +93,7 @@ func (a *App) handleDataSourceTable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.render(w, "datasource_table.html", map[string]any{
+	a.render(w, r, "datasource_table.html", map[string]any{
 		"CurrentUser":      currentUser,
 		"ActiveNav":        "workspaces",
 		"PageTitle":        ds.Name,
@@ -104,18 +105,20 @@ func (a *App) handleDataSourceTable(w http.ResponseWriter, r *http.Request) {
 		"CanDelete":        hasPermission(role, PermDataDelete),
 		"CanCreate":        hasPermission(role, PermDataCreate),
 		"Breadcrumb": []Breadcrumb{
-			{Label: "Workspaces", URL: "/workspaces"},
+			{Label: T(lang, "nav.workspaces"), URL: "/workspaces"},
 			{Label: ws.Name, URL: "/workspaces/" + ws.Slug},
 			{Label: ds.Name},
 		},
 		"HeaderTitle":       ds.Name,
 		"HeaderIcon":        "database",
-		"HeaderBadge":       "Actif",
-		"HeaderDescription": fmt.Sprintf("%d colonne%s — ", len(columns), pluralS(len(columns))),
+		"HeaderBadge":       T(lang, "datasource.active_badge"),
+		"HeaderDescription": T(lang, "datasource.column_count", len(columns), pluralS(len(columns))),
 		"MemberCount":       len(members),
 	})
 }
 
+// pluralS is language-agnostic on purpose: "column(s)" and "colonne(s)"
+// both happen to pluralize with a trailing "s".
 func pluralS(n int) string {
 	if n == 1 {
 		return ""
@@ -150,6 +153,7 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 
 func (a *App) handleSaveRecords(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
+	lang := a.resolveLang(r)
 	ws, role, ok := a.loadWorkspaceMembership(w, r, currentUser)
 	if !ok {
 		return
@@ -161,20 +165,20 @@ func (a *App) handleSaveRecords(w http.ResponseWriter, r *http.Request) {
 
 	var req saveColumnsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Requête invalide."})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "common.invalid_request")})
 		return
 	}
 
 	if len(req.Updates) > 0 && !hasPermission(role, PermDataUpdate) {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "Accès refusé (modification)."})
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": T(lang, "datasource.access_denied_update")})
 		return
 	}
 	if len(req.Deletes) > 0 && !hasPermission(role, PermDataDelete) {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "Accès refusé (suppression)."})
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": T(lang, "datasource.access_denied_delete")})
 		return
 	}
 	if len(req.Appends) > 0 && !hasPermission(role, PermDataCreate) {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "Accès refusé (création)."})
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": T(lang, "datasource.access_denied_create")})
 		return
 	}
 
@@ -191,7 +195,7 @@ func (a *App) handleSaveRecords(w http.ResponseWriter, r *http.Request) {
 	}
 	if fresh.Version != req.BaseVersion {
 		writeJSON(w, http.StatusConflict, map[string]any{
-			"error":          "Cette donnée a été modifiée par un autre utilisateur.",
+			"error":          T(lang, "datasource.conflict"),
 			"currentVersion": fresh.Version,
 		})
 		return
@@ -220,15 +224,15 @@ func (a *App) handleSaveRecords(w http.ResponseWriter, r *http.Request) {
 	// field.
 	typedValue := func(column, raw, valueType string) (any, error) {
 		if !knownColumn[column] {
-			return nil, fmt.Errorf("la colonne %q n'existe pas encore — créez-la avec + Column", column)
+			return nil, fmt.Errorf(T(lang, "datasource.unknown_column"), column)
 		}
-		return CoerceTyped(valueType, raw)
+		return CoerceTyped(lang, valueType, raw)
 	}
 
 	for _, ch := range req.Updates {
 		col := cs[ch.Column]
 		if ch.Index < 0 || ch.Index >= len(col) {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Valeur inconnue."})
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "datasource.unknown_value")})
 			return
 		}
 		v, err := typedValue(ch.Column, ch.Value, ch.Type)
@@ -246,7 +250,7 @@ func (a *App) handleSaveRecords(w http.ResponseWriter, r *http.Request) {
 	for _, d := range req.Deletes {
 		col := cs[d.Column]
 		if d.Index < 0 || d.Index >= len(col) {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Valeur inconnue."})
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "datasource.unknown_value")})
 			return
 		}
 		deletesByColumn[d.Column] = append(deletesByColumn[d.Column], d.Index)
@@ -271,7 +275,7 @@ func (a *App) handleSaveRecords(w http.ResponseWriter, r *http.Request) {
 
 	if err := SaveColumnStore(fresh.StoragePath, cs); err != nil {
 		log.Printf("save column store error: %v", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Impossible d'écrire le fichier."})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": T(lang, "datasource.write_error")})
 		return
 	}
 
@@ -283,7 +287,7 @@ func (a *App) handleSaveRecords(w http.ResponseWriter, r *http.Request) {
 	}
 	if !bumped {
 		// Should not happen under the lock, but guard anyway.
-		writeJSON(w, http.StatusConflict, map[string]string{"error": "Cette donnée a été modifiée par un autre utilisateur."})
+		writeJSON(w, http.StatusConflict, map[string]string{"error": T(lang, "datasource.conflict")})
 		return
 	}
 
@@ -297,12 +301,13 @@ type addColumnRequest struct {
 
 func (a *App) handleAddDataSourceColumn(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
+	lang := a.resolveLang(r)
 	ws, role, ok := a.loadWorkspaceMembership(w, r, currentUser)
 	if !ok {
 		return
 	}
 	if !hasPermission(role, PermDataUpdate) {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "Accès refusé."})
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": T(lang, "common.access_denied")})
 		return
 	}
 	ds, ok := a.loadDataSourceInWorkspace(w, r, ws)
@@ -312,12 +317,12 @@ func (a *App) handleAddDataSourceColumn(w http.ResponseWriter, r *http.Request) 
 
 	var req addColumnRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Requête invalide."})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "common.invalid_request")})
 		return
 	}
 	key := strings.TrimSpace(req.Key)
 	if key == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Le nom de la colonne est requis."})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "datasource.column_name_required")})
 		return
 	}
 
@@ -327,7 +332,7 @@ func (a *App) handleAddDataSourceColumn(w http.ResponseWriter, r *http.Request) 
 	col, err := a.store.AddDataSourceColumn(ds.ID, key, ColumnTypeText, strings.TrimSpace(req.Description))
 	if err != nil {
 		if err == ErrColumnExists {
-			writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
+			writeJSON(w, http.StatusConflict, map[string]string{"error": T(lang, "datasource.column_exists")})
 		} else {
 			log.Printf("add column error: %v", err)
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
@@ -344,12 +349,13 @@ type updateColumnRequest struct {
 
 func (a *App) handleUpdateDataSourceColumn(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
+	lang := a.resolveLang(r)
 	ws, role, ok := a.loadWorkspaceMembership(w, r, currentUser)
 	if !ok {
 		return
 	}
 	if !hasPermission(role, PermDataUpdate) {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "Accès refusé."})
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": T(lang, "common.access_denied")})
 		return
 	}
 	ds, ok := a.loadDataSourceInWorkspace(w, r, ws)
@@ -360,7 +366,7 @@ func (a *App) handleUpdateDataSourceColumn(w http.ResponseWriter, r *http.Reques
 
 	var req updateColumnRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Requête invalide."})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "common.invalid_request")})
 		return
 	}
 
@@ -375,12 +381,13 @@ func (a *App) handleUpdateDataSourceColumn(w http.ResponseWriter, r *http.Reques
 
 func (a *App) handleDeleteDataSourceColumn(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
+	lang := a.resolveLang(r)
 	ws, role, ok := a.loadWorkspaceMembership(w, r, currentUser)
 	if !ok {
 		return
 	}
 	if !hasPermission(role, PermDataDelete) {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "Accès refusé."})
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": T(lang, "common.access_denied")})
 		return
 	}
 	ds, ok := a.loadDataSourceInWorkspace(w, r, ws)
@@ -408,7 +415,7 @@ func (a *App) handleDeleteDataSourceColumn(w http.ResponseWriter, r *http.Reques
 	delete(cs, key)
 	if err := SaveColumnStore(fresh.StoragePath, cs); err != nil {
 		log.Printf("save column store error: %v", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Impossible d'écrire le fichier."})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": T(lang, "datasource.write_error")})
 		return
 	}
 
