@@ -33,7 +33,7 @@ var templateFuncs = template.FuncMap{
 
 func NewApp(store *Store) (*App, error) {
 	a := &App{store: store, templates: map[string]*template.Template{}}
-	pages := []string{"login.html", "register.html", "dashboard.html", "members.html", "profile.html", "integration.html", "workspaces.html", "workspace_detail.html", "datasource_table.html", "activity.html"}
+	pages := []string{"login.html", "register.html", "dashboard.html", "profile.html", "integration.html", "workspaces.html", "workspace_detail.html", "workspace_members.html", "members.html", "datasource_table.html", "activity.html"}
 	for _, page := range pages {
 		tmpl, err := template.New("layout.html").Funcs(templateFuncs).ParseFiles("templates/layout.html", "templates/"+page)
 		if err != nil {
@@ -120,22 +120,21 @@ func (a *App) handleLogin(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-// Public self-registration only ever creates the very first account (the
-// Owner). Once an Owner exists, further members are created from the
-// members panel by an Owner or Admin.
+// Public self-registration is open to anyone, at any time — this is a
+// multi-user, multi-tenant platform: signing up gives you your own
+// workspace to administer, not a seat in someone else's. The very first
+// account ever created additionally becomes the *global* Owner (there's
+// nobody yet to grant that role, and the instance needs one) — every
+// account after that gets the least-privileged global role (Viewer),
+// since that role only governs instance-wide things like the global
+// members panel, not what you can do inside your own workspace. Either
+// way, every new account is immediately made Owner of a freshly created
+// personal workspace, exactly as if they'd clicked "+ Nouveau" themselves
+// — full data.create/update/delete and members.manage rights over their
+// own data from the moment they sign up.
 func (a *App) handleRegisterPage(w http.ResponseWriter, r *http.Request) {
 	if user := a.userFromRequest(r); user != nil {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
-	}
-	count, err := a.store.CountUsers()
-	if err != nil {
-		log.Printf("count users error: %v", err)
-		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
-		return
-	}
-	if count > 0 {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
 	a.render(w, r, "register.html", map[string]any{})
@@ -149,9 +148,9 @@ func (a *App) handleRegister(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
 		return
 	}
-	if count > 0 {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return
+	role := RoleViewer
+	if count == 0 {
+		role = RoleOwner
 	}
 
 	username := strings.TrimSpace(r.FormValue("username"))
@@ -174,7 +173,7 @@ func (a *App) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := a.store.CreateUser(username, email, hash, RoleOwner)
+	user, err := a.store.CreateUser(username, email, hash, role, 0)
 	if err != nil {
 		if err == ErrUserExists {
 			formData["Error"] = T(lang, "common.user_exists")
@@ -200,6 +199,18 @@ func (a *App) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.logActivity(logActivityParams{UserID: user.ID, Action: ActionRegister})
+
+	// Every new account gets its own workspace to administer immediately —
+	// this is a self-service multi-tenant platform, not an invite-only org
+	// where a freshly registered account would otherwise land with nothing
+	// to do. Best-effort: a failure here shouldn't block the account itself
+	// from being usable — worst case they create one manually.
+	if ws, err := a.store.CreateWorkspace(username, user.ID); err != nil {
+		log.Printf("auto-create personal workspace error: %v", err)
+	} else {
+		a.logActivity(logActivityParams{WorkspaceID: ws.ID, UserID: user.ID, Action: ActionWorkspaceCreate, Details: map[string]any{"name": ws.Name}})
+	}
+
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
@@ -211,106 +222,31 @@ func (a *App) handleLogout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
+// handleDashboard is intentionally the same for every account — there is
+// no instance-wide administrator role anymore. Whoever's logged in sees an
+// overview of their own workspaces only; managing members happens per
+// workspace (see handleAddWorkspaceMember), never across the whole
+// instance.
 func (a *App) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
-	users, err := a.store.ListUsers()
+	lang := a.resolveLang(r)
+
+	workspaces, err := a.store.ListWorkspacesForUser(currentUser.ID)
 	if err != nil {
-		log.Printf("list users error: %v", err)
+		log.Printf("list workspaces error: %v", err)
 		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
 		return
 	}
-	lang := a.resolveLang(r)
-	a.render(w, r, "dashboard.html", map[string]any{
-		"CurrentUser":      currentUser,
-		"Users":            users,
-		"CanManageMembers": canManageMembers(currentUser.Role),
-		"ActiveNav":        "dashboard",
-		"PageTitle":        T(lang, "nav.dashboard"),
-	})
-}
-
-func (a *App) handleMembersPage(w http.ResponseWriter, r *http.Request) {
-	currentUser := userFromContext(r)
-	lang := a.resolveLang(r)
-	if !canManageMembers(currentUser.Role) {
-		http.Error(w, T(lang, "common.access_denied"), http.StatusForbidden)
-		return
+	data := map[string]any{
+		"CurrentUser":    currentUser,
+		"ActiveNav":      "dashboard",
+		"PageTitle":      T(lang, "nav.dashboard"),
+		"WorkspaceCount": len(workspaces),
+		"Workspaces":     workspaces,
 	}
-	users, err := a.store.ListUsers()
-	if err != nil {
-		log.Printf("list users error: %v", err)
-		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
-		return
-	}
-	a.render(w, r, "members.html", map[string]any{
-		"CurrentUser":      currentUser,
-		"Users":            users,
-		"AssignableRoles":  assignableRolesWithLabels(lang, currentUser.Role),
-		"CanManageMembers": true,
-		"ActiveNav":        "members",
-		"PageTitle":        T(lang, "nav.members"),
-	})
-}
-
-func (a *App) handleCreateMember(w http.ResponseWriter, r *http.Request) {
-	currentUser := userFromContext(r)
-	lang := a.resolveLang(r)
-	if !canManageMembers(currentUser.Role) {
-		http.Error(w, T(lang, "common.access_denied"), http.StatusForbidden)
-		return
+	if len(workspaces) > 0 {
+		data["WorkspaceRoleLabel"] = workspaces[0].RoleLabel(lang)
 	}
 
-	username := strings.TrimSpace(r.FormValue("username"))
-	email := strings.TrimSpace(r.FormValue("email"))
-	password := r.FormValue("password")
-	role := strings.TrimSpace(r.FormValue("role"))
-
-	renderError := func(msg string) {
-		users, err := a.store.ListUsers()
-		if err != nil {
-			log.Printf("list users error: %v", err)
-			http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
-			return
-		}
-		a.render(w, r, "members.html", map[string]any{
-			"CurrentUser":      currentUser,
-			"Users":            users,
-			"AssignableRoles":  assignableRolesWithLabels(lang, currentUser.Role),
-			"CanManageMembers": true,
-			"ActiveNav":        "members",
-			"PageTitle":        T(lang, "nav.members"),
-			"Error":            msg,
-			"Username":         username,
-			"Email":            email,
-			"Role":             role,
-		})
-	}
-
-	if username == "" || email == "" || len(password) < 8 {
-		renderError(T(lang, "common.user_form_validation"))
-		return
-	}
-	if !canAssignRole(currentUser.Role, role) {
-		renderError(T(lang, "members.role_not_allowed"))
-		return
-	}
-
-	hash, err := hashPassword(password)
-	if err != nil {
-		log.Printf("hash error: %v", err)
-		renderError(T(lang, "common.error_generic_retry"))
-		return
-	}
-
-	if _, err := a.store.CreateUser(username, email, hash, role); err != nil {
-		if err == ErrUserExists {
-			renderError(T(lang, "common.user_exists"))
-		} else {
-			log.Printf("create member error: %v", err)
-			renderError(T(lang, "common.error_generic_retry"))
-		}
-		return
-	}
-
-	http.Redirect(w, r, "/members", http.StatusSeeOther)
+	a.render(w, r, "dashboard.html", data)
 }
