@@ -1,0 +1,19 @@
+{
+  "name": "eptaadmin-sdk",
+  "version": "0.1.0",
+  "description": "Client SDK for reading your EptaAdmin workspace data from your own project.",
+  "type": "module",
+  "main": "src/index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./src/index.js"
+    }
+  },
+  "files": ["src", "index.d.ts", "README.md"],
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

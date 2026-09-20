@@ -11,7 +11,7 @@
 
       {{if .Updated}}
       <div class="rounded-xl px-5 py-4 text-sm" style="background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.25); color: var(--eb-accent);">
-        {{if eq .Updated "email"}}Email mis à jour avec succès.{{else if eq .Updated "password"}}Mot de passe mis à jour avec succès.{{else if eq .Updated "avatar"}}Avatar mis à jour avec succès.{{end}}
+        {{if eq .Updated "email"}}Email mis à jour avec succès.{{else if eq .Updated "password"}}Mot de passe mis à jour avec succès.{{else if eq .Updated "avatar"}}Avatar mis à jour avec succès.{{else if eq .Updated "apikey"}}Clé API révoquée.{{end}}
       </div>
       {{end}}
 
@@ -112,8 +112,77 @@
         </form>
       </div>
 
+      <div id="api-keys" class="eb-card rounded-xl p-6">
+        <h2 class="font-semibold" style="color: var(--eb-text);">Clés API</h2>
+        <p class="text-xs mt-0.5 mb-4" style="color: var(--eb-muted);">Utilisées par le SDK JavaScript ou vos propres scripts pour lire vos données depuis l'extérieur. Voir la page <a href="/integration" class="hover:underline" style="color: var(--eb-accent);">Intégration</a> pour la documentation complète.</p>
+
+        {{if .NewAPIKey}}
+        <div class="mb-4 rounded-lg text-sm px-4 py-3 space-y-2" style="background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.25);">
+          <p style="color: var(--eb-accent);">Copiez cette clé maintenant — elle ne sera plus jamais affichée :</p>
+          <div class="flex items-center gap-2">
+            <code id="new-api-key-value" class="flex-1 rounded-lg px-3 py-2 text-xs font-mono truncate" style="background: var(--eb-bg); color: var(--eb-text); border: 1px solid var(--eb-border);">{{.NewAPIKey}}</code>
+            <button id="copy-api-key-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-2 transition-colors shrink-0">Copier</button>
+          </div>
+        </div>
+        {{end}}
+        {{if .APIKeyError}}
+        <div class="mb-4 rounded-lg text-sm px-4 py-3" style="background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: #fca5a5;">
+          {{.APIKeyError}}
+        </div>
+        {{end}}
+
+        <div class="space-y-2 mb-4">
+          {{range .APIKeys}}
+          <div class="flex items-center justify-between gap-3 rounded-lg px-3 py-2.5" style="background: var(--eb-surface-2);">
+            <div class="min-w-0">
+              <p class="text-sm font-medium truncate" style="color: var(--eb-text);">{{.Name}}</p>
+              <p class="text-xs truncate" style="color: var(--eb-muted);">{{.TokenPrefix}}… — créée le {{.CreatedAt.Format "02/01/2006"}}{{if .LastUsedAt.Valid}} — utilisée le {{.LastUsedAt.Time.Format "02/01/2006"}}{{else}} — jamais utilisée{{end}}</p>
+            </div>
+            <form method="POST" action="/profile/api-keys/{{.ID}}/delete" class="api-key-delete-form shrink-0">
+              <button type="submit" class="text-xs" style="color: #f87171;">Révoquer</button>
+            </form>
+          </div>
+          {{end}}
+          {{if not .APIKeys}}
+          <p class="text-sm text-center py-4" style="color: var(--eb-muted);">Aucune clé API pour le moment.</p>
+          {{end}}
+        </div>
+
+        <form method="POST" action="/profile/api-keys" class="flex items-end gap-3 pt-4" style="border-top: 1px solid var(--eb-border);">
+          <div class="flex-1">
+            <label class="block text-sm font-medium mb-1" style="color: var(--eb-muted);" for="key-name">Nom de la clé</label>
+            <input id="key-name" name="name" type="text" placeholder="Mon application" class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <button type="submit" class="eb-btn-primary rounded-lg text-sm px-4 py-2 transition-colors shrink-0">Générer une clé</button>
+        </form>
+      </div>
+
      </div>
     </main>
+
+    <script>
+    (function () {
+      const copyBtn = document.getElementById("copy-api-key-btn");
+      const keyValue = document.getElementById("new-api-key-value");
+      if (copyBtn && keyValue) {
+        copyBtn.addEventListener("click", () => {
+          navigator.clipboard.writeText(keyValue.textContent).then(() => {
+            const original = copyBtn.textContent;
+            copyBtn.textContent = "Copié !";
+            setTimeout(() => { copyBtn.textContent = original; }, 1500);
+          });
+        });
+      }
+
+      document.querySelectorAll(".api-key-delete-form").forEach((form) => {
+        form.addEventListener("submit", (e) => {
+          if (!confirm("Révoquer cette clé API ? Tout script ou application qui l'utilise perdra immédiatement l'accès.")) {
+            e.preventDefault();
+          }
+        });
+      });
+    })();
+    </script>
 
     <script>
     (function () {
