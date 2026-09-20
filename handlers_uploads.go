@@ -64,6 +64,7 @@ func (a *App) handleUploadImage(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, status, map[string]string{"error": uploadErrorMessage(lang, err)})
 		return
 	}
+	a.logActivity(logActivityParams{WorkspaceID: ws.ID, UserID: currentUser.ID, Action: ActionImageUpload, Details: map[string]any{"filename": filename}})
 
 	writeJSON(w, http.StatusOK, map[string]string{"url": uploadURL(ws.Slug, filename)})
 }

@@ -335,6 +335,13 @@ func (a *App) handleImportDataSource(w http.ResponseWriter, r *http.Request) {
 	if _, err := a.store.BumpDataSourceVersion(fresh.ID, fresh.Version); err != nil {
 		log.Printf("bump version error: %v", err)
 	}
+	addedByColumn := make(map[string]any, len(imported))
+	for key, values := range imported {
+		addedByColumn[key] = values
+	}
+	a.logActivity(logActivityParams{WorkspaceID: ws.ID, DataSourceID: fresh.ID, UserID: currentUser.ID, Action: ActionImport, Details: map[string]any{
+		"dataSourceName": fresh.Name, "added": addedByColumn,
+	}})
 
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
@@ -460,18 +467,29 @@ func (a *App) handleSaveRecords(w http.ResponseWriter, r *http.Request) {
 		return CoerceTyped(lang, valueType, raw)
 	}
 
+	// Collected as we go and only actually logged after the save below
+	// succeeds, so a failed/conflicting request never leaves a phantom
+	// activity entry behind.
+	type pendingActivity struct {
+		action  string
+		details map[string]any
+	}
+	var toLog []pendingActivity
+
 	for _, ch := range req.Updates {
 		col := cs[ch.Column]
 		if ch.Index < 0 || ch.Index >= len(col) {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "datasource.unknown_value")})
 			return
 		}
+		oldValue := col[ch.Index]
 		v, err := typedValue(ch.Column, ch.Value, ch.Type)
 		if err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
 		}
 		col[ch.Index] = v
+		toLog = append(toLog, pendingActivity{ActionValueUpdate, map[string]any{"column": ch.Column, "index": ch.Index, "oldValue": oldValue, "newValue": v}})
 	}
 
 	// Drag-and-drop reordering: pull the value out of its old slot and
@@ -495,6 +513,7 @@ func (a *App) handleSaveRecords(w http.ResponseWriter, r *http.Request) {
 		}
 		col = append(col[:to], append([]any{v}, col[to:]...)...)
 		cs[mv.Column] = col
+		toLog = append(toLog, pendingActivity{ActionValueMove, map[string]any{"column": mv.Column, "from": mv.From, "to": mv.To}})
 	}
 
 	// Group deletes per column and remove highest index first, so removing
@@ -513,6 +532,7 @@ func (a *App) handleSaveRecords(w http.ResponseWriter, r *http.Request) {
 		sort.Sort(sort.Reverse(sort.IntSlice(indices)))
 		col := cs[column]
 		for _, idx := range indices {
+			toLog = append(toLog, pendingActivity{ActionValueDelete, map[string]any{"column": column, "index": idx, "value": col[idx]}})
 			col = append(col[:idx], col[idx+1:]...)
 		}
 		cs[column] = col
@@ -524,7 +544,9 @@ func (a *App) handleSaveRecords(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
 		}
+		index := len(cs[ap.Column])
 		cs[ap.Column] = append(cs[ap.Column], v)
+		toLog = append(toLog, pendingActivity{ActionValueAppend, map[string]any{"column": ap.Column, "index": index, "value": v}})
 	}
 
 	newData, err := json.MarshalIndent(cs, "", "  ")
@@ -559,6 +581,10 @@ func (a *App) handleSaveRecords(w http.ResponseWriter, r *http.Request) {
 		// Should not happen under the lock, but guard anyway.
 		writeJSON(w, http.StatusConflict, map[string]string{"error": T(lang, "datasource.conflict")})
 		return
+	}
+
+	for _, pa := range toLog {
+		a.logActivity(logActivityParams{WorkspaceID: ws.ID, DataSourceID: fresh.ID, UserID: currentUser.ID, Action: pa.action, Details: pa.details})
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{"version": req.BaseVersion + 1})
@@ -609,6 +635,7 @@ func (a *App) handleAddDataSourceColumn(w http.ResponseWriter, r *http.Request) 
 		}
 		return
 	}
+	a.logActivity(logActivityParams{WorkspaceID: ws.ID, DataSourceID: ds.ID, UserID: currentUser.ID, Action: ActionColumnAdd, Details: map[string]any{"key": col.Key, "type": col.Type}})
 
 	writeJSON(w, http.StatusOK, map[string]any{"key": col.Key, "type": col.Type})
 }
@@ -639,12 +666,24 @@ func (a *App) handleUpdateDataSourceColumn(w http.ResponseWriter, r *http.Reques
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "common.invalid_request")})
 		return
 	}
+	newDescription := strings.TrimSpace(req.Description)
 
-	if err := a.store.UpdateDataSourceColumnDescription(ds.ID, key, strings.TrimSpace(req.Description)); err != nil {
+	oldDescription := ""
+	if cols, err := a.store.ListDataSourceColumns(ds.ID); err == nil {
+		for _, c := range cols {
+			if c.Key == key {
+				oldDescription = c.Description
+				break
+			}
+		}
+	}
+
+	if err := a.store.UpdateDataSourceColumnDescription(ds.ID, key, newDescription); err != nil {
 		log.Printf("update column error: %v", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
 		return
 	}
+	a.logActivity(logActivityParams{WorkspaceID: ws.ID, DataSourceID: ds.ID, UserID: currentUser.ID, Action: ActionColumnUpdate, Details: map[string]any{"key": key, "oldDescription": oldDescription, "newDescription": newDescription}})
 
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
@@ -682,6 +721,18 @@ func (a *App) handleDeleteDataSourceColumn(w http.ResponseWriter, r *http.Reques
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
 		return
 	}
+
+	colType, description := ColumnTypeText, ""
+	if cols, err := a.store.ListDataSourceColumns(ds.ID); err == nil {
+		for _, c := range cols {
+			if c.Key == key {
+				colType, description = c.Type, c.Description
+				break
+			}
+		}
+	}
+	deletedValues := cs[key]
+
 	delete(cs, key)
 	if err := SaveColumnStore(fresh.StoragePath, cs); err != nil {
 		log.Printf("save column store error: %v", err)
@@ -698,6 +749,9 @@ func (a *App) handleDeleteDataSourceColumn(w http.ResponseWriter, r *http.Reques
 	if _, err := a.store.BumpDataSourceVersion(fresh.ID, fresh.Version); err != nil {
 		log.Printf("bump version error: %v", err)
 	}
+	a.logActivity(logActivityParams{WorkspaceID: ws.ID, DataSourceID: ds.ID, UserID: currentUser.ID, Action: ActionColumnDelete, Details: map[string]any{
+		"key": key, "type": colType, "description": description, "values": deletedValues,
+	}})
 
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
