@@ -363,6 +363,22 @@ func (a *App) handleSaveRecords(w http.ResponseWriter, r *http.Request) {
 		cs[ap.Column] = append(cs[ap.Column], v)
 	}
 
+	newData, err := json.MarshalIndent(cs, "", "  ")
+	if err != nil {
+		log.Printf("marshal column store error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		return
+	}
+	if err := EnsureWorkspaceStorageWithinLimit(ws.ID, fresh.StoragePath, int64(len(newData))); err != nil {
+		if err == ErrWorkspaceStorageLimitExceeded {
+			writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": T(lang, "datasource.storage_limit_exceeded")})
+			return
+		}
+		log.Printf("check workspace storage limit error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		return
+	}
+
 	if err := SaveColumnStore(fresh.StoragePath, cs); err != nil {
 		log.Printf("save column store error: %v", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": T(lang, "datasource.write_error")})

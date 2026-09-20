@@ -44,6 +44,16 @@ func (a *App) handleUploadImage(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
+	if err := EnsureWorkspaceStorageWithinLimit(ws.ID, "", header.Size); err != nil {
+		if err == ErrWorkspaceStorageLimitExceeded {
+			writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": T(lang, "datasource.storage_limit_exceeded")})
+			return
+		}
+		log.Printf("check workspace storage limit error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		return
+	}
+
 	filename, err := SaveUploadedImage(ws.ID, header.Filename, file, header.Size)
 	if err != nil {
 		status := http.StatusBadRequest
