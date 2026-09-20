@@ -1,11 +1,15 @@
 {{define "title"}}Connexion — EptaAdmin{{end}}
 {{define "content"}}
 <div class="min-h-full flex items-center justify-center px-4">
-  <div class="w-full max-w-sm eb-card rounded-2xl p-8">
+  <div class="w-full max-w-sm eb-card rounded-2xl p-8 relative">
+    <div class="absolute top-4 right-4 flex gap-1 text-xs font-medium">
+      <a href="/lang/fr" class="px-2 py-1 rounded" style="{{if eq .Lang "fr"}}background: var(--eb-surface-2); color: var(--eb-text);{{else}}color: var(--eb-muted);{{end}}">FR</a>
+      <a href="/lang/en" class="px-2 py-1 rounded" style="{{if eq .Lang "en"}}background: var(--eb-surface-2); color: var(--eb-text);{{else}}color: var(--eb-muted);{{end}}">EN</a>
+    </div>
     <div class="text-center mb-8">
       <img src="/static/logo-icon.png" alt="EptaAdmin" class="mx-auto h-12 w-12 rounded-xl" />
-      <h1 class="mt-4 text-xl font-semibold" style="color: var(--eb-text);">Connexion</h1>
-      <p class="text-sm mt-1" style="color: var(--eb-muted);">Accédez à votre espace EptaAdmin</p>
+      <h1 class="mt-4 text-xl font-semibold" style="color: var(--eb-text);">{{t .Lang "login.title"}}</h1>
+      <p class="text-sm mt-1" style="color: var(--eb-muted);">{{t .Lang "login.subtitle"}}</p>
     </div>
 
     {{if .Error}}
@@ -16,24 +20,24 @@
 
     <form method="POST" action="/login" class="space-y-4">
       <div>
-        <label class="block text-sm font-medium mb-1" style="color: var(--eb-muted);" for="username">Identifiant</label>
+        <label class="block text-sm font-medium mb-1" style="color: var(--eb-muted);" for="username">{{t .Lang "common.username"}}</label>
         <input id="username" name="username" type="text" required autofocus
           class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
       </div>
       <div>
-        <label class="block text-sm font-medium mb-1" style="color: var(--eb-muted);" for="password">Mot de passe</label>
+        <label class="block text-sm font-medium mb-1" style="color: var(--eb-muted);" for="password">{{t .Lang "common.password"}}</label>
         <input id="password" name="password" type="password" required
           class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
       </div>
       <button type="submit"
         class="eb-btn-primary w-full rounded-lg text-sm py-2.5 transition-colors">
-        Se connecter
+        {{t .Lang "login.submit"}}
       </button>
     </form>
 
     <p class="mt-6 text-center text-sm" style="color: var(--eb-muted);">
-      Pas encore de compte ?
-      <a href="/register" class="font-medium hover:underline" style="color: var(--eb-accent);">Créer un compte</a>
+      {{t .Lang "login.no_account"}}
+      <a href="/register" class="font-medium hover:underline" style="color: var(--eb-accent);">{{t .Lang "login.create_account"}}</a>
     </p>
   </div>
 </div>
