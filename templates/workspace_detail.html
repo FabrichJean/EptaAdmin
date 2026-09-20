@@ -79,7 +79,6 @@
               <span class="text-sm font-medium truncate" style="color: var(--eb-accent);">{{$ds.Name}}</span>
             </div>
             <div class="relative flex items-center gap-2 shrink-0">
-              <span class="eb-chip pointer-events-none">{{$ds.Type}}</span>
               {{if $.CanImportData}}
               <button type="button" class="ds-import-btn eb-btn-secondary rounded-md text-xs px-2 py-1 transition-colors"
                 data-ws-slug="{{$.Workspace.Slug}}" data-ds-slug="{{$ds.Slug}}">{{t $.Lang "datasource.import_button"}}</button>
