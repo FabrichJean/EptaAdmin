@@ -9,12 +9,12 @@
     <main class="flex-1 overflow-y-auto px-4 sm:px-8 py-10">
      <div class="max-w-4xl mx-auto">
     <h1 class="text-2xl font-semibold" style="color: var(--eb-text);">{{t .Lang "dashboard.welcome"}}, {{.CurrentUser.Username}} 👋</h1>
-    <p class="mt-1" style="color: var(--eb-muted);">{{t .Lang "dashboard.subtitle"}}</p>
+    <p class="mt-1" style="color: var(--eb-muted);">{{t .Lang "dashboard.subtitle_own"}}</p>
 
     <div class="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
       <div class="eb-card rounded-xl p-5">
-        <p class="text-sm" style="color: var(--eb-muted);">{{t .Lang "dashboard.stat_users"}}</p>
-        <p class="text-2xl font-semibold mt-1" style="color: var(--eb-text);">{{len .Users}}</p>
+        <p class="text-sm" style="color: var(--eb-muted);">{{t .Lang "dashboard.stat_workspaces"}}</p>
+        <p class="text-2xl font-semibold mt-1" style="color: var(--eb-text);">{{.WorkspaceCount}}</p>
       </div>
       <div class="eb-card rounded-xl p-5">
         <p class="text-sm" style="color: var(--eb-muted);">{{t .Lang "dashboard.stat_session"}}</p>
@@ -22,46 +22,28 @@
       </div>
       <div class="eb-card rounded-xl p-5">
         <p class="text-sm" style="color: var(--eb-muted);">{{t .Lang "dashboard.stat_role"}}</p>
-        <p class="text-2xl font-semibold mt-1" style="color: var(--eb-text);">{{.CurrentUser.RoleLabel .Lang}}</p>
+        <p class="text-2xl font-semibold mt-1" style="color: var(--eb-text);">{{.WorkspaceRoleLabel}}</p>
       </div>
     </div>
 
-    {{if .CanManageMembers}}
-    <div class="mt-8 rounded-xl px-5 py-4 flex items-center justify-between" style="background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.25);">
-      <p class="text-sm" style="color: var(--eb-text);">{{t .Lang "dashboard.manage_members_hint"}}</p>
-      <a href="/members" class="eb-btn-primary shrink-0 rounded-lg text-sm px-4 py-2 transition-colors">{{t .Lang "dashboard.manage_members_link"}}</a>
-    </div>
-    {{end}}
-
     <div class="mt-8 eb-card rounded-xl overflow-hidden">
-      <table class="min-w-full" style="border-collapse: collapse;">
-        <thead style="background: var(--eb-surface-2);">
-          <tr>
-            <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide" style="color: var(--eb-muted);">{{t .Lang "common.username"}}</th>
-            <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide" style="color: var(--eb-muted);">{{t .Lang "common.email"}}</th>
-            <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide" style="color: var(--eb-muted);">{{t .Lang "dashboard.table_role"}}</th>
-            <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide" style="color: var(--eb-muted);">{{t .Lang "dashboard.table_created"}}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {{range .Users}}
-          <tr style="border-top: 1px solid var(--eb-border);">
-            <td class="px-5 py-3 text-sm font-medium" style="color: var(--eb-text);">
-              <div class="flex items-center gap-2.5">
-                <img src="{{.AvatarImageURL}}" alt="" class="h-7 w-7 rounded-full shrink-0" style="background: var(--eb-surface-2);" />
-                {{.Username}}
-              </div>
-            </td>
-            <td class="px-5 py-3 text-sm" style="color: var(--eb-muted);">{{.Email}}</td>
-            <td class="px-5 py-3 text-sm">
-              <span class="eb-badge eb-badge-{{.Role}}">{{.RoleLabel $.Lang}}</span>
-            </td>
-            <td class="px-5 py-3 text-sm" style="color: var(--eb-muted);">{{.CreatedAt.Format "02/01/2006 15:04"}}</td>
-          </tr>
-          {{end}}
-        </tbody>
-      </table>
+      <div class="px-5 py-4" style="border-bottom: 1px solid var(--eb-border);">
+        <h2 class="text-sm font-semibold" style="color: var(--eb-text);">{{t .Lang "dashboard.your_workspaces"}}</h2>
+      </div>
+      {{range $i, $ws := .Workspaces}}
+      <div class="px-5 py-3 flex items-center justify-between gap-3" style="{{if $i}}border-top: 1px solid var(--eb-border);{{end}}">
+        <a href="/workspaces/{{$ws.Slug}}" class="text-sm font-medium hover:underline min-w-0 truncate" style="color: var(--eb-accent);">{{$ws.Name}}</a>
+        <div class="flex items-center gap-3 shrink-0">
+          <span class="eb-badge eb-badge-{{$ws.Role}}">{{$ws.RoleLabel $.Lang}}</span>
+          <a href="/workspaces/{{$ws.Slug}}/members" class="text-xs font-medium hover:underline" style="color: var(--eb-muted);">{{t $.Lang "dashboard.manage_members_link"}}</a>
+        </div>
+      </div>
+      {{end}}
+      {{if not .Workspaces}}
+      <div class="px-5 py-10 text-center text-sm" style="color: var(--eb-muted);">{{t .Lang "workspaces.empty_state"}}</div>
+      {{end}}
     </div>
+
      </div>
     </main>
   </div>

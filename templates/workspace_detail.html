@@ -18,7 +18,7 @@
      <div class="max-w-5xl mx-auto">
 
       <div class="flex items-center justify-between mb-6">
-        <button id="open-members-modal-btn" type="button" class="flex items-center gap-3 group">
+        <a href="/workspaces/{{.Workspace.Slug}}/members" class="flex items-center gap-3 group">
           <div class="flex items-center" style="padding-left: 4px;">
             {{range $i, $m := .Members}}
             {{if lt $i 5}}
@@ -33,7 +33,7 @@
             {{len .Members}} {{t .Lang "workspace_detail.member_word"}}{{if ne (len .Members) 1}}s{{end}}
           </span>
           <span class="text-xs" style="color: var(--eb-muted);">— {{t .Lang "workspace_detail.manage_link"}}</span>
-        </button>
+        </a>
         <a href="/workspaces/{{.Workspace.Slug}}/activity" class="text-sm font-medium hover:underline" style="color: var(--eb-muted);">{{t .Lang "activity.link"}} →</a>
       </div>
 
@@ -106,56 +106,6 @@
       </section>
      </div>
     </main>
-  </div>
-</div>
-
-<div id="members-modal-backdrop" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0,0,0,0.6);">
-  <div class="eb-card rounded-xl w-full max-w-md flex flex-col" style="max-height: 85vh;">
-    <div class="px-5 py-4 flex items-center justify-between shrink-0" style="border-bottom: 1px solid var(--eb-border);">
-      <h2 class="text-sm font-semibold" style="color: var(--eb-text);">{{t .Lang "workspace_detail.members_modal_title"}}</h2>
-      <button id="close-members-modal-btn" type="button" class="eb-icon-btn text-lg leading-none">✕</button>
-    </div>
-
-    <div class="overflow-y-auto">
-      {{range $i, $m := .Members}}
-      <div class="px-5 py-3 flex items-center justify-between gap-2" style="{{if $i}}border-top: 1px solid var(--eb-border);{{end}}">
-        <div class="flex items-center gap-3 min-w-0">
-          <img src="{{$m.AvatarImageURL}}" alt="" class="h-8 w-8 rounded-full shrink-0" style="background: var(--eb-surface-2);" />
-          <span class="text-sm font-medium truncate" style="color: var(--eb-text);">{{$m.Username}}</span>
-        </div>
-        <span class="eb-badge eb-badge-{{$m.Role}} shrink-0">{{$m.RoleLabel $.Lang}}</span>
-      </div>
-      {{end}}
-      {{if not .Members}}
-      <div class="px-5 py-10 text-center text-sm" style="color: var(--eb-muted);">{{t .Lang "workspace_detail.no_members"}}</div>
-      {{end}}
-    </div>
-
-    {{if .CanManageWSMembers}}
-    <div class="px-5 py-4 space-y-3 shrink-0" style="border-top: 1px solid var(--eb-border); background: var(--eb-surface-2);">
-      <h3 class="text-xs font-semibold uppercase tracking-wide" style="color: var(--eb-muted);">{{t .Lang "workspace_detail.add_member_title"}}</h3>
-      {{if .MemberError}}
-      <div class="rounded-lg text-sm px-3 py-2" style="background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: #fca5a5;">{{.MemberError}}</div>
-      {{end}}
-      <form method="POST" action="/workspaces/{{.Workspace.Slug}}/members" class="space-y-3">
-        <div>
-          <label class="block text-xs font-medium mb-1" style="color: var(--eb-muted);" for="username">{{t .Lang "workspace_detail.username_existing"}}</label>
-          <input id="username" name="username" type="text" required
-            class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
-        </div>
-        <div>
-          <label class="block text-xs font-medium mb-1" style="color: var(--eb-muted);" for="role">{{t .Lang "members.role_label"}}</label>
-          <select id="role" name="role" required
-            class="eb-input w-full rounded-lg px-3 py-2 text-sm">
-            {{range .AssignableRoles}}
-            <option value="{{.Value}}">{{.Label}}</option>
-            {{end}}
-          </select>
-        </div>
-        <button type="submit" class="eb-btn-primary w-full rounded-lg text-sm py-2 transition-colors">{{t .Lang "workspace_detail.add_button"}}</button>
-      </form>
-    </div>
-    {{end}}
   </div>
 </div>
 
@@ -243,24 +193,6 @@
   document.addEventListener("click", () => {
     document.querySelectorAll(".ds-export-menu").forEach((m) => m.classList.add("hidden"));
   });
-
-  // --- Members modal ---
-  const openBtn = document.getElementById("open-members-modal-btn");
-  const closeBtn = document.getElementById("close-members-modal-btn");
-  const backdrop = document.getElementById("members-modal-backdrop");
-  function openModal() { backdrop.classList.remove("hidden"); }
-  function closeModal() { backdrop.classList.add("hidden"); }
-  if (openBtn) openBtn.addEventListener("click", openModal);
-  if (closeBtn) closeBtn.addEventListener("click", closeModal);
-  if (backdrop) {
-    backdrop.addEventListener("click", (e) => { if (e.target === backdrop) closeModal(); });
-  }
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && backdrop && !backdrop.classList.contains("hidden")) closeModal();
-  });
-  // Reopen the modal automatically if the server re-rendered the page after
-  // a failed "add member" attempt, so the error is visible right away.
-  {{if .MemberError}}openModal();{{end}}
 
   // --- Per-data-source "Code" modal ---
   const codeBackdrop = document.getElementById("code-modal-backdrop");
