@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -81,7 +82,31 @@ func main() {
 	}
 
 	log.Printf("EptaAdmin démarré sur http://localhost%s", addr)
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	if err := http.ListenAndServe(addr, withAPICORS(mux)); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// withAPICORS lets the public read-only API (/api/v1/...) be called
+// cross-origin — from the JS SDK running in someone else's frontend, on
+// its own domain, not EptaAdmin's. Wildcard is safe here specifically
+// because this API authenticates via an explicit Authorization header
+// (never a cookie a browser would attach automatically), so there's no
+// CSRF-style risk in allowing any origin to read it — the caller's own
+// page still has to know and send the API key itself. Every other route
+// uses session cookies and is same-origin from the EptaAdmin web UI, so
+// it's left untouched.
+func withAPICORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/v1/") {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
 }

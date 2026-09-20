@@ -108,18 +108,28 @@ const bearerPrefix = "Bearer "
 // callers — the JS SDK, a script, another backend — can't hold a session
 // cookie, so this is a separate auth path from requireAuth, sharing only
 // the same userContextKey downstream handlers already read from.
+//
+// A "?apiKey=" query parameter is accepted as a fallback when there's no
+// Authorization header — needed for the upload-serving route, whose
+// resolved URL the SDK hands to callers to drop straight into an <img>/
+// <video> src. A browser's native resource fetch for those never attaches
+// custom headers, so a bearer-header-only scheme would make that URL
+// pretty unusable in the most common real use case for it.
 func (a *App) requireAPIKey(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// No authenticated user yet at this point, so resolveLang only has
 		// the pre-login cookie (or French) to go on — there's no account
 		// to read a saved preference from until the key resolves below.
 		lang := a.resolveLang(r)
-		header := r.Header.Get("Authorization")
-		if !strings.HasPrefix(header, bearerPrefix) {
-			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": T(lang, "api.key_missing")})
-			return
+		token := strings.TrimSpace(r.URL.Query().Get("apiKey"))
+		if token == "" {
+			header := r.Header.Get("Authorization")
+			if !strings.HasPrefix(header, bearerPrefix) {
+				writeJSON(w, http.StatusUnauthorized, map[string]string{"error": T(lang, "api.key_missing")})
+				return
+			}
+			token = strings.TrimSpace(strings.TrimPrefix(header, bearerPrefix))
 		}
-		token := strings.TrimSpace(strings.TrimPrefix(header, bearerPrefix))
 		if token == "" {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": T(lang, "api.key_missing")})
 			return
