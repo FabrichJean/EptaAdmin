@@ -93,10 +93,15 @@ func columnStoreFromRows(rows []map[string]any) ColumnStore {
 }
 
 // SaveColumnStore writes the store back atomically (write to a temp file,
-// then rename) so a crash mid-write never corrupts the data source.
+// then rename) so a crash mid-write never corrupts the data source. The
+// parent directory is recreated if missing, so an out-of-band removal of a
+// workspace's data folder doesn't permanently break writes to it.
 func SaveColumnStore(path string, cs ColumnStore) error {
 	data, err := json.MarshalIndent(cs, "", "  ")
 	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
 	tmp := path + ".tmp"
