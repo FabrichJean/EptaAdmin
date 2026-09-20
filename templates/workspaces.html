@@ -8,18 +8,18 @@
 
     <main class="flex-1 overflow-y-auto px-4 sm:px-8 py-10">
      <div class="max-w-4xl mx-auto">
-      <p class="mb-6" style="color: var(--eb-muted);">Chaque workspace regroupe ses propres membres, rôles et sources de données JSON.</p>
+      <p class="mb-6" style="color: var(--eb-muted);">{{t .Lang "workspaces.subtitle"}}</p>
 
       <div class="flex items-center gap-3 mb-8">
         <div class="relative flex-1">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--eb-muted);"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-          <input id="workspace-search" type="text" placeholder="Rechercher un workspace ou une donnée..." autocomplete="off"
+          <input id="workspace-search" type="text" placeholder="{{t .Lang "workspaces.search_placeholder"}}" autocomplete="off"
             class="eb-input w-full rounded-xl pl-12 pr-4 py-3.5 text-base" />
           <div id="search-results-panel" class="hidden absolute left-0 right-0 top-full mt-2 rounded-xl overflow-hidden eb-card z-20" style="box-shadow: 0 12px 32px rgba(0,0,0,0.5);">
             <div id="search-results-list" class="max-h-80 overflow-y-auto"></div>
           </div>
         </div>
-        <button id="toggle-add-workspace-btn" type="button" class="eb-btn-primary shrink-0 rounded-xl text-sm font-semibold px-5 py-3.5 transition-colors">+ Nouveau</button>
+        <button id="toggle-add-workspace-btn" type="button" class="eb-btn-primary shrink-0 rounded-xl text-sm font-semibold px-5 py-3.5 transition-colors">+ {{t .Lang "workspaces.new_button"}}</button>
       </div>
 
       <div id="add-workspace-form" class="hidden eb-card rounded-xl p-5 mb-8 space-y-3">
@@ -28,16 +28,16 @@
         {{end}}
         <form method="POST" action="/workspaces" class="flex items-end gap-3">
           <div class="flex-1">
-            <label class="block text-xs font-medium mb-1" style="color: var(--eb-muted);" for="name">Nom</label>
+            <label class="block text-xs font-medium mb-1" style="color: var(--eb-muted);" for="name">{{t .Lang "workspaces.name_label"}}</label>
             <input id="name" name="name" type="text" required value="{{.Name}}" placeholder="Production"
               class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
           </div>
-          <button type="submit" class="eb-btn-primary rounded-lg text-sm px-4 py-2 transition-colors shrink-0">Créer</button>
+          <button type="submit" class="eb-btn-primary rounded-lg text-sm px-4 py-2 transition-colors shrink-0">{{t .Lang "workspaces.create_button"}}</button>
         </form>
-        <p class="text-xs" style="color: var(--eb-muted);">Vous en devenez automatiquement le Propriétaire.</p>
+        <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "workspaces.owner_hint"}}</p>
       </div>
 
-      <h2 class="text-sm font-semibold mb-3" style="color: var(--eb-text);">Vos workspaces</h2>
+      <h2 class="text-sm font-semibold mb-3" style="color: var(--eb-text);">{{t .Lang "workspaces.your_workspaces"}}</h2>
 
       {{if .Workspaces}}
       <div class="relative">
@@ -52,7 +52,7 @@
             </div>
             <div class="min-w-0">
               <p class="text-sm font-semibold truncate" style="color: var(--eb-text);">{{.Name}}</p>
-              <p class="text-xs truncate" style="color: var(--eb-muted);">{{.RoleLabel}}</p>
+              <p class="text-xs truncate" style="color: var(--eb-muted);">{{.RoleLabel $.Lang}}</p>
             </div>
           </a>
           {{end}}
@@ -63,7 +63,7 @@
       </div>
       {{else}}
       <div class="eb-card rounded-xl px-5 py-10 text-center text-sm" style="color: var(--eb-muted);">
-        Aucun workspace pour le moment. Créez-en un pour commencer.
+        {{t .Lang "workspaces.empty_state"}}
       </div>
       {{end}}
      </div>
@@ -87,6 +87,9 @@
       const searchInput = document.getElementById("workspace-search");
       const resultsPanel = document.getElementById("search-results-panel");
       const resultsList = document.getElementById("search-results-list");
+      const I18N_NO_RESULTS_PREFIX = "{{t .Lang "workspaces.search_no_results_prefix"}}";
+      const I18N_NO_RESULTS_SUFFIX = "{{t .Lang "workspaces.search_no_results_suffix"}}";
+      const I18N_EMPTY_VALUE = "{{t .Lang "workspaces.search_empty_value"}}";
       let searchDebounce = null;
       let searchSeq = 0;
 
@@ -101,7 +104,7 @@
           const empty = document.createElement("div");
           empty.className = "px-4 py-4 text-sm text-center";
           empty.style.color = "var(--eb-muted)";
-          empty.textContent = "Aucune donnée trouvée pour « " + query + " ».";
+          empty.textContent = I18N_NO_RESULTS_PREFIX + query + I18N_NO_RESULTS_SUFFIX;
           resultsList.appendChild(empty);
           resultsPanel.classList.remove("hidden");
           return;
@@ -124,7 +127,7 @@
           const sub = document.createElement("p");
           sub.className = "text-xs truncate";
           sub.style.color = "var(--eb-muted);";
-          sub.textContent = item.value || "(vide)";
+          sub.textContent = item.value || I18N_EMPTY_VALUE;
           left.appendChild(title);
           left.appendChild(sub);
 
