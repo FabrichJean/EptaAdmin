@@ -127,6 +127,21 @@ func (s *Store) migrate() error {
 		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		last_used_at DATETIME
 	);
+
+	CREATE TABLE IF NOT EXISTS activity_log (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		workspace_id INTEGER REFERENCES workspaces(id) ON DELETE CASCADE,
+		data_source_id INTEGER REFERENCES data_sources(id) ON DELETE CASCADE,
+		user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+		action TEXT NOT NULL,
+		details TEXT NOT NULL DEFAULT '{}',
+		reversible INTEGER NOT NULL DEFAULT 0,
+		reverted_at DATETIME,
+		reverted_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE INDEX IF NOT EXISTS idx_activity_log_workspace ON activity_log(workspace_id, id DESC);
+	CREATE INDEX IF NOT EXISTS idx_activity_log_user ON activity_log(user_id, id DESC);
 	`
 	if _, err := s.db.Exec(schema); err != nil {
 		return err
@@ -314,4 +329,162 @@ func (s *Store) DeleteSession(token string) error {
 
 func isUniqueConstraintErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
+}
+
+// InsertActivity records one audit-log entry. workspaceID/dataSourceID of
+// 0 are stored as NULL (account-level actions like login aren't tied to
+// either).
+func (s *Store) InsertActivity(workspaceID, dataSourceID, userID int64, action, details string, reversible bool) error {
+	var wsID, dsID any
+	if workspaceID != 0 {
+		wsID = workspaceID
+	}
+	if dataSourceID != 0 {
+		dsID = dataSourceID
+	}
+	_, err := s.db.Exec(
+		`INSERT INTO activity_log (workspace_id, data_source_id, user_id, action, details, reversible) VALUES (?, ?, ?, ?, ?, ?)`,
+		wsID, dsID, userID, action, details, reversible,
+	)
+	return err
+}
+
+const activityColumns = `
+	activity_log.id, activity_log.workspace_id, activity_log.data_source_id, activity_log.user_id,
+	activity_log.action, activity_log.details, activity_log.reversible,
+	activity_log.reverted_at, activity_log.reverted_by,
+	activity_log.created_at,
+	COALESCE(u.username, ''), COALESCE(ru.username, ''),
+	COALESCE(w.name, ''), COALESCE(w.slug, '')
+`
+
+const activityJoins = `
+	LEFT JOIN users u ON u.id = activity_log.user_id
+	LEFT JOIN users ru ON ru.id = activity_log.reverted_by
+	LEFT JOIN workspaces w ON w.id = activity_log.workspace_id
+`
+
+func scanActivity(scan func(dest ...any) error) (*ActivityEntry, error) {
+	e := &ActivityEntry{}
+	err := scan(
+		&e.ID, &e.WorkspaceID, &e.DataSourceID, &e.UserID,
+		&e.Action, &e.Details, &e.Reversible,
+		&e.RevertedAt, &e.RevertedBy,
+		&e.CreatedAt,
+		&e.Username, &e.RevertedByName,
+		&e.WorkspaceName, &e.WorkspaceSlug,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return e, nil
+}
+
+// ListWorkspaceActivity returns a workspace's most recent activity, newest
+// first, joined with usernames for display.
+func (s *Store) ListWorkspaceActivity(workspaceID int64, limit int) ([]*ActivityEntry, error) {
+	rows, err := s.db.Query(`
+		SELECT `+activityColumns+`
+		FROM activity_log
+		`+activityJoins+`
+		WHERE activity_log.workspace_id = ?
+		ORDER BY activity_log.id DESC
+		LIMIT ?
+	`, workspaceID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*ActivityEntry
+	for rows.Next() {
+		e, err := scanActivity(rows.Scan)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
+// ListUserActivity returns one user's own account-level activity (login,
+// profile changes, API keys) — entries with no workspace, shown on their
+// profile page.
+func (s *Store) ListUserActivity(userID int64, limit int) ([]*ActivityEntry, error) {
+	rows, err := s.db.Query(`
+		SELECT `+activityColumns+`
+		FROM activity_log
+		`+activityJoins+`
+		WHERE activity_log.user_id = ? AND activity_log.workspace_id IS NULL
+		ORDER BY activity_log.id DESC
+		LIMIT ?
+	`, userID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*ActivityEntry
+	for rows.Next() {
+		e, err := scanActivity(rows.Scan)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
+// ListActivityForUserWorkspaces returns the most recent activity across
+// every workspace the given user is a member of — the feed behind the
+// global "Activité" sidebar page, spanning workspaces rather than being
+// scoped to one.
+func (s *Store) ListActivityForUserWorkspaces(userID int64, limit int) ([]*ActivityEntry, error) {
+	rows, err := s.db.Query(`
+		SELECT `+activityColumns+`
+		FROM activity_log
+		`+activityJoins+`
+		WHERE activity_log.workspace_id IN (SELECT workspace_id FROM workspace_members WHERE user_id = ?)
+		ORDER BY activity_log.id DESC
+		LIMIT ?
+	`, userID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*ActivityEntry
+	for rows.Next() {
+		e, err := scanActivity(rows.Scan)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) GetActivity(id int64) (*ActivityEntry, error) {
+	row := s.db.QueryRow(`
+		SELECT `+activityColumns+`
+		FROM activity_log
+		`+activityJoins+`
+		WHERE activity_log.id = ?
+	`, id)
+	e, err := scanActivity(row.Scan)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return e, nil
+}
+
+func (s *Store) MarkActivityReverted(id, revertedBy int64) error {
+	_, err := s.db.Exec(
+		`UPDATE activity_log SET reverted_at = CURRENT_TIMESTAMP, reverted_by = ? WHERE id = ?`,
+		revertedBy, id,
+	)
+	return err
 }

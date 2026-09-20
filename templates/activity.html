@@ -1,0 +1,90 @@
+{{define "title"}}{{t .Lang "activity.title"}}{{if .Workspace}} — {{.Workspace.Name}}{{end}} — EptaAdmin{{end}}
+{{define "content"}}
+<div class="h-full flex">
+  {{template "sidebar" .}}
+
+  <div class="flex-1 min-w-0 flex flex-col">
+    {{template "header" .}}
+
+    <main class="flex-1 overflow-y-auto px-4 sm:px-8 py-10">
+     <div class="max-w-5xl mx-auto">
+
+      <div class="flex items-center justify-between gap-3 mb-5">
+        <p class="text-sm" style="color: var(--eb-muted);">{{t .Lang "activity.subtitle"}}</p>
+        {{if .DataSources}}
+        <select id="ds-filter" class="eb-input rounded-lg px-3 py-2 text-sm">
+          <option value="">{{t .Lang "activity.filter_all"}}</option>
+          {{range .DataSources}}
+          <option value="{{.Slug}}" {{if eq $.FilterDS .Slug}}selected{{end}}>{{.Name}}</option>
+          {{end}}
+        </select>
+        {{end}}
+      </div>
+
+      <section class="eb-card rounded-xl overflow-hidden flex flex-col">
+        {{range $i, $row := .Rows}}
+        <div class="px-5 py-3 flex items-center justify-between gap-3" style="{{if $i}}border-top: 1px solid var(--eb-border);{{end}}" data-activity-id="{{$row.ID}}">
+          <div class="min-w-0">
+            <p class="text-sm" style="color: var(--eb-text);">{{$row.Describe $.Lang}}</p>
+            <p class="text-xs mt-0.5" style="color: var(--eb-muted);">
+              {{formatTime $row.CreatedAt}}
+              {{if $.Global}}{{if $row.WorkspaceName}}· {{$row.WorkspaceName}}{{end}}{{else if $row.DataSourceID.Valid}}· {{index $.DSNames $row.DataSourceID.Int64}}{{end}}
+              {{if $row.RevertedAt.Valid}}· <span style="color: var(--eb-warn);">{{t $.Lang "activity.reverted_badge"}}{{if $row.RevertedByName}} ({{t $.Lang "activity.reverted_by" $row.RevertedByName}}){{end}}</span>{{end}}
+            </p>
+          </div>
+          {{if and $row.CanRevert $row.Reversible (not $row.RevertedAt.Valid)}}
+          <button type="button" class="activity-undo-btn eb-btn-secondary shrink-0 rounded-lg text-xs font-medium px-3 py-1.5 transition-colors" data-id="{{$row.ID}}" data-ws-slug="{{$row.WorkspaceSlug}}">{{t $.Lang "activity.undo_button"}}</button>
+          {{end}}
+        </div>
+        {{end}}
+        {{if not .Rows}}
+        <div class="px-5 py-10 text-center text-sm" style="color: var(--eb-muted);">{{t .Lang "activity.empty"}}</div>
+        {{end}}
+      </section>
+
+     </div>
+    </main>
+  </div>
+</div>
+
+<script>
+(function () {
+  const I18N = {
+    confirmRevert: "{{t .Lang "activity.confirm_revert"}}",
+    revertFailed: "{{t .Lang "activity.revert_failed"}}",
+    cannotContactServer: "{{t .Lang "datasource.cannot_contact_server"}}",
+  };
+
+  const dsFilter = document.getElementById("ds-filter");
+  if (dsFilter) {
+    dsFilter.addEventListener("change", () => {
+      const url = new URL(window.location.href);
+      if (dsFilter.value) url.searchParams.set("ds", dsFilter.value);
+      else url.searchParams.delete("ds");
+      window.location.href = url.toString();
+    });
+  }
+
+  document.querySelectorAll(".activity-undo-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!confirm(I18N.confirmRevert)) return;
+      btn.disabled = true;
+      try {
+        const res = await fetch("/workspaces/" + btn.dataset.wsSlug + "/activity/" + btn.dataset.id + "/revert", { method: "POST" });
+        if (res.ok) {
+          location.reload();
+          return;
+        }
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || I18N.revertFailed);
+      } catch (e) {
+        alert(I18N.cannotContactServer);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
+})();
+</script>
+{{end}}
+{{template "layout" .}}
