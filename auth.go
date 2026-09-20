@@ -110,25 +110,29 @@ const bearerPrefix = "Bearer "
 // the same userContextKey downstream handlers already read from.
 func (a *App) requireAPIKey(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// No authenticated user yet at this point, so resolveLang only has
+		// the pre-login cookie (or French) to go on — there's no account
+		// to read a saved preference from until the key resolves below.
+		lang := a.resolveLang(r)
 		header := r.Header.Get("Authorization")
 		if !strings.HasPrefix(header, bearerPrefix) {
-			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "Clé API manquante (en-tête Authorization: Bearer <clé>)."})
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": T(lang, "api.key_missing")})
 			return
 		}
 		token := strings.TrimSpace(strings.TrimPrefix(header, bearerPrefix))
 		if token == "" {
-			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "Clé API manquante (en-tête Authorization: Bearer <clé>)."})
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": T(lang, "api.key_missing")})
 			return
 		}
 
 		user, err := a.store.GetUserByAPIKeyToken(token)
 		if err != nil {
 			log.Printf("api key lookup error: %v", err)
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": T(lang, "common.error_generic")})
 			return
 		}
 		if user == nil {
-			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "Clé API invalide."})
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": T(lang, "api.key_invalid")})
 			return
 		}
 

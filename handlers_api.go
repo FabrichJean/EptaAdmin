@@ -9,7 +9,10 @@ import (
 // This file is the public, read-only REST API (auth via requireAPIKey,
 // never a session cookie) that the JS SDK and external projects consume to
 // read a workspace's data. It mirrors the internal handlers' permission
-// checks but always responds JSON, never HTML.
+// checks but always responds JSON, never HTML. Error messages are
+// localized via the API key owner's saved language preference (the same
+// resolveLang used everywhere else), since a personal API key always
+// resolves to a *User with a Language field.
 
 type apiWorkspace struct {
 	Name string `json:"name"`
@@ -22,7 +25,7 @@ func (a *App) handleAPIListWorkspaces(w http.ResponseWriter, r *http.Request) {
 	workspaces, err := a.store.ListWorkspacesForUser(currentUser.ID)
 	if err != nil {
 		log.Printf("api list workspaces error: %v", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": T(a.resolveLang(r), "common.error_generic")})
 		return
 	}
 	out := make([]apiWorkspace, 0, len(workspaces))
@@ -35,24 +38,25 @@ func (a *App) handleAPIListWorkspaces(w http.ResponseWriter, r *http.Request) {
 // apiLoadWorkspace resolves the {slug} path value to a workspace the caller
 // can read, writing the appropriate JSON error response otherwise.
 func (a *App) apiLoadWorkspace(w http.ResponseWriter, r *http.Request, currentUser *User) (*Workspace, bool) {
+	lang := a.resolveLang(r)
 	ws, err := a.store.GetWorkspaceBySlug(r.PathValue("slug"))
 	if err != nil {
 		log.Printf("api get workspace error: %v", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": T(lang, "common.error_generic")})
 		return nil, false
 	}
 	if ws == nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "Workspace introuvable."})
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": T(lang, "api.workspace_not_found")})
 		return nil, false
 	}
 	role, err := a.store.GetWorkspaceMemberRole(ws.ID, currentUser.ID)
 	if err != nil {
 		log.Printf("api get role error: %v", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": T(lang, "common.error_generic")})
 		return nil, false
 	}
 	if role == "" || !hasPermission(role, PermDataRead) {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "Accès refusé."})
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": T(lang, "common.access_denied")})
 		return nil, false
 	}
 	return ws, true
@@ -72,7 +76,7 @@ func (a *App) handleAPIListDataSources(w http.ResponseWriter, r *http.Request) {
 	dataSources, err := a.store.ListDataSources(ws.ID)
 	if err != nil {
 		log.Printf("api list data sources error: %v", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": T(a.resolveLang(r), "common.error_generic")})
 		return
 	}
 	out := make([]apiDataSource, 0, len(dataSources))
@@ -86,20 +90,21 @@ func (a *App) handleAPIListDataSources(w http.ResponseWriter, r *http.Request) {
 // and reads its column store, writing the appropriate JSON error response
 // otherwise. Shared by every endpoint below the data-source level.
 func (a *App) apiLoadColumnStore(w http.ResponseWriter, r *http.Request, ws *Workspace) (*DataSource, ColumnStore, bool) {
+	lang := a.resolveLang(r)
 	ds, err := a.store.GetDataSourceBySlug(ws.ID, r.PathValue("dsSlug"))
 	if err != nil {
 		log.Printf("api get data source error: %v", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": T(lang, "common.error_generic")})
 		return nil, nil, false
 	}
 	if ds == nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "Source de données introuvable."})
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": T(lang, "api.datasource_not_found")})
 		return nil, nil, false
 	}
 	cs, err := LoadColumnStore(ds.StoragePath)
 	if err != nil {
 		log.Printf("api load column store error: %v", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Impossible de lire cette source de données."})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": T(lang, "api.datasource_read_error")})
 		return nil, nil, false
 	}
 	return ds, cs, true
@@ -141,7 +146,7 @@ func (a *App) handleAPIGetColumn(w http.ResponseWriter, r *http.Request) {
 	key := r.PathValue("key")
 	values, exists := cs[key]
 	if !exists {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "Colonne introuvable."})
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": T(a.resolveLang(r), "api.column_not_found")})
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -154,6 +159,7 @@ func (a *App) handleAPIGetColumn(w http.ResponseWriter, r *http.Request) {
 // index in that column's independent list.
 func (a *App) handleAPIGetColumnValue(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
+	lang := a.resolveLang(r)
 	ws, ok := a.apiLoadWorkspace(w, r, currentUser)
 	if !ok {
 		return
@@ -165,12 +171,12 @@ func (a *App) handleAPIGetColumnValue(w http.ResponseWriter, r *http.Request) {
 	key := r.PathValue("key")
 	values, exists := cs[key]
 	if !exists {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "Colonne introuvable."})
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": T(lang, "api.column_not_found")})
 		return
 	}
 	index, err := strconv.Atoi(r.PathValue("index"))
 	if err != nil || index < 0 || index >= len(values) {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "Index hors limites."})
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": T(lang, "api.index_out_of_range")})
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
