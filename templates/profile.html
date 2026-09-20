@@ -20,7 +20,7 @@
         <div class="min-w-0">
           <p class="text-lg font-semibold truncate" style="color: var(--eb-text);">{{.CurrentUser.Username}}</p>
           <div class="flex items-center gap-2 mt-1">
-            <span class="eb-badge eb-badge-{{.CurrentUser.Role}}">{{.CurrentUser.RoleLabel .Lang}}</span>
+            {{if .CurrentUserRoleLabel}}<span class="eb-badge">{{.CurrentUserRoleLabel}}</span>{{end}}
             <span class="text-xs" style="color: var(--eb-muted);">{{t .Lang "profile.member_since"}} {{.CurrentUser.CreatedAt.Format "02/01/2006"}}</span>
           </div>
         </div>
