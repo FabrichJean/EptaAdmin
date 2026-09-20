@@ -80,6 +80,11 @@
             </div>
             <div class="relative flex items-center gap-2 shrink-0">
               <span class="eb-chip pointer-events-none">{{$ds.Type}}</span>
+              {{if $.CanImportData}}
+              <button type="button" class="ds-import-btn eb-btn-secondary rounded-md text-xs px-2 py-1 transition-colors"
+                data-ws-slug="{{$.Workspace.Slug}}" data-ds-slug="{{$ds.Slug}}">{{t $.Lang "datasource.import_button"}}</button>
+              <input type="file" class="ds-import-input hidden" accept=".json,application/json" />
+              {{end}}
               <div class="relative ds-export-wrap">
                 <button type="button" class="ds-export-btn eb-btn-secondary rounded-md text-xs px-2 py-1 transition-colors">{{t $.Lang "datasource.export_button"}}</button>
                 <div class="ds-export-menu hidden absolute right-0 mt-1 w-40 rounded-lg py-1 z-30 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
@@ -187,6 +192,39 @@
   }
   bindToggle("toggle-add-source-btn", "add-source-form");
   {{if .SourceError}}document.getElementById("add-source-form")?.classList.remove("hidden");{{end}}
+
+  // --- Per-data-source import ---
+  document.querySelectorAll(".ds-import-btn").forEach((btn) => {
+    const input = btn.nextElementSibling;
+    if (!input) return;
+    btn.addEventListener("click", () => input.click());
+    input.addEventListener("change", async () => {
+      const file = input.files[0];
+      if (!file) return;
+      if (!confirm("{{t .Lang "datasource.import_confirm"}}")) {
+        input.value = "";
+        return;
+      }
+      const formData = new FormData();
+      formData.append("file", file);
+      try {
+        const res = await fetch(`/workspaces/${btn.dataset.wsSlug}/datasources/${btn.dataset.dsSlug}/import`, {
+          method: "POST",
+          body: formData,
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          alert(body.error || "{{t .Lang "common.error_generic_retry"}}");
+          input.value = "";
+          return;
+        }
+        location.reload();
+      } catch (e) {
+        alert("{{t .Lang "datasource.cannot_contact_server"}}");
+        input.value = "";
+      }
+    });
+  });
 
   // --- Per-data-source export menu ---
   document.querySelectorAll(".ds-export-btn").forEach((btn) => {

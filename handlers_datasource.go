@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"sort"
@@ -205,6 +206,137 @@ func exportDataSourceCSV(w http.ResponseWriter, slug string, columns []Column) {
 		_ = cw.Write(row)
 	}
 	cw.Flush()
+}
+
+// maxImportSize bounds a single import request independently of the
+// workspace's overall storage cap (see EnsureWorkspaceStorageWithinLimit,
+// checked separately below) — this just limits how much one request can
+// pull into memory before that check even runs.
+const maxImportSize = 20 << 20
+
+// handleImportDataSource merges an uploaded JSON file's columns into a
+// data source's existing content — imported values are appended to each
+// column's existing list, and any column already present keeps everything
+// it had before. Nothing already stored is ever replaced or removed by an
+// import, however the uploaded file is shaped, so it's safe to run against
+// a data source that already has columns and data. Any column key present
+// in the import that isn't already declared gets auto-registered, the same
+// bootstrap handleDataSourceTable applies to pre-existing data, so
+// imported values are immediately editable rather than showing up as
+// read-only.
+func (a *App) handleImportDataSource(w http.ResponseWriter, r *http.Request) {
+	currentUser := userFromContext(r)
+	lang := a.resolveLang(r)
+	ws, role, ok := a.loadWorkspaceMembership(w, r, currentUser)
+	if !ok {
+		return
+	}
+	if !hasPermission(role, PermDataCreate) {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": T(lang, "datasource.access_denied_create")})
+		return
+	}
+	ds, ok := a.loadDataSourceInWorkspace(w, r, ws)
+	if !ok {
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxImportSize+1<<20)
+	if err := r.ParseMultipartForm(maxImportSize + 1<<20); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "datasource.import_too_large")})
+		return
+	}
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "profile.avatar_upload_missing")})
+		return
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(io.LimitReader(file, maxImportSize+1))
+	if err != nil {
+		log.Printf("read import file error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		return
+	}
+	if len(data) > maxImportSize {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "datasource.import_too_large")})
+		return
+	}
+
+	imported, err := ParseColumnStoreJSON(data)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "datasource.import_invalid_json")})
+		return
+	}
+
+	dataWriteMu.Lock()
+	defer dataWriteMu.Unlock()
+
+	fresh, err := a.store.GetDataSource(ds.ID)
+	if err != nil {
+		log.Printf("get data source error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		return
+	}
+
+	cs, err := LoadColumnStore(fresh.StoragePath)
+	if err != nil {
+		log.Printf("load column store error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		return
+	}
+	// Append rather than assign: a column already present in cs keeps every
+	// value it had, the imported ones are simply added after them.
+	for key, values := range imported {
+		cs[key] = append(cs[key], values...)
+	}
+
+	newData, err := json.MarshalIndent(cs, "", "  ")
+	if err != nil {
+		log.Printf("marshal column store error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		return
+	}
+	if err := EnsureWorkspaceStorageWithinLimit(ws.ID, fresh.StoragePath, int64(len(newData))); err != nil {
+		if err == ErrWorkspaceStorageLimitExceeded {
+			writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": T(lang, "datasource.storage_limit_exceeded")})
+			return
+		}
+		log.Printf("check workspace storage limit error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		return
+	}
+
+	if err := SaveColumnStore(fresh.StoragePath, cs); err != nil {
+		log.Printf("save column store error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": T(lang, "datasource.write_error")})
+		return
+	}
+
+	schemaCols, err := a.store.ListDataSourceColumns(fresh.ID)
+	if err != nil {
+		log.Printf("list schema columns error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		return
+	}
+	known := map[string]bool{}
+	for _, c := range schemaCols {
+		known[c.Key] = true
+	}
+	for _, guess := range InferSchemaFromColumns(imported) {
+		if known[guess.Key] {
+			continue
+		}
+		if _, err := a.store.AddDataSourceColumn(fresh.ID, guess.Key, guess.Type, ""); err != nil && err != ErrColumnExists {
+			log.Printf("bootstrap imported column error: %v", err)
+		}
+	}
+
+	if _, err := a.store.BumpDataSourceVersion(fresh.ID, fresh.Version); err != nil {
+		log.Printf("bump version error: %v", err)
+	}
+
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 // pluralS is language-agnostic on purpose: "column(s)" and "colonne(s)"
