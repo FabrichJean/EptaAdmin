@@ -52,6 +52,8 @@
           <button id="page-menu-btn" type="button" class="eb-btn-secondary rounded-lg px-3 py-2.5 transition-colors">⋯</button>
           <div id="page-menu" class="hidden absolute right-0 mt-2 w-44 rounded-lg py-1 z-20 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
             <button type="button" onclick="location.reload()" class="w-full text-left px-3 py-2 text-sm" style="color: var(--eb-text);">{{t .Lang "datasource.refresh_button"}}</button>
+            <a href="/workspaces/{{.Workspace.Slug}}/datasources/{{.DataSource.Slug}}/export?format=csv" class="block px-3 py-2 text-sm" style="color: var(--eb-text); border-top: 1px solid var(--eb-border);">{{t .Lang "datasource.export_csv"}}</a>
+            <a href="/workspaces/{{.Workspace.Slug}}/datasources/{{.DataSource.Slug}}/export?format=json" class="block px-3 py-2 text-sm" style="color: var(--eb-text);">{{t .Lang "datasource.export_json"}}</a>
           </div>
         </div>
       </div>
