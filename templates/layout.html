@@ -123,6 +123,18 @@
     {{end}}
   </nav>
 
+  {{if .WorkspaceStorageUsedLabel}}
+  <div class="px-4 py-3" style="border-top: 1px solid var(--eb-border);">
+    <div class="flex items-center justify-between text-xs mb-1.5" style="color: var(--eb-muted);">
+      <span>{{t .Lang "sidebar.storage_label"}}</span>
+      <span>{{.WorkspaceStorageUsedLabel}} / {{.WorkspaceStorageLimitLabel}}</span>
+    </div>
+    <div class="h-1.5 rounded-full overflow-hidden" style="background: var(--eb-surface-2);">
+      <div class="h-full rounded-full" style="width: {{.WorkspaceStoragePercent}}%; background: {{if ge .WorkspaceStoragePercent 90}}#f87171{{else}}var(--eb-accent){{end}};"></div>
+    </div>
+  </div>
+  {{end}}
+
   <div class="p-4 flex items-center gap-3" style="border-top: 1px solid var(--eb-border);">
     <img src="{{.CurrentUser.AvatarImageURL}}" alt="" class="h-8 w-8 shrink-0 rounded-full" style="background: var(--eb-surface-2);" />
     <div class="min-w-0">

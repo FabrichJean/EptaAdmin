@@ -2,7 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -17,6 +19,89 @@ func dataRoot() string {
 		return dir
 	}
 	return "data"
+}
+
+// defaultWorkspaceStorageLimit caps how much disk space a single
+// workspace's data source files and uploaded images may occupy combined —
+// override via EPTAADMIN_WORKSPACE_STORAGE_LIMIT (bytes).
+const defaultWorkspaceStorageLimit int64 = 400 * 1024 * 1024
+
+func workspaceStorageLimit() int64 {
+	if v := os.Getenv("EPTAADMIN_WORKSPACE_STORAGE_LIMIT"); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil && n > 0 {
+			return n
+		}
+	}
+	return defaultWorkspaceStorageLimit
+}
+
+// workspaceStorageUsage sums the size of every file currently stored under
+// a workspace's data directory — its data source JSON files and uploaded
+// images combined, the same folder newDataSourcePath and uploadDir write
+// into. A workspace with nothing written yet (directory doesn't exist) uses
+// zero bytes rather than erroring.
+func workspaceStorageUsage(workspaceID int64) (int64, error) {
+	dir := filepath.Join(dataRoot(), "ws_"+strconv.FormatInt(workspaceID, 10))
+	var total int64
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		total += info.Size()
+		return nil
+	})
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	return total, nil
+}
+
+var ErrWorkspaceStorageLimitExceeded = errors.New("limite de stockage du workspace dépassée")
+
+// EnsureWorkspaceStorageWithinLimit reports ErrWorkspaceStorageLimitExceeded
+// if writing newSize bytes would push a workspace over its storage cap.
+// replacePath is the file about to be overwritten (its current size is
+// subtracted first, so re-saving a data source doesn't double-count its own
+// previous content) — pass "" for a brand new file, e.g. an upload.
+func EnsureWorkspaceStorageWithinLimit(workspaceID int64, replacePath string, newSize int64) error {
+	var replaceSize int64
+	if info, err := os.Stat(replacePath); err == nil {
+		replaceSize = info.Size()
+	}
+	usage, err := workspaceStorageUsage(workspaceID)
+	if err != nil {
+		return err
+	}
+	if usage-replaceSize+newSize > workspaceStorageLimit() {
+		return ErrWorkspaceStorageLimitExceeded
+	}
+	return nil
+}
+
+// formatBytesHuman renders a byte count for display (sidebar storage
+// gauge, etc.) using binary (1024-based) units, matching how the storage
+// limit itself is typically expressed (e.g. 1 GiB).
+func formatBytesHuman(n int64) string {
+	const unit = 1024
+	if n < unit {
+		return fmt.Sprintf("%d B", n)
+	}
+	div, exp := int64(unit), 0
+	for v := n / unit; v >= unit; v /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB", float64(n)/float64(div), "KMGTPE"[exp])
 }
 
 // newDataSourcePath computes (and creates the directory for) the on-disk
