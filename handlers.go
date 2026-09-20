@@ -56,6 +56,28 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, page string, data a
 		if _, exists := m["Lang"]; !exists {
 			m["Lang"] = a.resolveLang(r)
 		}
+		// Pages that set "Workspace" (workspace_detail, datasource_table) get
+		// a storage gauge for free in the sidebar, computed once here rather
+		// than duplicated in every handler that builds one of those pages.
+		if ws, ok := m["Workspace"].(*Workspace); ok {
+			if _, exists := m["WorkspaceStorageUsedLabel"]; !exists {
+				if usage, err := workspaceStorageUsage(ws.ID); err != nil {
+					log.Printf("workspace storage usage error: %v", err)
+				} else {
+					limit := workspaceStorageLimit()
+					percent := 0
+					if limit > 0 {
+						percent = int(usage * 100 / limit)
+					}
+					if percent > 100 {
+						percent = 100
+					}
+					m["WorkspaceStorageUsedLabel"] = formatBytesHuman(usage)
+					m["WorkspaceStorageLimitLabel"] = formatBytesHuman(limit)
+					m["WorkspaceStoragePercent"] = percent
+				}
+			}
+		}
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := tmpl.ExecuteTemplate(w, page, data); err != nil {

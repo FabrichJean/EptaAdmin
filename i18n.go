@@ -83,6 +83,7 @@ var translations = map[string]map[string]string{
 		"nav.integration": "Intégration",
 		"nav.profile":     "Mon profil",
 		"nav.logout":      "Déconnexion",
+		"sidebar.storage_label": "Stockage",
 
 		"common.error_generic":        "Une erreur est survenue.",
 		"common.error_generic_retry":  "Une erreur est survenue, réessayez.",
@@ -171,6 +172,7 @@ var translations = map[string]map[string]string{
 		"datasource.unknown_column":       "la colonne %q n'existe pas encore — créez-la avec + Column",
 		"datasource.unknown_value":        "Valeur inconnue.",
 		"datasource.write_error":          "Impossible d'écrire le fichier.",
+		"datasource.storage_limit_exceeded": "Limite de stockage du workspace atteinte. Supprimez des données ou des images pour libérer de la place.",
 		"datasource.column_name_required": "Le nom de la colonne est requis.",
 		"datasource.column_exists":        "Cette colonne existe déjà.",
 		"datasource.invalid_number":       "%q n'est pas un nombre valide",
@@ -336,6 +338,7 @@ var translations = map[string]map[string]string{
 		"nav.integration": "Integration",
 		"nav.profile":     "My profile",
 		"nav.logout":      "Log out",
+		"sidebar.storage_label": "Storage",
 
 		"common.error_generic":        "An error occurred.",
 		"common.error_generic_retry":  "An error occurred, please try again.",
@@ -424,6 +427,7 @@ var translations = map[string]map[string]string{
 		"datasource.unknown_column":       "column %q doesn't exist yet — create it with + Column",
 		"datasource.unknown_value":        "Unknown value.",
 		"datasource.write_error":          "Unable to write the file.",
+		"datasource.storage_limit_exceeded": "Workspace storage limit reached. Delete some data or images to free up space.",
 		"datasource.column_name_required": "The column name is required.",
 		"datasource.column_exists":        "This column already exists.",
 		"datasource.invalid_number":       "%q is not a valid number",
