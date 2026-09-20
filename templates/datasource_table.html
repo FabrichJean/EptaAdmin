@@ -234,6 +234,16 @@
   <div class="relative" style="max-width: min(90vw, 48rem); max-height: 85vh;">
     <button id="image-preview-close-btn" type="button" class="absolute -top-3 -right-3 h-8 w-8 rounded-full flex items-center justify-center eb-card" style="color: var(--eb-text);">✕</button>
     <img id="image-preview-img" src="" alt="" class="rounded-lg" style="max-width: 100%; max-height: 85vh; border: 1px solid var(--eb-border);" />
+    <div class="eb-card rounded-lg mt-2 px-3 py-2 flex items-center justify-between gap-3">
+      <span id="image-preview-filename" class="text-xs truncate" style="color: var(--eb-muted);"></span>
+      <div id="image-preview-actions" class="hidden shrink-0 flex items-center gap-2">
+        <span id="image-preview-status" class="text-xs" style="color: var(--eb-muted);"></span>
+        <label class="eb-btn-secondary inline-flex items-center gap-1.5 rounded-lg text-xs font-medium px-3 py-1.5 cursor-pointer">
+          {{t .Lang "datasource.replace_image"}}
+          <input id="image-preview-replace-input" type="file" accept="image/*" class="sr-only" />
+        </label>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -376,22 +386,79 @@
   }
 
   // --- Image preview modal: a chip in a cell/append-row opens this instead
-  // of a tiny inline thumbnail or a new browser tab. ---
+  // of a tiny inline thumbnail or a new browser tab. Shows the filename and,
+  // for an editable cell, lets you upload a replacement right there instead
+  // of having to open the cramped inline edit widget first. ---
   const imagePreviewBackdrop = document.getElementById("image-preview-backdrop");
   const imagePreviewImg = document.getElementById("image-preview-img");
-  function openImagePreview(url) {
+  const imagePreviewFilename = document.getElementById("image-preview-filename");
+  const imagePreviewActions = document.getElementById("image-preview-actions");
+  const imagePreviewStatus = document.getElementById("image-preview-status");
+  const imagePreviewReplaceInput = document.getElementById("image-preview-replace-input");
+  let imagePreviewSpan = null;
+  function filenameFromURL(url) {
+    try {
+      const path = url.split("?")[0].split("#")[0];
+      return decodeURIComponent(path.substring(path.lastIndexOf("/") + 1)) || url;
+    } catch (e) {
+      return url;
+    }
+  }
+  function openImagePreview(span) {
+    const url = span.dataset.value;
     if (!imagePreviewBackdrop || !imagePreviewImg || !url) return;
+    imagePreviewSpan = span;
     imagePreviewImg.src = url;
+    if (imagePreviewFilename) imagePreviewFilename.textContent = filenameFromURL(url);
+    if (imagePreviewStatus) imagePreviewStatus.textContent = "";
+    if (imagePreviewActions) imagePreviewActions.classList.toggle("hidden", !span.classList.contains("editable"));
     imagePreviewBackdrop.classList.remove("hidden");
   }
   function closeImagePreview() {
     if (!imagePreviewBackdrop) return;
     imagePreviewBackdrop.classList.add("hidden");
     imagePreviewImg.src = "";
+    imagePreviewSpan = null;
   }
   document.getElementById("image-preview-close-btn")?.addEventListener("click", closeImagePreview);
   imagePreviewBackdrop?.addEventListener("click", (e) => { if (e.target === imagePreviewBackdrop) closeImagePreview(); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeImagePreview(); });
+
+  imagePreviewReplaceInput?.addEventListener("change", async () => {
+    const file = imagePreviewReplaceInput.files[0];
+    if (!file || !imagePreviewSpan) return;
+    if (imagePreviewStatus) imagePreviewStatus.textContent = I18N.uploading;
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(UPLOAD_URL, { method: "POST", body: formData });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || I18N.uploadFailed);
+      }
+      const data = await res.json();
+      const row = imagePreviewSpan.closest(".value-row");
+      const panel = imagePreviewSpan.closest(".column-panel");
+      const column = panel.dataset.column;
+      const index = parseInt(row.dataset.index, 10);
+
+      imagePreviewSpan.dataset.value = data.url;
+      const thumb = imagePreviewSpan.querySelector(".eb-image-chip-thumb");
+      if (thumb) thumb.src = data.url;
+      imagePreviewImg.src = data.url;
+      if (imagePreviewFilename) imagePreviewFilename.textContent = filenameFromURL(data.url);
+      if (imagePreviewStatus) imagePreviewStatus.textContent = "";
+
+      const key = column + ":" + index;
+      row.classList.add("eb-row-pending");
+      pendingUpdates.set(key, { column, index, value: data.url, type: "image" });
+      updateBar();
+    } catch (err) {
+      if (imagePreviewStatus) imagePreviewStatus.textContent = err.message || I18N.uploadFailed;
+    } finally {
+      imagePreviewReplaceInput.value = "";
+    }
+  });
 
   // A double-click on an editable image cell should start editing, not open
   // the preview — so a single click is delayed just long enough to be
@@ -401,7 +468,7 @@
     const chip = e.target.closest("[data-type='image']");
     if (!chip || chip.querySelector(".value-widget")) return;
     clearTimeout(imageChipClickTimer);
-    imageChipClickTimer = setTimeout(() => openImagePreview(chip.dataset.value), 220);
+    imageChipClickTimer = setTimeout(() => openImagePreview(chip), 220);
   });
   document.addEventListener("dblclick", (e) => {
     if (e.target.closest("[data-type='image']")) clearTimeout(imageChipClickTimer);
