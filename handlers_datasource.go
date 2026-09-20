@@ -365,6 +365,11 @@ type saveColumnsRequest struct {
 		Column string `json:"column"`
 		Index  int    `json:"index"`
 	} `json:"deletes"`
+	Moves []struct {
+		Column string `json:"column"`
+		From   int    `json:"from"`
+		To     int    `json:"to"`
+	} `json:"moves"`
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any) {
@@ -401,6 +406,10 @@ func (a *App) handleSaveRecords(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(req.Appends) > 0 && !hasPermission(role, PermDataCreate) {
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": T(lang, "datasource.access_denied_create")})
+		return
+	}
+	if len(req.Moves) > 0 && !hasPermission(role, PermDataUpdate) {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": T(lang, "datasource.access_denied_update")})
 		return
 	}
 
@@ -463,6 +472,29 @@ func (a *App) handleSaveRecords(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		col[ch.Index] = v
+	}
+
+	// Drag-and-drop reordering: pull the value out of its old slot and
+	// re-insert it at the new one. Sent as its own isolated request by the
+	// client (never combined with updates/deletes/appends in the same
+	// call), so there's no index-shifting interaction to reconcile here.
+	for _, mv := range req.Moves {
+		col := cs[mv.Column]
+		if mv.From < 0 || mv.From >= len(col) {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "datasource.unknown_value")})
+			return
+		}
+		v := col[mv.From]
+		col = append(col[:mv.From], col[mv.From+1:]...)
+		to := mv.To
+		if to < 0 {
+			to = 0
+		}
+		if to > len(col) {
+			to = len(col)
+		}
+		col = append(col[:to], append([]any{v}, col[to:]...)...)
+		cs[mv.Column] = col
 	}
 
 	// Group deletes per column and remove highest index first, so removing

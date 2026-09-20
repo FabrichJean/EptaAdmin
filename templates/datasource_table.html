@@ -5,6 +5,8 @@
   pre.eb-code, pre.eb-code code[class*="language-"] { background: transparent !important; }
   pre.eb-code { margin: 0; }
   code[class*="language-"], pre[class*="language-"] { text-shadow: none !important; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace !important; font-size: 0.8125rem !important; }
+  .value-row.dragging { opacity: 0.4; }
+  .value-drag-handle:active { cursor: grabbing; }
 </style>
 {{end}}
 {{define "content"}}
@@ -143,6 +145,11 @@
             {{$isImage := eq $vt "image"}}
             {{$isLongText := eq $vt "long_text"}}
             <div class="value-row flex items-center gap-3 px-4 py-2 text-sm" data-index="{{$i}}" data-search-value data-value-type="{{$vt}}" style="border-top: 1px solid var(--eb-border);">
+              {{if and $col.Managed $.CanEdit}}
+              <span class="value-drag-handle shrink-0" draggable="true" style="color: var(--eb-muted); cursor: grab; touch-action: none;" title="{{t $.Lang "datasource.drag_to_reorder"}}">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+              </span>
+              {{end}}
               <span class="type-badge eb-chip shrink-0">{{typeLabel $.Lang $vt}}</span>
               {{if and $col.Managed $.CanEdit}}
               <span class="value-text editable flex-1 min-w-0{{if $isImage}} cursor-pointer{{else}} cursor-text{{end}}{{if $isLongText}} whitespace-pre-wrap{{end}}" data-type="{{$vt}}"{{if $isImage}} data-value="{{formatValue $v}}"{{end}} title="{{if $isImage}}{{t $.Lang "datasource.click_to_enlarge"}}{{else}}{{t $.Lang "datasource.double_click_to_edit"}}{{end}}" style="color: var(--eb-text);">{{if $isImage}}<span class="eb-image-chip"><img src="{{formatValue $v}}" class="eb-image-chip-thumb" onerror="this.style.display='none'" /> {{t $.Lang "datasource.preview"}}</span>{{else}}{{formatValue $v}}{{end}}</span>
@@ -258,6 +265,7 @@
   const pendingUpdates = new Map(); // "column:index" -> {column, index, value}
   const pendingDeletes = new Map(); // "column:index" -> {column, index}
   const pendingAppends = [];        // [{column, value, el}]
+  let currentSortMode = "none";     // tracks the display-only sort (see below) — drag reordering needs the true, unsorted order
 
   const I18N = {
     typeText: "{{t .Lang "type.text"}}",
@@ -282,6 +290,8 @@
     saving: "{{t .Lang "datasource.saving"}}",
     save: "{{t .Lang "common.save"}}",
     cannotContactServer: "{{t .Lang "datasource.cannot_contact_server"}}",
+    reorderResetSortFirst: "{{t .Lang "datasource.reorder_reset_sort_first"}}",
+    reorderDiscardPending: "{{t .Lang "datasource.reorder_discard_pending"}}",
   };
   const TYPE_LABELS = { text: I18N.typeText, long_text: I18N.typeLongText, number: I18N.typeNumber, boolean: I18N.typeBoolean, image: I18N.typeImage };
 
@@ -692,6 +702,84 @@
     });
   });
 
+  // --- Drag-and-drop value reordering ---
+  // Saves immediately (its own request, like column add/delete below)
+  // rather than joining the pending-edits system: a move changes every
+  // later index in the column, which would silently invalidate any other
+  // pending update/delete already staged against those indices.
+  document.querySelectorAll(".value-drag-handle").forEach((handle) => {
+    handle.addEventListener("dragstart", (e) => {
+      if (currentSortMode !== "none") {
+        e.preventDefault();
+        alert(I18N.reorderResetSortFirst);
+        return;
+      }
+      const row = handle.closest(".value-row");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", row.dataset.index);
+      row.classList.add("dragging");
+    });
+    handle.addEventListener("dragend", () => {
+      handle.closest(".value-row")?.classList.remove("dragging");
+    });
+  });
+  document.querySelectorAll(".value-list").forEach((list) => {
+    list.addEventListener("dragover", (e) => {
+      const draggingRow = list.querySelector(".value-row.dragging");
+      if (!draggingRow) return;
+      e.preventDefault();
+      const others = [...list.querySelectorAll(".value-row:not(.dragging)")];
+      const afterRow = others.find((row) => {
+        const rect = row.getBoundingClientRect();
+        return e.clientY < rect.top + rect.height / 2;
+      });
+      if (afterRow) {
+        list.insertBefore(draggingRow, afterRow);
+      } else if (others.length > 0) {
+        others[others.length - 1].after(draggingRow);
+      }
+    });
+    list.addEventListener("drop", async (e) => {
+      e.preventDefault();
+      const draggingRow = list.querySelector(".value-row.dragging");
+      if (!draggingRow) return;
+      draggingRow.classList.remove("dragging");
+
+      const panel = list.closest(".column-panel");
+      const column = panel.dataset.column;
+      const fromIndex = parseInt(draggingRow.dataset.index, 10);
+      const toIndex = [...list.querySelectorAll(".value-row")].indexOf(draggingRow);
+      if (fromIndex === toIndex) return;
+
+      if (pendingTotal() > 0 && !confirm(I18N.reorderDiscardPending)) {
+        location.reload();
+        return;
+      }
+
+      try {
+        const res = await fetch(SAVE_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ baseVersion: BASE_VERSION, updates: [], deletes: [], appends: [], moves: [{ column, from: fromIndex, to: toIndex }] }),
+        });
+        if (res.ok) {
+          location.reload();
+          return;
+        }
+        if (res.status === 409) {
+          conflictBanner.classList.remove("hidden");
+          return;
+        }
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || I18N.errorGeneric);
+        location.reload();
+      } catch (err) {
+        alert(I18N.cannotContactServer);
+        location.reload();
+      }
+    });
+  });
+
   // --- Column ⋯ menu: Modifier la description / Supprimer la colonne ---
   bindMenu(".column-menu-btn", "column-menu");
   document.querySelectorAll(".edit-description-btn").forEach((btn) => {
@@ -1034,6 +1122,7 @@
     document.querySelectorAll(".sort-option").forEach((opt) => {
       opt.addEventListener("click", () => {
         const mode = opt.dataset.sort;
+        currentSortMode = mode;
         document.querySelectorAll(".column-panel").forEach((panel) => {
           const list = panel.querySelector(".value-list");
           const rows = Array.from(list.querySelectorAll(".value-row[data-search-value]"));
