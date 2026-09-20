@@ -11,33 +11,18 @@ export class EptaAdminError extends Error {
   }
 }
 
-// Image column values are stored as the same URL the browser UI uses
-// (/workspaces/{slug}/uploads/{file}), which only accepts a session
-// cookie — useless to an external caller like this SDK, which has none.
-// Rewrite matching values to the API-key-authenticated equivalent instead
-// of just prefixing baseUrl onto the internal route, so callers get a
-// working absolute URL without depending on (or seeing) that internal
-// browser-route shape.
-//
-// The key travels as a "?apiKey=" query parameter, not an Authorization
-// header, because the whole point of this URL is to be usable directly as
-// an <img>/<video> src — a browser's native resource fetch for those never
-// attaches custom headers, so a header-only scheme would make the URL this
-// returns unusable for that (the single most common reason to want it).
-const uploadUrlPattern = /^\/workspaces\/([^/]+)\/uploads\/(.+)$/;
-
-function resolveImageURL(value, baseUrl, apiKey) {
-  if (typeof value !== "string") return value;
-  const match = value.match(uploadUrlPattern);
-  if (!match) return value;
-  const url = `${baseUrl}/api/v1/workspaces/${match[1]}/uploads/${match[2]}`;
-  return apiKey ? `${url}?apiKey=${encodeURIComponent(apiKey)}` : url;
+// Image column values arrive from the API already rewritten server-side
+// into a self-contained, signed public path (see upload_signing.go) — a
+// personal API key is never embedded in it, so it stays safe to drop
+// straight into an <img>/<video> src, unlike the account's actual API key.
+// This just needs to turn that relative path into an absolute URL.
+function resolveImageURL(value, baseUrl) {
+  if (typeof value !== "string" || !value.startsWith("/")) return value;
+  return baseUrl + value;
 }
 
-function resolveImageURLs(value, baseUrl, apiKey) {
-  return Array.isArray(value)
-    ? value.map((v) => resolveImageURL(v, baseUrl, apiKey))
-    : resolveImageURL(value, baseUrl, apiKey);
+function resolveImageURLs(value, baseUrl) {
+  return Array.isArray(value) ? value.map((v) => resolveImageURL(v, baseUrl)) : resolveImageURL(value, baseUrl);
 }
 
 // Populated by build tooling (see eptaadmin-sdk/vite) via a bundler `define`
@@ -104,7 +89,7 @@ export class EptaAdminClient {
           `/api/v1/workspaces/${encodeURIComponent(workspaceSlug)}/datasources/${encodeURIComponent(dataSourceSlug)}`
         );
     for (const key of Object.keys(body.columns || {})) {
-      body.columns[key] = resolveImageURLs(body.columns[key], this.baseUrl, this.apiKey);
+      body.columns[key] = resolveImageURLs(body.columns[key], this.baseUrl);
     }
     return body;
   }
@@ -136,7 +121,7 @@ export class EptaAdminClient {
       if (index !== undefined && result === undefined) {
         throw new EptaAdminError(`index ${index} out of range for column "${column}"`, 404);
       }
-      return resolveImageURLs(result, this.baseUrl, this.apiKey);
+      return resolveImageURLs(result, this.baseUrl);
     }
 
     let url =
@@ -147,6 +132,6 @@ export class EptaAdminClient {
       url += `/${encodeURIComponent(index)}`;
     }
     const body = await this._request(url);
-    return resolveImageURLs(index !== undefined ? body.value : body.values, this.baseUrl, this.apiKey);
+    return resolveImageURLs(index !== undefined ? body.value : body.values, this.baseUrl);
   }
 }

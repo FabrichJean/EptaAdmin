@@ -127,7 +127,7 @@ func (a *App) handleAPIGetDataSource(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"name":    ds.Name,
 		"slug":    ds.Slug,
-		"columns": cs,
+		"columns": a.signImageValuesInColumnStore(cs),
 	})
 }
 
@@ -152,7 +152,7 @@ func (a *App) handleAPIGetColumn(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"column": key,
-		"values": values,
+		"values": a.signImageValues(values),
 	})
 }
 
@@ -183,25 +183,55 @@ func (a *App) handleAPIGetColumnValue(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"column": key,
 		"index":  index,
-		"value":  values[index],
+		"value":  a.signImageValue(values[index]),
 	})
 }
 
 // handleAPIServeUpload serves an uploaded image (a "type.image" column
-// value) to API-key callers. Image values are stored as the same
-// app-internal URL the browser UI uses (/workspaces/{slug}/uploads/{file}),
-// which only accepts a session cookie — an external SDK caller has no
-// session, so it needs this API-key-authenticated equivalent instead. The
-// SDK rewrites image URLs to point here rather than at the browser route,
-// so external callers never see or depend on that internal route shape.
+// value). It is deliberately NOT behind the requireAPIKey middleware other
+// /api/v1 routes use — image values returned by getDataSource/getValue are
+// pre-signed (see upload_signing.go) precisely so they can be dropped into
+// an <img>/<video> src, which can never carry a bearer key. A request
+// presenting a valid "?sig=" is authorized by that signature alone — it
+// never expires (see upload_signing.go); anything else falls back to
+// requiring a personal API key exactly
+// as before (Authorization header or "?apiKey="), for direct programmatic
+// access with your own key.
 func (a *App) handleAPIServeUpload(w http.ResponseWriter, r *http.Request) {
-	currentUser := userFromContext(r)
+	lang := a.resolveLang(r)
+	slug := r.PathValue("slug")
+	// filepath.Base strips any directory components the client might sneak
+	// into the path value, closing off path traversal.
+	filename := filepath.Base(r.PathValue("filename"))
+
+	validSig, err := a.verifyUploadSignature(slug, filename, r.URL.Query().Get("sig"))
+	if err != nil {
+		log.Printf("verify upload signature error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": T(lang, "common.error_generic")})
+		return
+	}
+	if validSig {
+		ws, err := a.store.GetWorkspaceBySlug(slug)
+		if err != nil {
+			log.Printf("api get workspace error: %v", err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": T(lang, "common.error_generic")})
+			return
+		}
+		if ws == nil {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": T(lang, "api.workspace_not_found")})
+			return
+		}
+		http.ServeFile(w, r, filepath.Join(uploadDir(ws.ID), filename))
+		return
+	}
+
+	currentUser, ok := a.authenticateAPIKeyRequest(w, r)
+	if !ok {
+		return
+	}
 	ws, ok := a.apiLoadWorkspace(w, r, currentUser)
 	if !ok {
 		return
 	}
-	// filepath.Base strips any directory components the client might sneak
-	// into the path value, closing off path traversal.
-	filename := filepath.Base(r.PathValue("filename"))
 	http.ServeFile(w, r, filepath.Join(uploadDir(ws.ID), filename))
 }

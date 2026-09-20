@@ -76,11 +76,11 @@ If your project needs row-aligned records, build them yourself from the columns 
 
 ## Image values
 
-A column of type "image" stores each value as a URL. The SDK automatically rewrites these to absolute, API-key-authenticated URLs (`{baseUrl}/api/v1/workspaces/{slug}/uploads/{file}`) before returning them, so they're directly usable outside a browser session — you never see or depend on the internal browser-app route these are stored against:
+A column of type "image" stores each value as a URL. The server rewrites these to absolute, **signed** URLs before returning them (`{baseUrl}/api/v1/workspaces/{slug}/uploads/{file}?sig=...`) — safe to drop straight into an `<img>`/`<video>` src, since the signature (not your personal API key) is what authorizes the request. A leaked link only ever exposes that one file, never your account's broader read access — but unlike a short-lived token, it doesn't expire on its own (revoking it means rotating the server's signing secret, which invalidates every signed link at once):
 
 ```js
 const avatars = await client.getValue("acme/clients/avatar");
-// ["https://your-eptaadmin-instance.example.com/api/v1/workspaces/acme/uploads/6f2dff985af5d290.png"]
+// ["https://your-eptaadmin-instance.example.com/api/v1/workspaces/acme/uploads/6f2dff985af5d290.png?sig=..."]
 ```
 
 ## Build-time prefetch (for static/SPA builds)

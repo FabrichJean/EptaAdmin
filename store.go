@@ -1,7 +1,9 @@
 package main
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"strings"
 	"time"
@@ -121,6 +123,11 @@ func (s *Store) migrate() error {
 		pos_x INTEGER NOT NULL,
 		pos_y INTEGER NOT NULL,
 		PRIMARY KEY (data_source_id, column_key)
+	);
+
+	CREATE TABLE IF NOT EXISTS app_secrets (
+		key TEXT PRIMARY KEY,
+		value TEXT NOT NULL
 	);
 
 	CREATE TABLE IF NOT EXISTS api_keys (
@@ -375,6 +382,39 @@ func (s *Store) DeleteSession(token string) error {
 
 func isUniqueConstraintErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
+}
+
+// GetOrCreateSecret returns a persistent, random value for the given key,
+// generating and storing one the first time it's asked for. Used for
+// server-only signing material (see upload_signing.go) that must survive
+// process restarts — unlike a per-session token, URLs signed with it are
+// meant to keep working across the server's entire lifetime.
+func (s *Store) GetOrCreateSecret(key string) (string, error) {
+	var value string
+	err := s.db.QueryRow(`SELECT value FROM app_secrets WHERE key = ?`, key).Scan(&value)
+	if err == nil {
+		return value, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return "", err
+	}
+
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	value = hex.EncodeToString(buf)
+	// Two processes could race here (extremely unlikely for a single-writer
+	// SQLite app, but cheap to guard): if another one already inserted a
+	// value for this key first, just read back whatever it stored instead
+	// of erroring, so both end up agreeing on the same secret.
+	if _, err := s.db.Exec(`INSERT INTO app_secrets (key, value) VALUES (?, ?)`, key, value); err != nil {
+		if isUniqueConstraintErr(err) {
+			return s.GetOrCreateSecret(key)
+		}
+		return "", err
+	}
+	return value, nil
 }
 
 // InsertActivity records one audit-log entry. workspaceID/dataSourceID of
