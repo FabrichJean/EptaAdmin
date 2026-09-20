@@ -9,49 +9,49 @@
     <main class="flex-1 overflow-y-auto px-4 sm:px-8 py-10 pb-24">
      <div class="max-w-6xl mx-auto">
       <div id="conflict-banner" class="hidden mb-4 rounded-lg text-sm px-4 py-3 flex items-center justify-between" style="background: rgba(251,146,60,0.1); border: 1px solid rgba(251,146,60,0.3); color: var(--eb-warn);">
-        <span>⚠ Cette donnée a été modifiée par un autre utilisateur pendant votre édition.</span>
-        <button onclick="location.reload()" class="eb-btn-primary shrink-0 rounded-lg text-xs px-3 py-1.5 transition-colors">Recharger</button>
+        <span>⚠ {{t .Lang "datasource.conflict"}}</span>
+        <button onclick="location.reload()" class="eb-btn-primary shrink-0 rounded-lg text-xs px-3 py-1.5 transition-colors">{{t .Lang "datasource.reload_button"}}</button>
       </div>
 
       <!-- Toolbar -->
       <div class="flex items-center gap-3 mb-5">
         <div class="relative flex-1">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--eb-muted);"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-          <input id="global-search-input" type="text" placeholder="Rechercher dans les colonnes..."
+          <input id="global-search-input" type="text" placeholder="{{t .Lang "datasource.search_columns_placeholder"}}"
             class="eb-input w-full rounded-lg pl-9 pr-3 py-2.5 text-sm" />
         </div>
         <div class="relative">
           <button id="filters-btn" type="button" class="eb-btn-secondary rounded-lg text-sm font-medium px-4 py-2.5 transition-colors flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-            Filtres
+            {{t .Lang "datasource.filters_button"}}
           </button>
           <div id="filters-menu" class="hidden absolute right-0 mt-2 w-56 rounded-lg p-3 z-20 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
-            <p class="text-xs font-semibold uppercase tracking-wide mb-2" style="color: var(--eb-muted);">Types affichés</p>
+            <p class="text-xs font-semibold uppercase tracking-wide mb-2" style="color: var(--eb-muted);">{{t .Lang "datasource.types_shown"}}</p>
             <div class="space-y-1.5" id="filters-list">
-              <label class="flex items-center gap-2 text-sm" style="color: var(--eb-text);"><input type="checkbox" class="filter-type-cb" value="text" checked /> Texte</label>
-              <label class="flex items-center gap-2 text-sm" style="color: var(--eb-text);"><input type="checkbox" class="filter-type-cb" value="long_text" checked /> Texte long</label>
-              <label class="flex items-center gap-2 text-sm" style="color: var(--eb-text);"><input type="checkbox" class="filter-type-cb" value="number" checked /> Nombre</label>
-              <label class="flex items-center gap-2 text-sm" style="color: var(--eb-text);"><input type="checkbox" class="filter-type-cb" value="boolean" checked /> Booléen</label>
-              <label class="flex items-center gap-2 text-sm" style="color: var(--eb-text);"><input type="checkbox" class="filter-type-cb" value="image" checked /> Image</label>
+              <label class="flex items-center gap-2 text-sm" style="color: var(--eb-text);"><input type="checkbox" class="filter-type-cb" value="text" checked /> {{t .Lang "type.text"}}</label>
+              <label class="flex items-center gap-2 text-sm" style="color: var(--eb-text);"><input type="checkbox" class="filter-type-cb" value="long_text" checked /> {{t .Lang "type.long_text"}}</label>
+              <label class="flex items-center gap-2 text-sm" style="color: var(--eb-text);"><input type="checkbox" class="filter-type-cb" value="number" checked /> {{t .Lang "type.number"}}</label>
+              <label class="flex items-center gap-2 text-sm" style="color: var(--eb-text);"><input type="checkbox" class="filter-type-cb" value="boolean" checked /> {{t .Lang "type.boolean"}}</label>
+              <label class="flex items-center gap-2 text-sm" style="color: var(--eb-text);"><input type="checkbox" class="filter-type-cb" value="image" checked /> {{t .Lang "type.image"}}</label>
             </div>
           </div>
         </div>
         <div class="relative">
           <button id="sort-btn" type="button" class="eb-btn-secondary rounded-lg text-sm font-medium px-4 py-2.5 transition-colors flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 16 4 4 4-4M7 20V4M21 8l-4-4-4 4M17 4v16"/></svg>
-            Trier
+            {{t .Lang "datasource.sort_button"}}
           </button>
           <div id="sort-menu" class="hidden absolute right-0 mt-2 w-48 rounded-lg py-1 z-20 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
-            <button type="button" class="sort-option w-full text-left px-3 py-2 text-sm" data-sort="none" style="color: var(--eb-text);">Ordre d'origine</button>
+            <button type="button" class="sort-option w-full text-left px-3 py-2 text-sm" data-sort="none" style="color: var(--eb-text);">{{t .Lang "datasource.sort_original"}}</button>
             <button type="button" class="sort-option w-full text-left px-3 py-2 text-sm" data-sort="asc" style="color: var(--eb-text);">A → Z</button>
             <button type="button" class="sort-option w-full text-left px-3 py-2 text-sm" data-sort="desc" style="color: var(--eb-text);">Z → A</button>
-            <p class="px-3 pt-1.5 text-xs" style="color: var(--eb-muted); border-top: 1px solid var(--eb-border);">Affichage seulement — n'affecte pas l'ordre enregistré.</p>
+            <p class="px-3 pt-1.5 text-xs" style="color: var(--eb-muted); border-top: 1px solid var(--eb-border);">{{t .Lang "datasource.sort_display_only"}}</p>
           </div>
         </div>
         <div class="relative">
           <button id="page-menu-btn" type="button" class="eb-btn-secondary rounded-lg px-3 py-2.5 transition-colors">⋯</button>
           <div id="page-menu" class="hidden absolute right-0 mt-2 w-44 rounded-lg py-1 z-20 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
-            <button type="button" onclick="location.reload()" class="w-full text-left px-3 py-2 text-sm" style="color: var(--eb-text);">Actualiser</button>
+            <button type="button" onclick="location.reload()" class="w-full text-left px-3 py-2 text-sm" style="color: var(--eb-text);">{{t .Lang "datasource.refresh_button"}}</button>
           </div>
         </div>
       </div>
@@ -68,7 +68,7 @@
               </div>
               <div class="min-w-0">
                 <span class="text-sm font-bold uppercase tracking-wide truncate block" style="color: var(--eb-text);">{{.Key}}</span>
-                <p class="column-description text-xs mt-0.5 truncate" style="color: var(--eb-muted);">{{if .Description}}{{.Description}}{{else if not .Managed}}Champ non déclaré dans le schéma.{{end}}</p>
+                <p class="column-description text-xs mt-0.5 truncate" style="color: var(--eb-muted);">{{if .Description}}{{.Description}}{{else if not .Managed}}{{t $.Lang "datasource.undeclared_field"}}{{end}}</p>
               </div>
             </div>
             <div class="flex items-center gap-1.5 shrink-0">
@@ -77,9 +77,9 @@
               <div class="relative">
                 <button type="button" class="column-menu-btn eb-icon-btn text-sm px-1">⋯</button>
                 <div class="column-menu hidden fixed w-48 rounded-lg py-1 z-50 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
-                  <button type="button" class="edit-description-btn w-full text-left px-3 py-2 text-sm" style="color: var(--eb-text);">Modifier la description</button>
+                  <button type="button" class="edit-description-btn w-full text-left px-3 py-2 text-sm" style="color: var(--eb-text);">{{t $.Lang "datasource.edit_description"}}</button>
                   {{if $.CanDelete}}
-                  <button type="button" class="delete-column-btn w-full text-left px-3 py-2 text-sm" style="color: #f87171;">Supprimer la colonne</button>
+                  <button type="button" class="delete-column-btn w-full text-left px-3 py-2 text-sm" style="color: #f87171;">{{t $.Lang "datasource.delete_column"}}</button>
                   {{end}}
                 </div>
               </div>
@@ -88,7 +88,7 @@
           </div>
 
           <div class="edit-description-form hidden px-4 py-3 flex items-center gap-2" style="border-bottom: 1px solid var(--eb-border);">
-            <input type="text" class="edit-description-input eb-field-sm flex-1 rounded px-2 py-1.5 text-sm" value="{{.Description}}" placeholder="Description de la colonne" />
+            <input type="text" class="edit-description-input eb-field-sm flex-1 rounded px-2 py-1.5 text-sm" value="{{.Description}}" placeholder="{{t $.Lang "datasource.column_description_placeholder"}}" />
             <button type="button" class="save-description-btn eb-btn-primary rounded text-xs px-3 py-1.5">OK</button>
             <button type="button" class="cancel-description-btn eb-btn-secondary rounded text-xs px-3 py-1.5">✕</button>
           </div>
@@ -97,27 +97,27 @@
           <div class="px-4 py-3 flex items-center gap-2" style="border-bottom: 1px solid var(--eb-border);">
             <div class="relative flex-1">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--eb-muted);"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-              <input type="text" class="local-search-input eb-field-sm w-full rounded-lg pl-8 pr-2 py-1.5 text-sm" placeholder="Rechercher..." />
+              <input type="text" class="local-search-input eb-field-sm w-full rounded-lg pl-8 pr-2 py-1.5 text-sm" placeholder="{{t $.Lang "common.search"}}" />
             </div>
             <button type="button" class="open-append-btn rounded-full text-xs font-medium px-3 py-1.5 shrink-0 flex items-center gap-1" style="border: 1px solid {{$colorHex}}; color: {{$colorHex}};">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-              Ajouter
+              {{t $.Lang "workspace_detail.add_button"}}
             </button>
           </div>
           {{end}}
 
           <div class="append-row hidden flex items-start gap-2 px-4 py-3" style="border-bottom: 1px solid var(--eb-border);">
             <select class="append-type eb-field-sm rounded px-1 py-1 text-xs shrink-0">
-              <option value="text">Texte</option>
-              <option value="long_text">Texte long</option>
-              <option value="number">Nombre</option>
-              <option value="boolean">Booléen</option>
-              <option value="image">Image</option>
+              <option value="text">{{t $.Lang "type.text"}}</option>
+              <option value="long_text">{{t $.Lang "type.long_text"}}</option>
+              <option value="number">{{t $.Lang "type.number"}}</option>
+              <option value="boolean">{{t $.Lang "type.boolean"}}</option>
+              <option value="image">{{t $.Lang "type.image"}}</option>
             </select>
             <div class="append-value-container flex-1">
-              <input type="text" class="append-input eb-field-sm w-full rounded px-2 py-1 text-sm" placeholder="+ valeur" />
+              <input type="text" class="append-input eb-field-sm w-full rounded px-2 py-1 text-sm" placeholder="+ {{t $.Lang "datasource.value_word"}}" />
             </div>
-            <button type="button" class="append-btn text-sm font-medium shrink-0" style="color: var(--eb-accent);">Ajouter</button>
+            <button type="button" class="append-btn text-sm font-medium shrink-0" style="color: var(--eb-accent);">{{t $.Lang "workspace_detail.add_button"}}</button>
           </div>
 
           <div class="value-list flex-1" style="max-height: 320px; overflow-y: auto;">
@@ -127,18 +127,18 @@
             {{$isImage := eq $vt "image"}}
             {{$isLongText := eq $vt "long_text"}}
             <div class="value-row flex items-center gap-3 px-4 py-2 text-sm" data-index="{{$i}}" data-search-value data-value-type="{{$vt}}" style="border-top: 1px solid var(--eb-border);">
-              <span class="type-badge eb-chip shrink-0">{{typeLabel $vt}}</span>
+              <span class="type-badge eb-chip shrink-0">{{typeLabel $.Lang $vt}}</span>
               {{if and $col.Managed $.CanEdit}}
-              <span class="value-text editable flex-1 min-w-0{{if $isImage}} cursor-pointer{{else}} cursor-text{{end}}{{if $isLongText}} whitespace-pre-wrap{{end}}" data-type="{{$vt}}"{{if $isImage}} data-value="{{formatValue $v}}"{{end}} title="{{if $isImage}}Cliquer pour agrandir, double-cliquer pour modifier{{else}}Double-cliquer pour modifier{{end}}" style="color: var(--eb-text);">{{if $isImage}}<span class="eb-image-chip"><img src="{{formatValue $v}}" class="eb-image-chip-thumb" onerror="this.style.display='none'" /> Aperçu</span>{{else}}{{formatValue $v}}{{end}}</span>
+              <span class="value-text editable flex-1 min-w-0{{if $isImage}} cursor-pointer{{else}} cursor-text{{end}}{{if $isLongText}} whitespace-pre-wrap{{end}}" data-type="{{$vt}}"{{if $isImage}} data-value="{{formatValue $v}}"{{end}} title="{{if $isImage}}{{t $.Lang "datasource.click_to_enlarge"}}{{else}}{{t $.Lang "datasource.double_click_to_edit"}}{{end}}" style="color: var(--eb-text);">{{if $isImage}}<span class="eb-image-chip"><img src="{{formatValue $v}}" class="eb-image-chip-thumb" onerror="this.style.display='none'" /> {{t $.Lang "datasource.preview"}}</span>{{else}}{{formatValue $v}}{{end}}</span>
               {{else}}
-              <span class="flex-1 min-w-0{{if $isLongText}} whitespace-pre-wrap{{end}}"{{if $isImage}} data-type="image" data-value="{{formatValue $v}}"{{end}} style="color: var(--eb-muted);">{{if $isImage}}<span class="eb-image-chip"><img src="{{formatValue $v}}" class="eb-image-chip-thumb" onerror="this.style.display='none'" /> Aperçu</span>{{else}}{{formatValue $v}}{{end}}</span>
+              <span class="flex-1 min-w-0{{if $isLongText}} whitespace-pre-wrap{{end}}"{{if $isImage}} data-type="image" data-value="{{formatValue $v}}"{{end}} style="color: var(--eb-muted);">{{if $isImage}}<span class="eb-image-chip"><img src="{{formatValue $v}}" class="eb-image-chip-thumb" onerror="this.style.display='none'" /> {{t $.Lang "datasource.preview"}}</span>{{else}}{{formatValue $v}}{{end}}</span>
               {{end}}
               {{if and $col.Managed (or $.CanEdit $.CanDelete)}}
               <div class="relative shrink-0">
                 <button type="button" class="value-menu-btn eb-icon-btn text-sm px-1">⋮</button>
                 <div class="value-menu hidden fixed w-36 rounded-lg py-1 z-50 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
-                  {{if $.CanEdit}}<button type="button" class="value-menu-edit w-full text-left px-3 py-1.5 text-sm" style="color: var(--eb-text);">Modifier</button>{{end}}
-                  {{if $.CanDelete}}<button type="button" class="value-menu-delete w-full text-left px-3 py-1.5 text-sm" style="color: #f87171;">Supprimer</button>{{end}}
+                  {{if $.CanEdit}}<button type="button" class="value-menu-edit w-full text-left px-3 py-1.5 text-sm" style="color: var(--eb-text);">{{t $.Lang "common.edit"}}</button>{{end}}
+                  {{if $.CanDelete}}<button type="button" class="value-menu-delete w-full text-left px-3 py-1.5 text-sm" style="color: #f87171;">{{t $.Lang "common.delete"}}</button>{{end}}
                 </div>
               </div>
               {{end}}
@@ -151,19 +151,19 @@
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
               </button>
               {{end}}
-              <p class="text-sm font-semibold" style="color: var(--eb-text);">Aucun enregistrement</p>
+              <p class="text-sm font-semibold" style="color: var(--eb-text);">{{t $.Lang "datasource.no_records"}}</p>
               <p class="text-xs mt-1 max-w-[16rem]" style="color: var(--eb-muted);">
-                {{if and .Managed $.CanCreate}}Commencez par ajouter un nouvel élément à cette colonne.{{else}}Cette colonne ne contient aucune valeur.{{end}}
+                {{if and .Managed $.CanCreate}}{{t $.Lang "datasource.no_records_hint_editable"}}{{else}}{{t $.Lang "datasource.no_records_hint_readonly"}}{{end}}
               </p>
               {{if and .Managed $.CanCreate}}
-              <button type="button" class="open-append-btn eb-btn-secondary rounded-full text-xs font-medium px-4 py-2 mt-4" style="border-color: {{$colorHex}}; color: {{$colorHex}};">+ Ajouter un élément</button>
+              <button type="button" class="open-append-btn eb-btn-secondary rounded-full text-xs font-medium px-4 py-2 mt-4" style="border-color: {{$colorHex}}; color: {{$colorHex}};">+ {{t $.Lang "datasource.add_item"}}</button>
               {{end}}
             </div>
             {{end}}
           </div>
 
           <div class="px-4 py-2.5 flex items-center justify-between text-xs" style="border-top: 1px solid var(--eb-border); color: var(--eb-muted);">
-            <span class="record-count-label">{{len .Values}} enregistrement{{if ne (len .Values) 1}}s{{end}}</span>
+            <span class="record-count-label">{{len .Values}} {{t $.Lang "datasource.record_word"}}{{if ne (len .Values) 1}}s{{end}}</span>
           </div>
         </div>
         {{end}}
@@ -174,18 +174,18 @@
             <div class="h-10 w-10 rounded-lg flex items-center justify-center mb-3" style="background: var(--eb-surface-2); color: var(--eb-muted);">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 12h6M9 16h6"/><rect x="4" y="6" width="16" height="16" rx="2"/></svg>
             </div>
-            <p class="text-sm font-semibold" style="color: var(--eb-text);">Colonne vide</p>
-            <p class="text-xs mt-1 max-w-[16rem]" style="color: var(--eb-muted);">Ajoutez des données ou configurez une nouvelle colonne.</p>
-            <button id="add-column-btn" type="button" class="eb-btn-secondary rounded-full text-xs font-medium px-4 py-2 mt-4" style="border-color: var(--eb-accent); color: var(--eb-accent);">+ Ajouter une colonne</button>
+            <p class="text-sm font-semibold" style="color: var(--eb-text);">{{t .Lang "datasource.empty_column"}}</p>
+            <p class="text-xs mt-1 max-w-[16rem]" style="color: var(--eb-muted);">{{t .Lang "datasource.empty_column_hint"}}</p>
+            <button id="add-column-btn" type="button" class="eb-btn-secondary rounded-full text-xs font-medium px-4 py-2 mt-4" style="border-color: var(--eb-accent); color: var(--eb-accent);">+ {{t .Lang "datasource.add_column"}}</button>
           </div>
           <div id="add-column-form" class="hidden w-full space-y-2">
-            <input id="add-column-input" type="text" placeholder="nom de la colonne"
+            <input id="add-column-input" type="text" placeholder="{{t .Lang "datasource.column_name_placeholder"}}"
               class="eb-input w-full rounded-lg px-3 py-2 text-sm" style="border-color: var(--eb-accent);" />
-            <input id="add-column-description" type="text" placeholder="description (optionnelle)"
+            <input id="add-column-description" type="text" placeholder="{{t .Lang "datasource.description_optional_placeholder"}}"
               class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
             <div class="flex items-center gap-2">
-              <button id="add-column-confirm-btn" type="button" class="eb-btn-primary flex-1 rounded-lg text-sm px-4 py-2 transition-colors">Ajouter</button>
-              <button id="add-column-cancel-btn" type="button" class="eb-btn-secondary flex-1 rounded-lg text-sm px-4 py-2 transition-colors">Annuler</button>
+              <button id="add-column-confirm-btn" type="button" class="eb-btn-primary flex-1 rounded-lg text-sm px-4 py-2 transition-colors">{{t .Lang "workspace_detail.add_button"}}</button>
+              <button id="add-column-cancel-btn" type="button" class="eb-btn-secondary flex-1 rounded-lg text-sm px-4 py-2 transition-colors">{{t .Lang "common.cancel"}}</button>
             </div>
           </div>
         </div>
@@ -198,8 +198,8 @@
     <div id="pending-bar" class="hidden shrink-0 px-4 sm:px-8 py-3 flex items-center justify-between" style="background: var(--eb-surface); border-top: 1px solid var(--eb-border);">
       <span id="pending-count" class="text-sm" style="color: var(--eb-muted);"></span>
       <div class="flex items-center gap-2">
-        <button id="discard-btn" type="button" class="eb-btn-secondary rounded-lg text-sm font-medium px-4 py-2 transition-colors">Discard</button>
-        <button id="save-btn" type="button" title="Ctrl+S / ⌘S" class="eb-btn-primary rounded-lg text-sm px-4 py-2 transition-colors"><span id="save-btn-label">Save</span> <span class="opacity-60 font-normal">⌘S</span></button>
+        <button id="discard-btn" type="button" class="eb-btn-secondary rounded-lg text-sm font-medium px-4 py-2 transition-colors">{{t .Lang "datasource.discard_button"}}</button>
+        <button id="save-btn" type="button" title="Ctrl+S / ⌘S" class="eb-btn-primary rounded-lg text-sm px-4 py-2 transition-colors"><span id="save-btn-label">{{t .Lang "common.save"}}</span> <span class="opacity-60 font-normal">⌘S</span></button>
       </div>
     </div>
     {{end}}
@@ -225,7 +225,31 @@
   const pendingDeletes = new Map(); // "column:index" -> {column, index}
   const pendingAppends = [];        // [{column, value, el}]
 
-  const TYPE_LABELS = { text: "Texte", long_text: "Texte long", number: "Nombre", boolean: "Booléen", image: "Image" };
+  const I18N = {
+    typeText: "{{t .Lang "type.text"}}",
+    typeLongText: "{{t .Lang "type.long_text"}}",
+    typeNumber: "{{t .Lang "type.number"}}",
+    typeBoolean: "{{t .Lang "type.boolean"}}",
+    typeImage: "{{t .Lang "type.image"}}",
+    unsavedChange: "{{t .Lang "datasource.unsaved_change"}}",
+    unsavedChanges: "{{t .Lang "datasource.unsaved_changes"}}",
+    preview: "{{t .Lang "datasource.preview"}}",
+    clickToEnlargeAndEdit: "{{t .Lang "datasource.click_to_enlarge"}}",
+    doubleClickToEdit: "{{t .Lang "datasource.double_click_to_edit"}}",
+    clickToEnlarge: "{{t .Lang "datasource.click_to_enlarge_only"}}",
+    replaceImage: "{{t .Lang "datasource.replace_image"}}",
+    chooseImage: "{{t .Lang "datasource.choose_image"}}",
+    orPasteUrl: "{{t .Lang "datasource.or_paste_url"}}",
+    uploading: "{{t .Lang "datasource.uploading"}}",
+    uploadFailed: "{{t .Lang "datasource.upload_failed"}}",
+    recordWord: "{{t .Lang "datasource.record_word"}}",
+    confirmDeleteColumn: "{{t .Lang "datasource.confirm_delete_column"}}",
+    errorGeneric: "{{t .Lang "common.error_generic"}}",
+    saving: "{{t .Lang "datasource.saving"}}",
+    save: "{{t .Lang "common.save"}}",
+    cannotContactServer: "{{t .Lang "datasource.cannot_contact_server"}}",
+  };
+  const TYPE_LABELS = { text: I18N.typeText, long_text: I18N.typeLongText, number: I18N.typeNumber, boolean: I18N.typeBoolean, image: I18N.typeImage };
 
   const bar = document.getElementById("pending-bar");
   const countEl = document.getElementById("pending-count");
@@ -239,7 +263,7 @@
     const n = pendingTotal();
     if (n > 0) {
       bar.classList.remove("hidden");
-      countEl.textContent = n + (n > 1 ? " changements non enregistrés" : " changement non enregistré");
+      countEl.textContent = n + " " + (n > 1 ? I18N.unsavedChanges : I18N.unsavedChange);
     } else {
       bar.classList.add("hidden");
     }
@@ -290,7 +314,7 @@
     thumb.src = url;
     thumb.addEventListener("error", () => { thumb.style.display = "none"; });
     chip.appendChild(thumb);
-    chip.appendChild(document.createTextNode(" Aperçu"));
+    chip.appendChild(document.createTextNode(" " + I18N.preview));
     return chip;
   }
 
@@ -394,7 +418,7 @@
 
     const fileLabel = document.createElement("label");
     fileLabel.className = "eb-btn-secondary inline-flex items-center gap-1.5 rounded-lg text-xs font-medium px-3 py-1.5 cursor-pointer";
-    fileLabel.textContent = currentValue ? "Remplacer l'image" : "Choisir une image";
+    fileLabel.textContent = currentValue ? I18N.replaceImage : I18N.chooseImage;
     const fileInput = document.createElement("input");
     fileInput.type = "file";
     fileInput.accept = "image/*";
@@ -414,7 +438,7 @@
     urlToggle.type = "button";
     urlToggle.className = "block text-xs mt-1.5 hover:underline";
     urlToggle.style.color = "var(--eb-muted)";
-    urlToggle.textContent = "ou coller une URL";
+    urlToggle.textContent = I18N.orPasteUrl;
 
     const urlInput = document.createElement("input");
     urlInput.type = "text";
@@ -431,19 +455,19 @@
     fileInput.addEventListener("change", async () => {
       const file = fileInput.files[0];
       if (!file) return;
-      status.textContent = "Envoi…";
+      status.textContent = I18N.uploading;
       try {
         const formData = new FormData();
         formData.append("file", file);
         const res = await fetch(UPLOAD_URL, { method: "POST", body: formData });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || "Échec de l'upload.");
+          throw new Error(data.error || I18N.uploadFailed);
         }
         const data = await res.json();
         urlInput.value = data.url;
         setPreview(data.url);
-        fileLabel.textContent = "Remplacer l'image";
+        fileLabel.textContent = I18N.replaceImage;
         status.textContent = "";
       } catch (e) {
         status.textContent = e.message;
@@ -473,7 +497,7 @@
   function typeSelect(initialType) {
     const select = document.createElement("select");
     select.className = "type-select eb-field-sm shrink-0 rounded px-1 py-1 text-xs";
-    [["text", "Texte"], ["long_text", "Texte long"], ["number", "Nombre"], ["boolean", "Booléen"], ["image", "Image"]].forEach(([v, label]) => {
+    [["text", I18N.typeText], ["long_text", I18N.typeLongText], ["number", I18N.typeNumber], ["boolean", I18N.typeBoolean], ["image", I18N.typeImage]].forEach(([v, label]) => {
       const opt = document.createElement("option");
       opt.value = v;
       opt.textContent = label;
@@ -544,10 +568,10 @@
       span.dataset.type = type;
       if (type === "image") {
         span.dataset.value = value;
-        span.title = "Cliquer pour agrandir, double-cliquer pour modifier";
+        span.title = I18N.clickToEnlargeAndEdit;
         span.appendChild(makeImageChip(value));
       } else {
-        span.title = "Double-cliquer pour modifier";
+        span.title = I18N.doubleClickToEdit;
         span.textContent = value;
       }
       bindEditableSpan(span);
@@ -663,7 +687,7 @@
         });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || "Une erreur est survenue.");
+          throw new Error(data.error || I18N.errorGeneric);
         }
         panel.querySelector(".column-description").textContent = input.value || "";
         panel.querySelector(".edit-description-form").classList.add("hidden");
@@ -679,12 +703,12 @@
       const panel = btn.closest(".column-panel");
       const column = panel.dataset.column;
       closeAllMenus();
-      if (!confirm("Supprimer la colonne \"" + column + "\" et toutes ses valeurs ? Cette action est irréversible.")) return;
+      if (!confirm(I18N.confirmDeleteColumn.replace("{col}", column))) return;
       try {
         const res = await fetch(COLUMN_URL + "/" + encodeURIComponent(column), { method: "DELETE" });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || "Une erreur est survenue.");
+          throw new Error(data.error || I18N.errorGeneric);
         }
         location.reload();
       } catch (e) {
@@ -738,7 +762,7 @@
       const countLabel = panel.querySelector(".record-count-label");
       const n = parseInt(countBadge.textContent, 10) + delta;
       countBadge.textContent = n;
-      countLabel.textContent = n + (n !== 1 ? " enregistrements" : " enregistrement");
+      countLabel.textContent = n + " " + I18N.recordWord + (n !== 1 ? "s" : "");
     }
 
     function commitAppend() {
@@ -762,7 +786,7 @@
       if (type === "image") {
         span.dataset.type = "image";
         span.dataset.value = value;
-        span.title = "Cliquer pour agrandir";
+        span.title = I18N.clickToEnlarge;
         span.appendChild(makeImageChip(value));
       } else {
         span.textContent = value;
@@ -831,7 +855,7 @@
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Une erreur est survenue.");
+        throw new Error(data.error || I18N.errorGeneric);
       }
       location.reload();
     } catch (e) {
@@ -866,7 +890,7 @@
       if (updates.length + deletes.length + appends.length === 0) return;
 
       saveBtn.disabled = true;
-      saveBtnLabel.textContent = "Saving…";
+      saveBtnLabel.textContent = I18N.saving;
       try {
         const res = await fetch(SAVE_URL, {
           method: "POST",
@@ -882,12 +906,12 @@
           return;
         }
         const data = await res.json().catch(() => ({}));
-        alert(data.error || "Une erreur est survenue.");
+        alert(data.error || I18N.errorGeneric);
       } catch (e) {
-        alert("Impossible de contacter le serveur.");
+        alert(I18N.cannotContactServer);
       } finally {
         saveBtn.disabled = false;
-        saveBtnLabel.textContent = "Save";
+        saveBtnLabel.textContent = I18N.save;
       }
     });
   }
