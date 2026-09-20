@@ -3,3 +3,6 @@
 *.db-shm
 docs/
 /data/
+.backup*
+.backup/*
+backup*
