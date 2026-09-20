@@ -22,11 +22,8 @@ type User struct {
 	AvatarSeed   string
 	AvatarUpload string
 	Language     string
+	CreatedBy    int64 // 0 for self-registered accounts
 	CreatedAt    time.Time
-}
-
-func (u *User) RoleLabel(lang string) string {
-	return roleLabel(lang, u.Role)
 }
 
 // AvatarImageURL resolves the avatar to display for this user: a custom
@@ -155,6 +152,7 @@ func (s *Store) migrate() error {
 		`ALTER TABLE users ADD COLUMN avatar_seed TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE users ADD COLUMN avatar_upload TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE users ADD COLUMN language TEXT NOT NULL DEFAULT 'fr'`,
+		`ALTER TABLE users ADD COLUMN created_by INTEGER REFERENCES users(id)`,
 	} {
 		if _, err := s.db.Exec(alter); err != nil {
 			if !strings.Contains(err.Error(), "duplicate column name") {
@@ -197,10 +195,17 @@ func (s *Store) backfillDataSourceSlugs() error {
 	return nil
 }
 
-func (s *Store) CreateUser(username, email, passwordHash, role string) (*User, error) {
+// CreateUser inserts a new account. createdBy is 0 for a self-registered
+// account, or the ID of the workspace owner who created this member on
+// their own roster (see ListMembersCreatedBy).
+func (s *Store) CreateUser(username, email, passwordHash, role string, createdBy int64) (*User, error) {
+	var createdByArg any
+	if createdBy != 0 {
+		createdByArg = createdBy
+	}
 	res, err := s.db.Exec(
-		`INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)`,
-		username, email, passwordHash, role,
+		`INSERT INTO users (username, email, password_hash, role, created_by) VALUES (?, ?, ?, ?, ?)`,
+		username, email, passwordHash, role, createdByArg,
 	)
 	if err != nil {
 		if isUniqueConstraintErr(err) {
@@ -215,7 +220,7 @@ func (s *Store) CreateUser(username, email, passwordHash, role string) (*User, e
 	return s.GetUserByID(id)
 }
 
-const userColumns = `id, username, email, password_hash, role, avatar_seed, avatar_upload, language, created_at`
+const userColumns = `id, username, email, password_hash, role, avatar_seed, avatar_upload, language, created_by, created_at`
 
 func (s *Store) GetUserByUsername(username string) (*User, error) {
 	row := s.db.QueryRow(`SELECT `+userColumns+` FROM users WHERE username = ?`, username)
@@ -236,13 +241,45 @@ func (s *Store) ListUsers() ([]*User, error) {
 
 	var users []*User
 	for rows.Next() {
-		u := &User{}
-		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.AvatarSeed, &u.AvatarUpload, &u.Language, &u.CreatedAt); err != nil {
+		u, createdBy := &User{}, sql.NullInt64{}
+		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.AvatarSeed, &u.AvatarUpload, &u.Language, &createdBy, &u.CreatedAt); err != nil {
 			return nil, err
 		}
+		u.CreatedBy = createdBy.Int64
 		users = append(users, u)
 	}
 	return users, rows.Err()
+}
+
+// ListMembersCreatedBy returns the accounts a given user personally created
+// via the members page — their own roster, assignable across any of their
+// workspaces. Self-registered accounts (created_by NULL) never appear here:
+// nobody manages another independent user's account for them.
+func (s *Store) ListMembersCreatedBy(creatorID int64) ([]*User, error) {
+	rows, err := s.db.Query(`SELECT `+userColumns+` FROM users WHERE created_by = ? ORDER BY username`, creatorID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []*User
+	for rows.Next() {
+		u, createdBy := &User{}, sql.NullInt64{}
+		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.AvatarSeed, &u.AvatarUpload, &u.Language, &createdBy, &u.CreatedAt); err != nil {
+			return nil, err
+		}
+		u.CreatedBy = createdBy.Int64
+		users = append(users, u)
+	}
+	return users, rows.Err()
+}
+
+// DeleteUser permanently removes an account (cascading to its sessions and
+// workspace memberships). Callers must verify the caller is allowed to
+// delete this specific account before calling this.
+func (s *Store) DeleteUser(id int64) error {
+	_, err := s.db.Exec(`DELETE FROM users WHERE id = ?`, id)
+	return err
 }
 
 // UpdateUserAvatarSeed switches the user to a generated avatar variant,
@@ -293,14 +330,15 @@ func (s *Store) CountUsers() (int, error) {
 }
 
 func scanUser(row *sql.Row) (*User, error) {
-	u := &User{}
-	err := row.Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.AvatarSeed, &u.AvatarUpload, &u.Language, &u.CreatedAt)
+	u, createdBy := &User{}, sql.NullInt64{}
+	err := row.Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.AvatarSeed, &u.AvatarUpload, &u.Language, &createdBy, &u.CreatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
+	u.CreatedBy = createdBy.Int64
 	return u, nil
 }
 
@@ -314,7 +352,7 @@ func (s *Store) CreateSession(token string, userID int64, expiresAt time.Time) e
 
 func (s *Store) GetSessionUser(token string) (*User, error) {
 	row := s.db.QueryRow(`
-		SELECT users.id, users.username, users.email, users.password_hash, users.role, users.avatar_seed, users.avatar_upload, users.language, users.created_at
+		SELECT users.id, users.username, users.email, users.password_hash, users.role, users.avatar_seed, users.avatar_upload, users.language, users.created_by, users.created_at
 		FROM sessions
 		JOIN users ON users.id = sessions.user_id
 		WHERE sessions.token = ? AND sessions.expires_at > CURRENT_TIMESTAMP

@@ -3,6 +3,8 @@ package main
 import (
 	"log"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -18,7 +20,6 @@ func workspaceDetailData(lang string, currentUser *User, ws *Workspace, role str
 		"Workspace":          ws,
 		"Members":            members,
 		"DataSources":        dataSources,
-		"CanManageMembers":   canManageMembers(currentUser.Role),
 		"CanManageWSMembers": hasPermission(role, PermMembersManage),
 		"CanManageSource":    hasPermission(role, PermSettingsManage),
 		"CanImportData":      hasPermission(role, PermDataCreate),
@@ -41,12 +42,11 @@ func workspaceDetailData(lang string, currentUser *User, ws *Workspace, role str
 // the big title doesn't already say (see workspaceDetailData).
 func workspacesPageData(lang string, currentUser *User, workspaces []*UserWorkspace) map[string]any {
 	return map[string]any{
-		"CurrentUser":      currentUser,
-		"Workspaces":       workspaces,
-		"ActiveNav":        "workspaces",
-		"PageTitle":        T(lang, "nav.workspaces"),
-		"CanManageMembers": canManageMembers(currentUser.Role),
-		"HeaderIcon":       "workspace",
+		"CurrentUser": currentUser,
+		"Workspaces":  workspaces,
+		"ActiveNav":   "workspaces",
+		"PageTitle":   T(lang, "nav.workspaces"),
+		"HeaderIcon":  "workspace",
 	}
 }
 
@@ -150,6 +150,10 @@ func (a *App) handleWorkspaceDetail(w http.ResponseWriter, r *http.Request) {
 	a.render(w, r, "workspace_detail.html", workspaceDetailData(a.resolveLang(r), currentUser, ws, role, members, dataSources))
 }
 
+// handleAddWorkspaceMember assigns one of the caller's own members (created
+// via the /members roster page) to this workspace. It never creates a new
+// account — that only happens on the roster page — so the only failure
+// modes here are "not your member" and "already in this workspace".
 func (a *App) handleAddWorkspaceMember(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
 	ws, role, ok := a.loadWorkspaceMembership(w, r, currentUser)
@@ -162,40 +166,31 @@ func (a *App) handleAddWorkspaceMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	username := strings.TrimSpace(r.FormValue("username"))
+	userID, _ := strconv.ParseInt(r.FormValue("user_id"), 10, 64)
 	targetRole := strings.TrimSpace(r.FormValue("role"))
 
 	renderDetail := func(msg string) {
-		members, err := a.store.ListWorkspaceMembers(ws.ID)
-		if err != nil {
-			log.Printf("list workspace members error: %v", err)
-			http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
+		data, ok := a.workspaceMembersPageData(w, lang, currentUser, ws, role)
+		if !ok {
 			return
 		}
-		dataSources, err := a.store.ListDataSources(ws.ID)
-		if err != nil {
-			log.Printf("list data sources error: %v", err)
-			http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
-			return
-		}
-		data := workspaceDetailData(lang, currentUser, ws, role, members, dataSources)
 		data["MemberError"] = msg
-		a.render(w, r, "workspace_detail.html", data)
+		a.render(w, r, "workspace_members.html", data)
 	}
 
-	if username == "" || !canAssignRole(role, targetRole) {
+	if userID == 0 || !canAssignRole(role, targetRole) {
 		renderDetail(T(lang, "workspace_detail.invalid_username_or_role"))
 		return
 	}
 
-	target, err := a.store.GetUserByUsername(username)
+	target, err := a.store.GetUserByID(userID)
 	if err != nil {
 		log.Printf("lookup user error: %v", err)
 		renderDetail(T(lang, "common.error_generic_retry"))
 		return
 	}
-	if target == nil {
-		renderDetail(T(lang, "workspace_detail.user_not_found"))
+	if target == nil || target.CreatedBy != currentUser.ID {
+		renderDetail(T(lang, "workspace_detail.not_your_member"))
 		return
 	}
 
@@ -210,7 +205,163 @@ func (a *App) handleAddWorkspaceMember(w http.ResponseWriter, r *http.Request) {
 	}
 	a.logActivity(logActivityParams{WorkspaceID: ws.ID, UserID: currentUser.ID, Action: ActionMemberAdd, Details: map[string]any{"username": target.Username, "role": roleLabel(lang, targetRole)}})
 
-	http.Redirect(w, r, "/workspaces/"+ws.Slug, http.StatusSeeOther)
+	http.Redirect(w, r, "/workspaces/"+ws.Slug+"/members", http.StatusSeeOther)
+}
+
+// workspaceMembersPageData builds the common template data for
+// workspace_members.html, fetching the current member list plus the
+// caller's own roster (minus whoever's already in this workspace) so the
+// "assign" form only ever offers members that person actually created.
+func (a *App) workspaceMembersPageData(w http.ResponseWriter, lang string, currentUser *User, ws *Workspace, role string) (map[string]any, bool) {
+	members, err := a.store.ListWorkspaceMembers(ws.ID)
+	if err != nil {
+		log.Printf("list workspace members error: %v", err)
+		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
+		return nil, false
+	}
+	roster, err := a.store.ListMembersCreatedBy(currentUser.ID)
+	if err != nil {
+		log.Printf("list roster error: %v", err)
+		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
+		return nil, false
+	}
+	alreadyIn := map[int64]bool{}
+	for _, m := range members {
+		alreadyIn[m.UserID] = true
+	}
+	var assignable []*User
+	for _, u := range roster {
+		if !alreadyIn[u.ID] {
+			assignable = append(assignable, u)
+		}
+	}
+	return map[string]any{
+		"CurrentUser":        currentUser,
+		"ActiveNav":          "workspaces",
+		"PageTitle":          T(lang, "workspace_detail.members_modal_title"),
+		"Workspace":          ws,
+		"Members":            members,
+		"AssignableMembers":  assignable,
+		"CanManageWSMembers": hasPermission(role, PermMembersManage),
+		"AssignableRoles":    assignableRolesWithLabels(lang, role),
+		"Breadcrumb": []Breadcrumb{
+			{Label: T(lang, "nav.workspaces"), URL: "/workspaces"},
+			{Label: ws.Name, URL: "/workspaces/" + ws.Slug},
+			{Label: T(lang, "workspace_detail.members_modal_title")},
+		},
+		"HeaderTitle": T(lang, "workspace_detail.members_modal_title"),
+		"HeaderIcon":  "person",
+	}, true
+}
+
+func (a *App) handleWorkspaceMembersPage(w http.ResponseWriter, r *http.Request) {
+	currentUser := userFromContext(r)
+	ws, role, ok := a.loadWorkspaceMembership(w, r, currentUser)
+	if !ok {
+		return
+	}
+	lang := a.resolveLang(r)
+	data, ok := a.workspaceMembersPageData(w, lang, currentUser, ws, role)
+	if !ok {
+		return
+	}
+	if errMsg := r.URL.Query().Get("error"); errMsg != "" {
+		data["MemberError"] = errMsg
+	}
+	a.render(w, r, "workspace_members.html", data)
+}
+
+// handleRemoveWorkspaceMember revokes a member's access. Removing the
+// workspace's only Owner is refused (see Store.RemoveWorkspaceMember).
+func (a *App) handleRemoveWorkspaceMember(w http.ResponseWriter, r *http.Request) {
+	currentUser := userFromContext(r)
+	ws, role, ok := a.loadWorkspaceMembership(w, r, currentUser)
+	if !ok {
+		return
+	}
+	lang := a.resolveLang(r)
+	if !hasPermission(role, PermMembersManage) {
+		http.Error(w, T(lang, "common.access_denied"), http.StatusForbidden)
+		return
+	}
+	targetID, err := strconv.ParseInt(r.PathValue("userID"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	target, err := a.store.GetUserByID(targetID)
+	if err != nil {
+		log.Printf("get user error: %v", err)
+		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
+		return
+	}
+
+	if err := a.store.RemoveWorkspaceMember(ws.ID, targetID); err != nil {
+		if err == ErrLastOwner {
+			http.Redirect(w, r, "/workspaces/"+ws.Slug+"/members?error="+url.QueryEscape(T(lang, "workspace_members.cannot_remove_last_owner")), http.StatusSeeOther)
+			return
+		}
+		log.Printf("remove workspace member error: %v", err)
+		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
+		return
+	}
+	username := ""
+	if target != nil {
+		username = target.Username
+	}
+	a.logActivity(logActivityParams{WorkspaceID: ws.ID, UserID: currentUser.ID, Action: ActionMemberRemove, Details: map[string]any{"username": username}})
+
+	http.Redirect(w, r, "/workspaces/"+ws.Slug+"/members", http.StatusSeeOther)
+}
+
+// handleUpdateWorkspaceMemberRole changes a member's role. Demoting the
+// workspace's only Owner is refused (see Store.UpdateWorkspaceMemberRole).
+func (a *App) handleUpdateWorkspaceMemberRole(w http.ResponseWriter, r *http.Request) {
+	currentUser := userFromContext(r)
+	ws, role, ok := a.loadWorkspaceMembership(w, r, currentUser)
+	if !ok {
+		return
+	}
+	lang := a.resolveLang(r)
+	if !hasPermission(role, PermMembersManage) {
+		http.Error(w, T(lang, "common.access_denied"), http.StatusForbidden)
+		return
+	}
+	targetID, err := strconv.ParseInt(r.PathValue("userID"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	newRole := strings.TrimSpace(r.FormValue("role"))
+	if !canAssignRole(role, newRole) {
+		http.Redirect(w, r, "/workspaces/"+ws.Slug+"/members?error="+url.QueryEscape(T(lang, "workspace_detail.invalid_username_or_role")), http.StatusSeeOther)
+		return
+	}
+
+	target, err := a.store.GetUserByID(targetID)
+	if err != nil {
+		log.Printf("get user error: %v", err)
+		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
+		return
+	}
+
+	if err := a.store.UpdateWorkspaceMemberRole(ws.ID, targetID, newRole); err != nil {
+		if err == ErrLastOwner {
+			http.Redirect(w, r, "/workspaces/"+ws.Slug+"/members?error="+url.QueryEscape(T(lang, "workspace_members.cannot_remove_last_owner")), http.StatusSeeOther)
+			return
+		}
+		log.Printf("update workspace member role error: %v", err)
+		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
+		return
+	}
+	username := ""
+	if target != nil {
+		username = target.Username
+	}
+	a.logActivity(logActivityParams{WorkspaceID: ws.ID, UserID: currentUser.ID, Action: ActionMemberRoleChange, Details: map[string]any{"username": username, "role": roleLabel(lang, newRole)}})
+
+	http.Redirect(w, r, "/workspaces/"+ws.Slug+"/members", http.StatusSeeOther)
 }
 
 func (a *App) handleCreateDataSource(w http.ResponseWriter, r *http.Request) {
