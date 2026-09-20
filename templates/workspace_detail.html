@@ -17,22 +17,25 @@
     <main class="flex-1 overflow-y-auto px-4 sm:px-8 py-10">
      <div class="max-w-5xl mx-auto">
 
-      <button id="open-members-modal-btn" type="button" class="mb-6 flex items-center gap-3 group">
-        <div class="flex items-center" style="padding-left: 4px;">
-          {{range $i, $m := .Members}}
-          {{if lt $i 5}}
-          <img src="{{$m.AvatarImageURL}}" alt="" class="h-8 w-8 rounded-full" style="background: var(--eb-surface-2); border: 2px solid var(--eb-bg); margin-left: -8px;" />
-          {{end}}
-          {{end}}
-          {{if gt (len .Members) 5}}
-          <div class="h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-semibold" style="background: var(--eb-surface-2); color: var(--eb-muted); border: 2px solid var(--eb-bg); margin-left: -8px;">+{{sub (len .Members) 5}}</div>
-          {{end}}
-        </div>
-        <span class="text-sm font-medium group-hover:underline" style="color: var(--eb-text);">
-          {{len .Members}} {{t .Lang "workspace_detail.member_word"}}{{if ne (len .Members) 1}}s{{end}}
-        </span>
-        <span class="text-xs" style="color: var(--eb-muted);">— {{t .Lang "workspace_detail.manage_link"}}</span>
-      </button>
+      <div class="flex items-center justify-between mb-6">
+        <button id="open-members-modal-btn" type="button" class="flex items-center gap-3 group">
+          <div class="flex items-center" style="padding-left: 4px;">
+            {{range $i, $m := .Members}}
+            {{if lt $i 5}}
+            <img src="{{$m.AvatarImageURL}}" alt="" class="h-8 w-8 rounded-full" style="background: var(--eb-surface-2); border: 2px solid var(--eb-bg); margin-left: -8px;" />
+            {{end}}
+            {{end}}
+            {{if gt (len .Members) 5}}
+            <div class="h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-semibold" style="background: var(--eb-surface-2); color: var(--eb-muted); border: 2px solid var(--eb-bg); margin-left: -8px;">+{{sub (len .Members) 5}}</div>
+            {{end}}
+          </div>
+          <span class="text-sm font-medium group-hover:underline" style="color: var(--eb-text);">
+            {{len .Members}} {{t .Lang "workspace_detail.member_word"}}{{if ne (len .Members) 1}}s{{end}}
+          </span>
+          <span class="text-xs" style="color: var(--eb-muted);">— {{t .Lang "workspace_detail.manage_link"}}</span>
+        </button>
+        <a href="/workspaces/{{.Workspace.Slug}}/activity" class="text-sm font-medium hover:underline" style="color: var(--eb-muted);">{{t .Lang "activity.link"}} →</a>
+      </div>
 
       <section class="eb-card rounded-xl overflow-hidden flex flex-col">
         <div class="px-5 py-4 flex items-center justify-between gap-2" style="border-bottom: 1px solid var(--eb-border);">
