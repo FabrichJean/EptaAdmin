@@ -1,0 +1,276 @@
+{{define "title"}}Intégration — EptaAdmin{{end}}
+{{define "head_extra"}}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<style>
+  pre.eb-code, pre.eb-code code[class*="language-"] { background: transparent !important; }
+  pre.eb-code { margin: 0; }
+  code[class*="language-"], pre[class*="language-"] { text-shadow: none !important; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace !important; font-size: 0.8125rem !important; }
+</style>
+{{end}}
+{{define "content"}}
+<div class="h-full flex">
+  {{template "sidebar" .}}
+
+  <div class="flex-1 min-w-0 flex flex-col">
+    {{template "header" .}}
+
+    <main class="flex-1 overflow-y-auto px-4 sm:px-8 py-10">
+     <div class="max-w-4xl mx-auto space-y-6">
+
+      <p style="color: var(--eb-muted);">Le SDK JavaScript et l'API REST d'EptaAdmin permettent de lire les données de vos workspaces (colonnes et valeurs) depuis n'importe quel projet externe — un script, un backend, une étape de build frontend. L'accès est en lecture seule et respecte exactement les mêmes permissions que votre compte.</p>
+
+      <div class="eb-card rounded-xl p-6">
+        <h2 class="font-semibold mb-2" style="color: var(--eb-text);">1. Obtenir une clé API</h2>
+        <p class="text-sm mb-4" style="color: var(--eb-muted);">Chaque clé porte les mêmes permissions que votre compte : elle ne peut lire que les workspaces dont vous êtes déjà membre. Elle n'est affichée qu'une seule fois à sa création — copiez-la immédiatement.</p>
+        <a href="/profile#api-keys" class="eb-btn-primary inline-block rounded-lg text-sm px-4 py-2 transition-colors">Générer une clé depuis mon profil</a>
+      </div>
+
+      <div class="eb-card rounded-xl p-6">
+        <h2 class="font-semibold mb-2" style="color: var(--eb-text);">2. Installer le SDK JavaScript</h2>
+        <p class="text-sm mb-3" style="color: var(--eb-muted);">Le package n'est pas encore publié sur le registre npm : ajoutez-le comme dépendance locale ou copiez le dossier <code class="font-mono">sdk/js</code> dans votre projet.</p>
+        <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--eb-border);">
+          <div class="flex items-center justify-between px-4 py-2" style="background: var(--eb-surface-2); border-bottom: 1px solid var(--eb-border);">
+            <span class="text-xs font-mono" style="color: var(--eb-muted);">package.json</span>
+            <button class="copy-code-btn text-xs transition-colors" type="button" style="color: var(--eb-muted);">Copier</button>
+          </div>
+          <pre class="eb-code" style="border: none; border-radius: 0;"><code class="language-json">{
+  "dependencies": {
+    "eptaadmin-sdk": "file:../path/to/EptaAdmin/sdk/js"
+  }
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="eb-card rounded-xl p-6">
+        <h2 class="font-semibold mb-3" style="color: var(--eb-text);">3. Démarrage rapide</h2>
+        <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--eb-border);">
+          <div class="flex items-center justify-between px-4 py-2" style="background: var(--eb-surface-2); border-bottom: 1px solid var(--eb-border);">
+            <span class="text-xs font-mono" style="color: var(--eb-muted);">quickstart.js</span>
+            <button class="copy-code-btn text-xs transition-colors" type="button" style="color: var(--eb-muted);">Copier</button>
+          </div>
+          <pre class="eb-code" style="border: none; border-radius: 0;"><code class="language-javascript">import { EptaAdminClient } from "eptaadmin-sdk";
+
+const client = new EptaAdminClient({
+  apiKey: process.env.EPTAADMIN_API_KEY,
+  baseUrl: "https://votre-instance.example.com",
+});
+
+const workspaces = await client.listWorkspaces();
+
+const dataSources = await client.listDataSources("{{.ExampleWorkspaceSlug}}");
+
+const data = await client.getDataSource("{{.ExampleWorkspaceSlug}}", "{{.ExampleDataSourceSlug}}");
+console.log(data.columns);</code></pre>
+        </div>
+      </div>
+
+      <div class="eb-card rounded-xl p-6">
+        <h2 class="font-semibold mb-3" style="color: var(--eb-text);">Modèle de données : colonnes indépendantes</h2>
+        <p class="text-sm mb-3" style="color: var(--eb-muted);">EptaAdmin stocke chaque colonne comme une liste indépendante de valeurs — il n'y a aucune correspondance ligne à ligne garantie entre les colonnes. <code class="font-mono">getDataSource()</code> renvoie exactement cette forme :</p>
+        <pre class="eb-code"><code class="language-json">{
+  "name": "Clients",
+  "slug": "clients",
+  "columns": {
+    "nom": ["Jean Dupont", "Marie Curie"],
+    "email": ["jean@example.com", "marie@example.com"]
+  }
+}</code></pre>
+        <p class="text-xs mt-3" style="color: var(--eb-muted);">Si votre projet a besoin d'enregistrements alignés par ligne, reconstruisez-les vous-même à partir des colonnes que vous savez destinées à correspondre (par exemple par index) — EptaAdmin ne garantit pas cet alignement.</p>
+      </div>
+
+      <div class="eb-card rounded-xl overflow-hidden">
+        <h2 class="font-semibold px-6 pt-6 pb-4" style="color: var(--eb-text);">Référence du SDK</h2>
+        <p class="text-xs px-6 pb-4 -mt-2" style="color: var(--eb-muted);">Cliquez sur une méthode pour voir un exemple d'appel et de réponse.</p>
+
+        <div>
+          <div class="sdk-ref-row" style="border-top: 1px solid var(--eb-border);">
+            <button type="button" class="sdk-ref-toggle w-full flex items-center justify-between gap-4 px-6 py-4 text-left transition-colors" onmouseover="this.style.background='var(--eb-surface-2)'" onmouseout="this.style.background=''">
+              <div class="min-w-0">
+                <p class="text-sm font-mono" style="color: var(--eb-text);">listWorkspaces()</p>
+                <p class="text-sm mt-0.5" style="color: var(--eb-muted);">Liste les workspaces accessibles par la clé (nom, slug, rôle).</p>
+              </div>
+              <svg class="sdk-ref-chevron h-4 w-4 shrink-0 transition-transform" style="color: var(--eb-muted);" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div class="sdk-ref-panel hidden px-6 pb-5">
+              <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--eb-border);">
+                <div class="flex items-center justify-between px-4 py-2" style="background: var(--eb-surface-2); border-bottom: 1px solid var(--eb-border);">
+                  <span class="text-xs font-mono" style="color: var(--eb-muted);">exemple</span>
+                  <button class="copy-code-btn text-xs transition-colors" type="button" style="color: var(--eb-muted);">Copier</button>
+                </div>
+                <pre class="eb-code" style="border: none; border-radius: 0;"><code class="language-javascript">const workspaces = await client.listWorkspaces();
+console.log(workspaces);
+// [{ name: "{{.ExampleWorkspaceName}}", slug: "{{.ExampleWorkspaceSlug}}", role: "{{.ExampleWorkspaceRole}}" }]</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="sdk-ref-row" style="border-top: 1px solid var(--eb-border);">
+            <button type="button" class="sdk-ref-toggle w-full flex items-center justify-between gap-4 px-6 py-4 text-left transition-colors" onmouseover="this.style.background='var(--eb-surface-2)'" onmouseout="this.style.background=''">
+              <div class="min-w-0">
+                <p class="text-sm font-mono" style="color: var(--eb-text);">listDataSources(wsSlug)</p>
+                <p class="text-sm mt-0.5" style="color: var(--eb-muted);">Liste les sources de données d'un workspace.</p>
+              </div>
+              <svg class="sdk-ref-chevron h-4 w-4 shrink-0 transition-transform" style="color: var(--eb-muted);" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div class="sdk-ref-panel hidden px-6 pb-5">
+              <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--eb-border);">
+                <div class="flex items-center justify-between px-4 py-2" style="background: var(--eb-surface-2); border-bottom: 1px solid var(--eb-border);">
+                  <span class="text-xs font-mono" style="color: var(--eb-muted);">exemple</span>
+                  <button class="copy-code-btn text-xs transition-colors" type="button" style="color: var(--eb-muted);">Copier</button>
+                </div>
+                <pre class="eb-code" style="border: none; border-radius: 0;"><code class="language-javascript">const dataSources = await client.listDataSources("{{.ExampleWorkspaceSlug}}");
+console.log(dataSources);
+// [{ name: "{{.ExampleDataSourceName}}", slug: "{{.ExampleDataSourceSlug}}" }]</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="sdk-ref-row" style="border-top: 1px solid var(--eb-border);">
+            <button type="button" class="sdk-ref-toggle w-full flex items-center justify-between gap-4 px-6 py-4 text-left transition-colors" onmouseover="this.style.background='var(--eb-surface-2)'" onmouseout="this.style.background=''">
+              <div class="min-w-0">
+                <p class="text-sm font-mono" style="color: var(--eb-text);">getDataSource(wsSlug, dsSlug)</p>
+                <p class="text-sm mt-0.5" style="color: var(--eb-muted);">Récupère le contenu complet d'une source (colonnes et valeurs).</p>
+              </div>
+              <svg class="sdk-ref-chevron h-4 w-4 shrink-0 transition-transform" style="color: var(--eb-muted);" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div class="sdk-ref-panel hidden px-6 pb-5">
+              <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--eb-border);">
+                <div class="flex items-center justify-between px-4 py-2" style="background: var(--eb-surface-2); border-bottom: 1px solid var(--eb-border);">
+                  <span class="text-xs font-mono" style="color: var(--eb-muted);">exemple</span>
+                  <button class="copy-code-btn text-xs transition-colors" type="button" style="color: var(--eb-muted);">Copier</button>
+                </div>
+                <pre class="eb-code" style="border: none; border-radius: 0;"><code class="language-javascript">const data = await client.getDataSource("{{.ExampleWorkspaceSlug}}", "{{.ExampleDataSourceSlug}}");
+console.log(data.columns);
+/*
+{{.ExampleColumnsJSON}}
+*/</code></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="sdk-ref-row" style="border-top: 1px solid var(--eb-border); border-bottom: 1px solid var(--eb-border);">
+            <button type="button" class="sdk-ref-toggle w-full flex items-center justify-between gap-4 px-6 py-4 text-left transition-colors" onmouseover="this.style.background='var(--eb-surface-2)'" onmouseout="this.style.background=''">
+              <div class="min-w-0">
+                <p class="text-sm font-mono" style="color: var(--eb-text);">getValue(path)</p>
+                <p class="text-sm mt-0.5" style="color: var(--eb-muted);">Raccourci à un seul paramètre pour lire une colonne entière ou une valeur précise, adressée par un chemin séparé par des « / ».</p>
+              </div>
+              <svg class="sdk-ref-chevron h-4 w-4 shrink-0 transition-transform" style="color: var(--eb-muted);" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div class="sdk-ref-panel hidden px-6 pb-5">
+              <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--eb-border);">
+                <div class="flex items-center justify-between px-4 py-2" style="background: var(--eb-surface-2); border-bottom: 1px solid var(--eb-border);">
+                  <span class="text-xs font-mono" style="color: var(--eb-muted);">exemple</span>
+                  <button class="copy-code-btn text-xs transition-colors" type="button" style="color: var(--eb-muted);">Copier</button>
+                </div>
+                <pre class="eb-code" style="border: none; border-radius: 0;"><code class="language-javascript">// "wsSlug/dsSlug/column" -> toute la colonne
+const values = await client.getValue("{{.ExampleWorkspaceSlug}}/{{.ExampleDataSourceSlug}}/{{.ExampleColumnKey}}");
+console.log(values);
+// {{.ExampleColumnValuesJSON}}
+
+// "wsSlug/dsSlug/column/index" -> une seule valeur
+const oneValue = await client.getValue("{{.ExampleWorkspaceSlug}}/{{.ExampleDataSourceSlug}}/{{.ExampleColumnKey}}/0");
+console.log(oneValue);
+// {{.ExampleColumnFirstValueJSON}}</code></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="eb-card rounded-xl p-6">
+        <h2 class="font-semibold mb-1" style="color: var(--eb-text);">API REST (autres langages)</h2>
+        <p class="text-sm mb-4" style="color: var(--eb-muted);">Sans le SDK JS, appelez directement l'API — n'importe quel langage capable de faire une requête HTTP fonctionne, avec le même en-tête d'authentification.</p>
+        <div class="space-y-2 mb-4 text-sm font-mono">
+          <div class="flex items-center gap-3">
+            <span class="eb-badge" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">GET</span>
+            <span style="color: var(--eb-text);">/api/v1/workspaces</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="eb-badge" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">GET</span>
+            <span style="color: var(--eb-text);">/api/v1/workspaces/{slug}/datasources</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="eb-badge" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">GET</span>
+            <span style="color: var(--eb-text);">/api/v1/workspaces/{slug}/datasources/{dsSlug}</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="eb-badge" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">GET</span>
+            <span style="color: var(--eb-text);">/api/v1/workspaces/{slug}/datasources/{dsSlug}/columns/{key}</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="eb-badge" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">GET</span>
+            <span style="color: var(--eb-text);">/api/v1/workspaces/{slug}/datasources/{dsSlug}/columns/{key}/{index}</span>
+          </div>
+        </div>
+        <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--eb-border);">
+          <div class="flex items-center justify-between px-4 py-2" style="background: var(--eb-surface-2); border-bottom: 1px solid var(--eb-border);">
+            <span class="text-xs font-mono" style="color: var(--eb-muted);">curl</span>
+            <button class="copy-code-btn text-xs transition-colors" type="button" style="color: var(--eb-muted);">Copier</button>
+          </div>
+          <pre class="eb-code" style="border: none; border-radius: 0;"><code class="language-bash">curl -H "Authorization: Bearer $EPTAADMIN_API_KEY" \
+  https://votre-instance.example.com/api/v1/workspaces/{{.ExampleWorkspaceSlug}}/datasources/{{.ExampleDataSourceSlug}}</code></pre>
+        </div>
+      </div>
+
+      <div class="eb-card rounded-xl p-6">
+        <h2 class="font-semibold mb-3" style="color: var(--eb-text);">Gestion des erreurs</h2>
+        <p class="text-sm mb-3" style="color: var(--eb-muted);">Une requête en échec — clé invalide, workspace inaccessible, ressource introuvable — répond en JSON avec un champ <code class="font-mono">error</code> et le code HTTP correspondant (401, 403, 404...). Le SDK convertit ça en exception typée :</p>
+        <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--eb-border);">
+          <div class="flex items-center justify-between px-4 py-2" style="background: var(--eb-surface-2); border-bottom: 1px solid var(--eb-border);">
+            <span class="text-xs font-mono" style="color: var(--eb-muted);">errors.js</span>
+            <button class="copy-code-btn text-xs transition-colors" type="button" style="color: var(--eb-muted);">Copier</button>
+          </div>
+          <pre class="eb-code" style="border: none; border-radius: 0;"><code class="language-javascript">import { EptaAdminClient, EptaAdminError } from "eptaadmin-sdk";
+
+try {
+  await client.getDataSource("{{.ExampleWorkspaceSlug}}", "does-not-exist");
+} catch (err) {
+  if (err instanceof EptaAdminError) {
+    console.error(err.status, err.message); // 404 "Source de données introuvable."
+  }
+}</code></pre>
+        </div>
+      </div>
+
+     </div>
+    </main>
+
+    <script>
+    (function () {
+      document.querySelectorAll(".sdk-ref-toggle").forEach((btn) => {
+        const row = btn.closest(".sdk-ref-row");
+        const panel = row ? row.querySelector(".sdk-ref-panel") : null;
+        const chevron = btn.querySelector(".sdk-ref-chevron");
+        if (!panel) return;
+        btn.addEventListener("click", () => {
+          const isHidden = panel.classList.contains("hidden");
+          panel.classList.toggle("hidden");
+          if (chevron) chevron.style.transform = isHidden ? "rotate(180deg)" : "";
+        });
+      });
+    })();
+    </script>
+
+    <script>
+    (function () {
+      document.querySelectorAll(".copy-code-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const block = btn.closest("div").parentElement;
+          const pre = block ? block.querySelector("pre") : null;
+          if (!pre) return;
+          navigator.clipboard.writeText(pre.textContent).then(() => {
+            const original = btn.textContent;
+            btn.textContent = "Copié !";
+            setTimeout(() => { btn.textContent = original; }, 1500);
+          });
+        });
+      });
+    })();
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  </div>
+</div>
+{{end}}
+{{template "layout" .}}
