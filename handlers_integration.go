@@ -39,6 +39,7 @@ func exampleColumnsPreview(cs ColumnStore) map[string][]any {
 // generic placeholders when the user has none yet.
 func (a *App) handleIntegrationPage(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
+	lang := a.resolveLang(r)
 
 	exampleWorkspaceSlug := "acme"
 	exampleWorkspaceName := "Acme"
@@ -93,10 +94,10 @@ func (a *App) handleIntegrationPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	a.render(w, "integration.html", map[string]any{
+	a.render(w, r, "integration.html", map[string]any{
 		"CurrentUser":                 currentUser,
 		"ActiveNav":                   "integration",
-		"PageTitle":                   "Intégration",
+		"PageTitle":                   T(lang, "nav.integration"),
 		"HeaderIcon":                  "code",
 		"CanManageMembers":            canManageMembers(currentUser.Role),
 		"ExampleWorkspaceSlug":        exampleWorkspaceSlug,

@@ -25,6 +25,7 @@ var templateFuncs = template.FuncMap{
 	"typeLabel":      ColumnTypeLabel,
 	"columnIcon":     ColumnIconName,
 	"columnColorHex": ColumnColorHex,
+	"t":              T,
 	"sub":            func(a, b int) int { return a - b },
 }
 
@@ -41,11 +42,20 @@ func NewApp(store *Store) (*App, error) {
 	return a, nil
 }
 
-func (a *App) render(w http.ResponseWriter, page string, data any) {
+func (a *App) render(w http.ResponseWriter, r *http.Request, page string, data any) {
 	tmpl, ok := a.templates[page]
 	if !ok {
 		http.Error(w, "template introuvable", http.StatusInternalServerError)
 		return
+	}
+	// Every page's data map gets a "Lang" key so templates can call
+	// {{t .Lang "some.key"}} without every handler having to set it
+	// itself — resolved once, here, from the account setting or the
+	// pre-login cookie fallback.
+	if m, ok := data.(map[string]any); ok {
+		if _, exists := m["Lang"]; !exists {
+			m["Lang"] = a.resolveLang(r)
+		}
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := tmpl.ExecuteTemplate(w, page, data); err != nil {
@@ -58,27 +68,28 @@ func (a *App) handleLoginPage(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
-	a.render(w, "login.html", map[string]any{})
+	a.render(w, r, "login.html", map[string]any{})
 }
 
 func (a *App) handleLogin(w http.ResponseWriter, r *http.Request) {
+	lang := a.resolveLang(r)
 	username := strings.TrimSpace(r.FormValue("username"))
 	password := r.FormValue("password")
 
 	user, err := a.store.GetUserByUsername(username)
 	if err != nil {
 		log.Printf("login lookup error: %v", err)
-		a.render(w, "login.html", map[string]any{"Error": "Une erreur est survenue, réessayez."})
+		a.render(w, r, "login.html", map[string]any{"Error": T(lang, "common.error_generic_retry")})
 		return
 	}
 	if user == nil || !checkPassword(user.PasswordHash, password) {
-		a.render(w, "login.html", map[string]any{"Error": ErrInvalidCredentials.Error()})
+		a.render(w, r, "login.html", map[string]any{"Error": T(lang, "login.invalid_credentials")})
 		return
 	}
 
 	if err := a.startSession(w, user.ID); err != nil {
 		log.Printf("session error: %v", err)
-		a.render(w, "login.html", map[string]any{"Error": "Une erreur est survenue, réessayez."})
+		a.render(w, r, "login.html", map[string]any{"Error": T(lang, "common.error_generic_retry")})
 		return
 	}
 	http.Redirect(w, r, "/", http.StatusSeeOther)
@@ -102,10 +113,11 @@ func (a *App) handleRegisterPage(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
-	a.render(w, "register.html", map[string]any{})
+	a.render(w, r, "register.html", map[string]any{})
 }
 
 func (a *App) handleRegister(w http.ResponseWriter, r *http.Request) {
+	lang := a.resolveLang(r)
 	count, err := a.store.CountUsers()
 	if err != nil {
 		log.Printf("count users error: %v", err)
@@ -124,29 +136,37 @@ func (a *App) handleRegister(w http.ResponseWriter, r *http.Request) {
 	formData := map[string]any{"Username": username, "Email": email}
 
 	if username == "" || email == "" || len(password) < 8 {
-		formData["Error"] = "Merci de renseigner un identifiant, un email valide et un mot de passe d'au moins 8 caractères."
-		a.render(w, "register.html", formData)
+		formData["Error"] = T(lang, "common.user_form_validation")
+		a.render(w, r, "register.html", formData)
 		return
 	}
 
 	hash, err := hashPassword(password)
 	if err != nil {
 		log.Printf("hash error: %v", err)
-		formData["Error"] = "Une erreur est survenue, réessayez."
-		a.render(w, "register.html", formData)
+		formData["Error"] = T(lang, "common.error_generic_retry")
+		a.render(w, r, "register.html", formData)
 		return
 	}
 
 	user, err := a.store.CreateUser(username, email, hash, RoleOwner)
 	if err != nil {
 		if err == ErrUserExists {
-			formData["Error"] = err.Error()
+			formData["Error"] = T(lang, "common.user_exists")
 		} else {
 			log.Printf("create user error: %v", err)
-			formData["Error"] = "Une erreur est survenue, réessayez."
+			formData["Error"] = T(lang, "common.error_generic_retry")
 		}
-		a.render(w, "register.html", formData)
+		a.render(w, r, "register.html", formData)
 		return
+	}
+	// Carry over whatever language the visitor had already picked via the
+	// pre-login FR/EN toggle, rather than silently reverting to the 'fr'
+	// column default the instant the account exists.
+	if lang != defaultLang {
+		if err := a.store.UpdateUserLanguage(user.ID, lang); err != nil {
+			log.Printf("set initial language error: %v", err)
+		}
 	}
 
 	if err := a.startSession(w, user.ID); err != nil {
@@ -170,19 +190,21 @@ func (a *App) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
 		return
 	}
-	a.render(w, "dashboard.html", map[string]any{
+	lang := a.resolveLang(r)
+	a.render(w, r, "dashboard.html", map[string]any{
 		"CurrentUser":      currentUser,
 		"Users":            users,
 		"CanManageMembers": canManageMembers(currentUser.Role),
 		"ActiveNav":        "dashboard",
-		"PageTitle":        "Tableau de bord",
+		"PageTitle":        T(lang, "nav.dashboard"),
 	})
 }
 
 func (a *App) handleMembersPage(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
+	lang := a.resolveLang(r)
 	if !canManageMembers(currentUser.Role) {
-		http.Error(w, "Accès refusé.", http.StatusForbidden)
+		http.Error(w, T(lang, "common.access_denied"), http.StatusForbidden)
 		return
 	}
 	users, err := a.store.ListUsers()
@@ -191,20 +213,21 @@ func (a *App) handleMembersPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
 		return
 	}
-	a.render(w, "members.html", map[string]any{
+	a.render(w, r, "members.html", map[string]any{
 		"CurrentUser":      currentUser,
 		"Users":            users,
-		"AssignableRoles":  assignableRolesWithLabels(currentUser.Role),
+		"AssignableRoles":  assignableRolesWithLabels(lang, currentUser.Role),
 		"CanManageMembers": true,
 		"ActiveNav":        "members",
-		"PageTitle":        "Membres",
+		"PageTitle":        T(lang, "nav.members"),
 	})
 }
 
 func (a *App) handleCreateMember(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
+	lang := a.resolveLang(r)
 	if !canManageMembers(currentUser.Role) {
-		http.Error(w, "Accès refusé.", http.StatusForbidden)
+		http.Error(w, T(lang, "common.access_denied"), http.StatusForbidden)
 		return
 	}
 
@@ -220,13 +243,13 @@ func (a *App) handleCreateMember(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
 			return
 		}
-		a.render(w, "members.html", map[string]any{
+		a.render(w, r, "members.html", map[string]any{
 			"CurrentUser":      currentUser,
 			"Users":            users,
-			"AssignableRoles":  assignableRolesWithLabels(currentUser.Role),
+			"AssignableRoles":  assignableRolesWithLabels(lang, currentUser.Role),
 			"CanManageMembers": true,
 			"ActiveNav":        "members",
-			"PageTitle":        "Membres",
+			"PageTitle":        T(lang, "nav.members"),
 			"Error":            msg,
 			"Username":         username,
 			"Email":            email,
@@ -235,27 +258,27 @@ func (a *App) handleCreateMember(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if username == "" || email == "" || len(password) < 8 {
-		renderError("Merci de renseigner un identifiant, un email valide et un mot de passe d'au moins 8 caractères.")
+		renderError(T(lang, "common.user_form_validation"))
 		return
 	}
 	if !canAssignRole(currentUser.Role, role) {
-		renderError("Vous n'êtes pas autorisé à attribuer ce rôle.")
+		renderError(T(lang, "members.role_not_allowed"))
 		return
 	}
 
 	hash, err := hashPassword(password)
 	if err != nil {
 		log.Printf("hash error: %v", err)
-		renderError("Une erreur est survenue, réessayez.")
+		renderError(T(lang, "common.error_generic_retry"))
 		return
 	}
 
 	if _, err := a.store.CreateUser(username, email, hash, role); err != nil {
 		if err == ErrUserExists {
-			renderError(err.Error())
+			renderError(T(lang, "common.user_exists"))
 		} else {
 			log.Printf("create member error: %v", err)
-			renderError("Une erreur est survenue, réessayez.")
+			renderError(T(lang, "common.error_generic_retry"))
 		}
 		return
 	}
