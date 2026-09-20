@@ -7,21 +7,10 @@ const (
 	RoleViewer = "viewer"
 )
 
-// roleRank orders roles from least to most privileged.
-var roleRank = map[string]int{
-	RoleViewer: 1,
-	RoleEditor: 2,
-	RoleAdmin:  3,
-	RoleOwner:  4,
-}
-
-func isValidRole(role string) bool {
-	_, ok := roleRank[role]
-	return ok
-}
-
-// Atomic permissions, as laid out in docs/spec2.md §4. Coarser role checks
-// (canManageMembers, etc.) are convenience wrappers built on top of these.
+// Atomic permissions, as laid out in docs/spec2.md §4. These are always
+// checked against a role *within a specific workspace* — there is no
+// instance-wide administrator role; every account manages only the
+// workspaces and members it actually owns.
 const (
 	PermDataRead        = "data.read"
 	PermDataCreate      = "data.create"
@@ -58,16 +47,11 @@ func hasPermission(role, permission string) bool {
 	return rolePermissions[role][permission]
 }
 
-// canManageMembers reports whether a user with the given role may access
-// the member creation panel (Owner and Admin only).
-func canManageMembers(role string) bool {
-	return roleRank[role] >= roleRank[RoleAdmin]
-}
-
-// assignableRoles returns the roles a given actor is allowed to grant to a
-// new member. Owners can create Admins, Editors and Viewers; Admins can
-// only create Editors and Viewers. Nobody can create another Owner through
-// this flow — the Owner is set once, at the very first registration.
+// assignableRoles returns the roles a given actor may grant a new member of
+// their workspace. A workspace Owner can invite Admins, Editors and
+// Viewers; a workspace Admin can only invite Editors and Viewers. Nobody
+// can invite another Owner — a workspace gets exactly one, whoever created
+// it (or auto-created it, e.g. on self-registration).
 func assignableRoles(actorRole string) []string {
 	switch actorRole {
 	case RoleOwner:

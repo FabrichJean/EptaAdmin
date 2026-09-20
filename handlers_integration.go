@@ -99,7 +99,6 @@ func (a *App) handleIntegrationPage(w http.ResponseWriter, r *http.Request) {
 		"ActiveNav":                   "integration",
 		"PageTitle":                   T(lang, "nav.integration"),
 		"HeaderIcon":                  "code",
-		"CanManageMembers":            canManageMembers(currentUser.Role),
 		"ExampleWorkspaceSlug":        exampleWorkspaceSlug,
 		"ExampleWorkspaceName":        exampleWorkspaceName,
 		"ExampleWorkspaceRole":        exampleWorkspaceRole,
