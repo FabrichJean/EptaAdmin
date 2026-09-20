@@ -74,6 +74,15 @@ EptaAdmin stores each column of a data source as its own independent list of val
 
 If your project needs row-aligned records, build them yourself from the columns you know are meant to line up (e.g. by index), since EptaAdmin itself doesn't guarantee that alignment.
 
+## Image values
+
+A column of type "image" stores each value as a URL. The SDK automatically rewrites these to absolute, API-key-authenticated URLs (`{baseUrl}/api/v1/workspaces/{slug}/uploads/{file}`) before returning them, so they're directly usable outside a browser session — you never see or depend on the internal browser-app route these are stored against:
+
+```js
+const avatars = await client.getValue("acme/clients/avatar");
+// ["https://your-eptaadmin-instance.example.com/api/v1/workspaces/acme/uploads/6f2dff985af5d290.png"]
+```
+
 ## Error handling
 
 Failed requests reject with an `EptaAdminError` carrying the HTTP status and the server's error message:

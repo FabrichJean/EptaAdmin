@@ -11,6 +11,26 @@ export class EptaAdminError extends Error {
   }
 }
 
+// Image column values are stored as the same URL the browser UI uses
+// (/workspaces/{slug}/uploads/{file}), which only accepts a session
+// cookie — useless to an external caller like this SDK, which has none.
+// Rewrite matching values to the API-key-authenticated equivalent instead
+// of just prefixing baseUrl onto the internal route, so callers get a
+// working absolute URL without depending on (or seeing) that internal
+// browser-route shape.
+const uploadUrlPattern = /^\/workspaces\/([^/]+)\/uploads\/(.+)$/;
+
+function resolveImageURL(value, baseUrl) {
+  if (typeof value !== "string") return value;
+  const match = value.match(uploadUrlPattern);
+  if (!match) return value;
+  return `${baseUrl}/api/v1/workspaces/${match[1]}/uploads/${match[2]}`;
+}
+
+function resolveImageURLs(value, baseUrl) {
+  return Array.isArray(value) ? value.map((v) => resolveImageURL(v, baseUrl)) : resolveImageURL(value, baseUrl);
+}
+
 export class EptaAdminClient {
   /**
    * @param {{ apiKey: string, baseUrl?: string }} options
@@ -53,10 +73,14 @@ export class EptaAdminClient {
    * between columns), so the response mirrors that: `columns` is a plain
    * object of `{ [columnKey]: value[] }`.
    */
-  getDataSource(workspaceSlug, dataSourceSlug) {
-    return this._request(
+  async getDataSource(workspaceSlug, dataSourceSlug) {
+    const body = await this._request(
       `/api/v1/workspaces/${encodeURIComponent(workspaceSlug)}/datasources/${encodeURIComponent(dataSourceSlug)}`
     );
+    for (const key of Object.keys(body.columns || {})) {
+      body.columns[key] = resolveImageURLs(body.columns[key], this.baseUrl);
+    }
+    return body;
   }
 
   /**
@@ -83,6 +107,6 @@ export class EptaAdminClient {
       url += `/${encodeURIComponent(index)}`;
     }
     const body = await this._request(url);
-    return index !== undefined ? body.value : body.values;
+    return resolveImageURLs(index !== undefined ? body.value : body.values, this.baseUrl);
   }
 }
