@@ -13,9 +13,13 @@
   },
   "files": [
     "src",
+    "bin",
     "index.d.ts",
     "README.md"
   ],
+  "bin": {
+    "eptaadmin-prefetch": "./bin/prefetch.js"
+  },
   "engines": {
     "node": ">=18"
   },

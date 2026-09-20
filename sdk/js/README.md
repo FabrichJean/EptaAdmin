@@ -83,6 +83,48 @@ const avatars = await client.getValue("acme/clients/avatar");
 // ["https://your-eptaadmin-instance.example.com/api/v1/workspaces/acme/uploads/6f2dff985af5d290.png"]
 ```
 
+## Build-time prefetch (for static/SPA builds)
+
+If you're shipping a static single-page app (Vite, CRA, etc.), you usually don't want the production bundle calling out to your EptaAdmin instance at runtime — that means exposing your API key client-side, an extra network round-trip, and a hard runtime dependency on EptaAdmin staying up. The `eptaadmin-prefetch` CLI (installed alongside the SDK) fetches your data sources once, at **build time**, and writes them to plain JSON files your app imports like any other static asset.
+
+Add a config file (`eptaadmin.config.json`, resolved from your current working directory):
+
+```json
+{
+  "baseUrl": "https://admin.example.com",
+  "apiKeyEnv": "EPTAADMIN_API_KEY",
+  "sources": [
+    { "workspace": "acme", "dataSource": "home", "out": "src/data/home.json" }
+  ]
+}
+```
+
+The API key itself is read from the environment variable named by `apiKeyEnv` (default `EPTAADMIN_API_KEY`) — never put the key in the config file, since that file is typically committed.
+
+Run it before your build, e.g. as a `prebuild` script in `package.json`:
+
+```json
+{
+  "scripts": {
+    "prebuild": "eptaadmin-prefetch",
+    "build": "vite build"
+  }
+}
+```
+
+```sh
+EPTAADMIN_API_KEY=eak_your_key npm run build
+```
+
+Each output file matches `getDataSource()`'s `columns` shape exactly, so your app just does:
+
+```js
+import homeData from "./data/home.json";
+// homeData.hero_title[0], homeData.testimonial_author, ...
+```
+
+The command exits with a non-zero status if any source fails to fetch, so a broken EptaAdmin connection fails your CI build loudly instead of silently shipping stale or missing data.
+
 ## Error handling
 
 Failed requests reject with an `EptaAdminError` carrying the HTTP status and the server's error message:
