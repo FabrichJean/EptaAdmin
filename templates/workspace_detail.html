@@ -1,4 +1,12 @@
 {{define "title"}}{{.Workspace.Name}} — EptaAdmin{{end}}
+{{define "head_extra"}}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<style>
+  pre.eb-code, pre.eb-code code[class*="language-"] { background: transparent !important; }
+  pre.eb-code { margin: 0; }
+  code[class*="language-"], pre[class*="language-"] { text-shadow: none !important; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace !important; font-size: 0.8125rem !important; }
+</style>
+{{end}}
 {{define "content"}}
 <div class="h-full flex">
   {{template "sidebar" .}}
@@ -75,6 +83,8 @@
               <div class="relative ds-export-wrap">
                 <button type="button" class="ds-export-btn eb-btn-secondary rounded-md text-xs px-2 py-1 transition-colors">{{t $.Lang "datasource.export_button"}}</button>
                 <div class="ds-export-menu hidden absolute right-0 mt-1 w-40 rounded-lg py-1 z-30 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+                  <button type="button" class="ds-code-btn block w-full text-left px-3 py-2 text-sm" style="color: var(--eb-text); border-bottom: 1px solid var(--eb-border);"
+                    data-ws-slug="{{$.Workspace.Slug}}" data-ds-slug="{{$ds.Slug}}">{{t $.Lang "datasource.code_button"}}</button>
                   <a href="/workspaces/{{$.Workspace.Slug}}/datasources/{{$ds.Slug}}/export?format=csv" class="block px-3 py-2 text-sm" style="color: var(--eb-text);">{{t $.Lang "datasource.export_csv"}}</a>
                   <a href="/workspaces/{{$.Workspace.Slug}}/datasources/{{$ds.Slug}}/export?format=json" class="block px-3 py-2 text-sm" style="color: var(--eb-text);">{{t $.Lang "datasource.export_json"}}</a>
                 </div>
@@ -142,6 +152,25 @@
   </div>
 </div>
 
+<div id="code-modal-backdrop" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0,0,0,0.6);">
+  <div class="eb-card rounded-xl w-full max-w-lg flex flex-col" style="max-height: 85vh;">
+    <div class="px-5 py-4 flex items-center justify-between shrink-0" style="border-bottom: 1px solid var(--eb-border);">
+      <div class="min-w-0">
+        <h2 class="text-sm font-semibold" style="color: var(--eb-text);">{{t .Lang "workspace_detail.code_modal_title"}}</h2>
+        <p class="text-xs mt-0.5" style="color: var(--eb-muted);">{{t .Lang "workspace_detail.code_modal_subtitle"}}</p>
+      </div>
+      <button id="close-code-modal-btn" type="button" class="eb-icon-btn text-lg leading-none shrink-0">✕</button>
+    </div>
+    <div class="rounded-xl overflow-hidden m-5 mt-4" style="border: 1px solid var(--eb-border);">
+      <div class="flex items-center justify-between px-4 py-2" style="background: var(--eb-surface-2); border-bottom: 1px solid var(--eb-border);">
+        <span class="text-xs font-mono" style="color: var(--eb-muted);">{{t .Lang "integration.example_label"}}</span>
+        <button id="code-modal-copy-btn" class="text-xs transition-colors" type="button" style="color: var(--eb-muted);">{{t .Lang "integration.copy"}}</button>
+      </div>
+      <pre class="eb-code" style="border: none; border-radius: 0;"><code id="code-modal-snippet" class="language-javascript"></code></pre>
+    </div>
+  </div>
+</div>
+
 <script>
 (function () {
   function bindToggle(btnId, formId) {
@@ -192,7 +221,53 @@
   // Reopen the modal automatically if the server re-rendered the page after
   // a failed "add member" attempt, so the error is visible right away.
   {{if .MemberError}}openModal();{{end}}
+
+  // --- Per-data-source "Code" modal ---
+  const codeBackdrop = document.getElementById("code-modal-backdrop");
+  const codeCloseBtn = document.getElementById("close-code-modal-btn");
+  const codeSnippetEl = document.getElementById("code-modal-snippet");
+  const codeCopyBtn = document.getElementById("code-modal-copy-btn");
+  function openCodeModal(wsSlug, dsSlug) {
+    codeSnippetEl.textContent = [
+      'import { EptaAdminClient } from "eptaadmin-sdk";',
+      "",
+      "const client = new EptaAdminClient({",
+      "  apiKey: process.env.EPTAADMIN_API_KEY,",
+      "});",
+      "",
+      'const data = await client.getDataSource("' + wsSlug + '", "' + dsSlug + '");',
+      "console.log(data.columns);",
+    ].join("\n");
+    if (window.Prism) Prism.highlightElement(codeSnippetEl);
+    codeBackdrop.classList.remove("hidden");
+  }
+  function closeCodeModal() { codeBackdrop.classList.add("hidden"); }
+  document.querySelectorAll(".ds-code-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      document.querySelectorAll(".ds-export-menu").forEach((m) => m.classList.add("hidden"));
+      openCodeModal(btn.dataset.wsSlug, btn.dataset.dsSlug);
+    });
+  });
+  if (codeCloseBtn) codeCloseBtn.addEventListener("click", closeCodeModal);
+  if (codeBackdrop) {
+    codeBackdrop.addEventListener("click", (e) => { if (e.target === codeBackdrop) closeCodeModal(); });
+  }
+  if (codeCopyBtn) {
+    codeCopyBtn.addEventListener("click", () => {
+      navigator.clipboard.writeText(codeSnippetEl.textContent).then(() => {
+        const original = codeCopyBtn.textContent;
+        codeCopyBtn.textContent = "{{t .Lang "integration.copied"}}";
+        setTimeout(() => { codeCopyBtn.textContent = original; }, 1500);
+      });
+    });
+  }
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && codeBackdrop && !codeBackdrop.classList.contains("hidden")) closeCodeModal();
+  });
 })();
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
 {{end}}
 {{template "layout" .}}
