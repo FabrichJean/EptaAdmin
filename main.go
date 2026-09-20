@@ -23,6 +23,7 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
+	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	mux.HandleFunc("GET /login", app.handleLoginPage)
 	mux.HandleFunc("POST /login", app.handleLogin)
 	mux.HandleFunc("GET /register", app.handleRegisterPage)
@@ -31,12 +32,22 @@ func main() {
 	mux.HandleFunc("GET /{$}", app.requireAuth(app.handleDashboard))
 	mux.HandleFunc("GET /members", app.requireAuth(app.handleMembersPage))
 	mux.HandleFunc("POST /members", app.requireAuth(app.handleCreateMember))
+	mux.HandleFunc("GET /integration", app.requireAuth(app.handleIntegrationPage))
 	mux.HandleFunc("GET /profile", app.requireAuth(app.handleProfilePage))
 	mux.HandleFunc("POST /profile/email", app.requireAuth(app.handleUpdateProfileEmail))
 	mux.HandleFunc("POST /profile/password", app.requireAuth(app.handleUpdateProfilePassword))
 	mux.HandleFunc("POST /profile/avatar/seed", app.requireAuth(app.handleUpdateProfileAvatarSeed))
 	mux.HandleFunc("POST /profile/avatar/upload", app.requireAuth(app.handleUploadProfileAvatar))
 	mux.HandleFunc("GET /avatars/{filename}", app.requireAuth(app.handleServeAvatar))
+	mux.HandleFunc("POST /profile/api-keys", app.requireAuth(app.handleCreateAPIKey))
+	mux.HandleFunc("POST /profile/api-keys/{id}/delete", app.requireAuth(app.handleDeleteAPIKey))
+
+	// Public read-only API (personal API key auth) — consumed by the JS SDK.
+	mux.HandleFunc("GET /api/v1/workspaces", app.requireAPIKey(app.handleAPIListWorkspaces))
+	mux.HandleFunc("GET /api/v1/workspaces/{slug}/datasources", app.requireAPIKey(app.handleAPIListDataSources))
+	mux.HandleFunc("GET /api/v1/workspaces/{slug}/datasources/{dsSlug}", app.requireAPIKey(app.handleAPIGetDataSource))
+	mux.HandleFunc("GET /api/v1/workspaces/{slug}/datasources/{dsSlug}/columns/{key}", app.requireAPIKey(app.handleAPIGetColumn))
+	mux.HandleFunc("GET /api/v1/workspaces/{slug}/datasources/{dsSlug}/columns/{key}/{index}", app.requireAPIKey(app.handleAPIGetColumnValue))
 	mux.HandleFunc("GET /workspaces", app.requireAuth(app.handleWorkspacesPage))
 	mux.HandleFunc("GET /api/search", app.requireAuth(app.handleGlobalSearch))
 	mux.HandleFunc("POST /workspaces", app.requireAuth(app.handleCreateWorkspace))
