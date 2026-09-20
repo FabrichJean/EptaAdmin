@@ -7,6 +7,7 @@
   code[class*="language-"], pre[class*="language-"] { text-shadow: none !important; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace !important; font-size: 0.8125rem !important; }
   .value-row.dragging { opacity: 0.4; }
   .value-drag-handle:active { cursor: grabbing; }
+  .eb-text-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 </style>
 {{end}}
 {{define "content"}}
@@ -144,6 +145,7 @@
             {{$vt := valueType $v}}
             {{$isImage := eq $vt "image"}}
             {{$isLongText := eq $vt "long_text"}}
+            {{$isTextish := or $isLongText (eq $vt "text")}}
             <div class="value-row flex items-center gap-3 px-4 py-2 text-sm" data-index="{{$i}}" data-search-value data-value-type="{{$vt}}" style="border-top: 1px solid var(--eb-border);">
               {{if and $col.Managed $.CanEdit}}
               <span class="value-drag-handle shrink-0" draggable="true" style="color: var(--eb-muted); cursor: grab; touch-action: none;" title="{{t $.Lang "datasource.drag_to_reorder"}}">
@@ -152,9 +154,9 @@
               {{end}}
               <span class="type-badge eb-chip shrink-0">{{typeLabel $.Lang $vt}}</span>
               {{if and $col.Managed $.CanEdit}}
-              <span class="value-text editable flex-1 min-w-0{{if $isImage}} cursor-pointer{{else}} cursor-text{{end}}{{if $isLongText}} whitespace-pre-wrap{{end}}" data-type="{{$vt}}"{{if $isImage}} data-value="{{formatValue $v}}"{{end}} title="{{if $isImage}}{{t $.Lang "datasource.click_to_enlarge"}}{{else}}{{t $.Lang "datasource.double_click_to_edit"}}{{end}}" style="color: var(--eb-text);">{{if $isImage}}<span class="eb-image-chip"><img src="{{formatValue $v}}" class="eb-image-chip-thumb" onerror="this.style.display='none'" /> {{t $.Lang "datasource.preview"}}</span>{{else}}{{formatValue $v}}{{end}}</span>
+              <span class="value-text editable flex-1 min-w-0{{if $isImage}} cursor-pointer{{else if $isTextish}} cursor-pointer eb-text-clamp{{else}} cursor-text{{end}}" data-type="{{$vt}}"{{if $isTextish}} data-preview-text="true"{{end}}{{if $isImage}} data-value="{{formatValue $v}}"{{end}} title="{{if or $isImage $isTextish}}{{t $.Lang "datasource.click_to_enlarge"}}{{else}}{{t $.Lang "datasource.double_click_to_edit"}}{{end}}" style="color: var(--eb-text);">{{if $isImage}}<span class="eb-image-chip"><img src="{{formatValue $v}}" class="eb-image-chip-thumb" onerror="this.style.display='none'" /> {{t $.Lang "datasource.preview"}}</span>{{else}}{{formatValue $v}}{{end}}</span>
               {{else}}
-              <span class="flex-1 min-w-0{{if $isLongText}} whitespace-pre-wrap{{end}}"{{if $isImage}} data-type="image" data-value="{{formatValue $v}}"{{end}} style="color: var(--eb-muted);">{{if $isImage}}<span class="eb-image-chip"><img src="{{formatValue $v}}" class="eb-image-chip-thumb" onerror="this.style.display='none'" /> {{t $.Lang "datasource.preview"}}</span>{{else}}{{formatValue $v}}{{end}}</span>
+              <span class="flex-1 min-w-0{{if $isTextish}} cursor-pointer eb-text-clamp{{end}}"{{if $isImage}} data-type="image" data-value="{{formatValue $v}}"{{else if $isTextish}} data-preview-text="true" title="{{t $.Lang "datasource.click_to_enlarge_only"}}"{{end}} style="color: var(--eb-muted);">{{if $isImage}}<span class="eb-image-chip"><img src="{{formatValue $v}}" class="eb-image-chip-thumb" onerror="this.style.display='none'" /> {{t $.Lang "datasource.preview"}}</span>{{else}}{{formatValue $v}}{{end}}</span>
               {{end}}
               <div class="relative shrink-0">
                 <button type="button" class="value-menu-btn eb-icon-btn text-sm px-1">⋮</button>
@@ -232,6 +234,13 @@
   <div class="relative" style="max-width: min(90vw, 48rem); max-height: 85vh;">
     <button id="image-preview-close-btn" type="button" class="absolute -top-3 -right-3 h-8 w-8 rounded-full flex items-center justify-center eb-card" style="color: var(--eb-text);">✕</button>
     <img id="image-preview-img" src="" alt="" class="rounded-lg" style="max-width: 100%; max-height: 85vh; border: 1px solid var(--eb-border);" />
+  </div>
+</div>
+
+<div id="text-preview-backdrop" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0,0,0,0.75);">
+  <div class="relative eb-card rounded-xl w-full" style="max-width: min(90vw, 40rem); max-height: 80vh; display: flex; flex-direction: column;">
+    <button id="text-preview-close-btn" type="button" class="absolute -top-3 -right-3 h-8 w-8 rounded-full flex items-center justify-center eb-card" style="color: var(--eb-text);">✕</button>
+    <div id="text-preview-content" class="p-5 overflow-y-auto text-sm whitespace-pre-wrap" style="color: var(--eb-text);"></div>
   </div>
 </div>
 
@@ -392,6 +401,38 @@
   });
   document.addEventListener("dblclick", (e) => {
     if (e.target.closest("[data-type='image']")) clearTimeout(imageChipClickTimer);
+  });
+
+  // --- Long text preview modal: the cell itself only shows a clamped
+  // (2-line) preview via CSS, the full value is already in its
+  // textContent — clicking it just shows that same text unclamped. ---
+  const textPreviewBackdrop = document.getElementById("text-preview-backdrop");
+  const textPreviewContent = document.getElementById("text-preview-content");
+  function openTextPreview(text) {
+    if (!textPreviewBackdrop || !textPreviewContent) return;
+    textPreviewContent.textContent = text;
+    textPreviewBackdrop.classList.remove("hidden");
+  }
+  function closeTextPreview() {
+    if (!textPreviewBackdrop) return;
+    textPreviewBackdrop.classList.add("hidden");
+    textPreviewContent.textContent = "";
+  }
+  document.getElementById("text-preview-close-btn")?.addEventListener("click", closeTextPreview);
+  textPreviewBackdrop?.addEventListener("click", (e) => { if (e.target === textPreviewBackdrop) closeTextPreview(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeTextPreview(); });
+
+  // Same single-click-delayed-by-a-dblclick trick as the image preview
+  // above, so an editable long-text cell's double-click-to-edit still works.
+  let longTextClickTimer = null;
+  document.addEventListener("click", (e) => {
+    const el = e.target.closest("[data-preview-text]");
+    if (!el || el.querySelector(".value-widget")) return;
+    clearTimeout(longTextClickTimer);
+    longTextClickTimer = setTimeout(() => openTextPreview(el.textContent.trim()), 220);
+  });
+  document.addEventListener("dblclick", (e) => {
+    if (e.target.closest("[data-preview-text]")) clearTimeout(longTextClickTimer);
   });
 
   function typedInput(type, currentValue) {
@@ -606,14 +647,19 @@
 
     let settled = false;
     function buildValueSpan(type, value) {
+      const isTextish = type === "text" || type === "long_text";
       const span = document.createElement("span");
-      span.className = "value-text editable flex-1 min-w-0" + (type === "image" ? " cursor-pointer" : " cursor-text") + (type === "long_text" ? " whitespace-pre-wrap" : "");
+      span.className = "value-text editable flex-1 min-w-0" + (type === "image" ? " cursor-pointer" : isTextish ? " cursor-pointer eb-text-clamp" : " cursor-text");
       span.style.color = "var(--eb-text)";
       span.dataset.type = type;
       if (type === "image") {
         span.dataset.value = value;
         span.title = I18N.clickToEnlargeAndEdit;
         span.appendChild(makeImageChip(value));
+      } else if (isTextish) {
+        span.dataset.previewText = "true";
+        span.title = I18N.clickToEnlargeAndEdit;
+        span.textContent = value;
       } else {
         span.title = I18N.doubleClickToEdit;
         span.textContent = value;
@@ -902,8 +948,9 @@
       const badge = document.createElement("span");
       badge.className = "type-badge eb-chip shrink-0";
       badge.textContent = TYPE_LABELS[type];
+      const isTextishAppend = type === "text" || type === "long_text";
       const span = document.createElement("span");
-      span.className = "flex-1 min-w-0" + (type === "image" ? " cursor-pointer" : "") + (type === "long_text" ? " whitespace-pre-wrap" : "");
+      span.className = "flex-1 min-w-0" + (type === "image" ? " cursor-pointer" : isTextishAppend ? " cursor-pointer eb-text-clamp" : "");
       span.style.color = "var(--eb-text)";
       if (type === "image") {
         span.dataset.type = "image";
@@ -911,6 +958,10 @@
         span.title = I18N.clickToEnlarge;
         span.appendChild(makeImageChip(value));
       } else {
+        if (isTextishAppend) {
+          span.dataset.previewText = "true";
+          span.title = I18N.clickToEnlarge;
+        }
         span.textContent = value;
       }
       const removeBtn = document.createElement("button");
