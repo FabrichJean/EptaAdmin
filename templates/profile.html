@@ -11,7 +11,7 @@
 
       {{if .Updated}}
       <div class="rounded-xl px-5 py-4 text-sm" style="background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.25); color: var(--eb-accent);">
-        {{if eq .Updated "email"}}Email mis à jour avec succès.{{else if eq .Updated "password"}}Mot de passe mis à jour avec succès.{{else if eq .Updated "avatar"}}Avatar mis à jour avec succès.{{else if eq .Updated "apikey"}}Clé API révoquée.{{end}}
+        {{if eq .Updated "email"}}{{t .Lang "profile.updated_email"}}{{else if eq .Updated "password"}}{{t .Lang "profile.updated_password"}}{{else if eq .Updated "avatar"}}{{t .Lang "profile.updated_avatar"}}{{else if eq .Updated "apikey"}}{{t .Lang "profile.updated_apikey"}}{{else if eq .Updated "language"}}{{t .Lang "profile.updated_language"}}{{end}}
       </div>
       {{end}}
 
@@ -20,8 +20,8 @@
         <div class="min-w-0">
           <p class="text-lg font-semibold truncate" style="color: var(--eb-text);">{{.CurrentUser.Username}}</p>
           <div class="flex items-center gap-2 mt-1">
-            <span class="eb-badge eb-badge-{{.CurrentUser.Role}}">{{.CurrentUser.RoleLabel}}</span>
-            <span class="text-xs" style="color: var(--eb-muted);">Membre depuis le {{.CurrentUser.CreatedAt.Format "02/01/2006"}}</span>
+            <span class="eb-badge eb-badge-{{.CurrentUser.Role}}">{{.CurrentUser.RoleLabel .Lang}}</span>
+            <span class="text-xs" style="color: var(--eb-muted);">{{t .Lang "profile.member_since"}} {{.CurrentUser.CreatedAt.Format "02/01/2006"}}</span>
           </div>
         </div>
       </div>
@@ -29,10 +29,10 @@
       <div class="eb-card rounded-xl p-6">
         <div class="flex items-center justify-between">
           <div>
-            <h2 class="font-semibold" style="color: var(--eb-text);">Avatar</h2>
-            <p class="text-xs mt-0.5" style="color: var(--eb-muted);">Généré automatiquement à partir de votre identifiant, ou personnalisez-le.</p>
+            <h2 class="font-semibold" style="color: var(--eb-text);">{{t .Lang "profile.avatar_section"}}</h2>
+            <p class="text-xs mt-0.5" style="color: var(--eb-muted);">{{t .Lang "profile.avatar_hint"}}</p>
           </div>
-          <button id="toggle-avatar-section-btn" type="button" class="eb-btn-secondary shrink-0 rounded-lg text-sm px-4 py-2 transition-colors">Modifier l'avatar</button>
+          <button id="toggle-avatar-section-btn" type="button" class="eb-btn-secondary shrink-0 rounded-lg text-sm px-4 py-2 transition-colors">{{t .Lang "profile.edit_avatar_button"}}</button>
         </div>
 
         <div id="avatar-manage-section" class="hidden mt-5 pt-5" style="border-top: 1px solid var(--eb-border);">
@@ -42,31 +42,31 @@
           </div>
           {{end}}
           <div class="flex items-center justify-between mb-3">
-            <p class="text-xs" style="color: var(--eb-muted);">Choisissez une variante générée, ou importez votre propre image.</p>
-            <button id="regen-avatar-btn" type="button" class="eb-btn-secondary shrink-0 rounded-lg text-xs px-3 py-1.5 transition-colors">↻ Régénérer</button>
+            <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "profile.avatar_choose_hint"}}</p>
+            <button id="regen-avatar-btn" type="button" class="eb-btn-secondary shrink-0 rounded-lg text-xs px-3 py-1.5 transition-colors">↻ {{t .Lang "profile.regenerate_button"}}</button>
           </div>
           <div id="avatar-gallery" class="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-5"></div>
           <form id="avatar-upload-form" method="POST" action="/profile/avatar/upload" enctype="multipart/form-data" class="flex items-center gap-3 pt-4" style="border-top: 1px solid var(--eb-border);">
             <input id="avatar-upload-input" type="file" name="file" accept=".png,.jpg,.jpeg,.gif,.webp,.svg" required
               class="flex-1 text-sm" style="color: var(--eb-muted);" />
-            <button type="submit" class="eb-btn-secondary rounded-lg text-sm px-4 py-2 transition-colors shrink-0">Importer une image</button>
+            <button type="submit" class="eb-btn-secondary rounded-lg text-sm px-4 py-2 transition-colors shrink-0">{{t .Lang "profile.import_image_button"}}</button>
           </form>
         </div>
       </div>
 
       <div id="avatar-confirm-backdrop" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0,0,0,0.6);">
         <div class="eb-card rounded-xl p-6 w-full max-w-xs text-center">
-          <p class="text-sm font-medium mb-4" style="color: var(--eb-text);">Utiliser cet avatar ?</p>
+          <p class="text-sm font-medium mb-4" style="color: var(--eb-text);">{{t .Lang "profile.avatar_confirm_question"}}</p>
           <img id="avatar-confirm-preview" src="" alt="" class="h-20 w-20 rounded-full mx-auto mb-5" style="background: var(--eb-surface-2);" />
           <div class="flex gap-3">
-            <button id="avatar-confirm-cancel-btn" type="button" class="eb-btn-secondary flex-1 rounded-lg text-sm py-2 transition-colors">Annuler</button>
-            <button id="avatar-confirm-ok-btn" type="button" class="eb-btn-primary flex-1 rounded-lg text-sm py-2 transition-colors">Confirmer</button>
+            <button id="avatar-confirm-cancel-btn" type="button" class="eb-btn-secondary flex-1 rounded-lg text-sm py-2 transition-colors">{{t .Lang "common.cancel"}}</button>
+            <button id="avatar-confirm-ok-btn" type="button" class="eb-btn-primary flex-1 rounded-lg text-sm py-2 transition-colors">{{t .Lang "common.confirm"}}</button>
           </div>
         </div>
       </div>
 
       <div class="eb-card rounded-xl p-6">
-        <h2 class="font-semibold mb-4" style="color: var(--eb-text);">Email</h2>
+        <h2 class="font-semibold mb-4" style="color: var(--eb-text);">{{t .Lang "common.email"}}</h2>
         {{if .EmailError}}
         <div class="mb-4 rounded-lg text-sm px-4 py-3" style="background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: #fca5a5;">
           {{.EmailError}}
@@ -74,17 +74,17 @@
         {{end}}
         <form method="POST" action="/profile/email" class="flex items-end gap-3">
           <div class="flex-1">
-            <label class="block text-sm font-medium mb-1" style="color: var(--eb-muted);" for="email">Adresse email</label>
+            <label class="block text-sm font-medium mb-1" style="color: var(--eb-muted);" for="email">{{t .Lang "profile.email_address_label"}}</label>
             <input id="email" name="email" type="email" required
               value="{{if .Email}}{{.Email}}{{else}}{{.CurrentUser.Email}}{{end}}"
               class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
           </div>
-          <button type="submit" class="eb-btn-primary rounded-lg text-sm px-4 py-2 transition-colors shrink-0">Enregistrer</button>
+          <button type="submit" class="eb-btn-primary rounded-lg text-sm px-4 py-2 transition-colors shrink-0">{{t .Lang "common.save"}}</button>
         </form>
       </div>
 
       <div class="eb-card rounded-xl p-6">
-        <h2 class="font-semibold mb-4" style="color: var(--eb-text);">Mot de passe</h2>
+        <h2 class="font-semibold mb-4" style="color: var(--eb-text);">{{t .Lang "profile.password_section"}}</h2>
         {{if .PasswordError}}
         <div class="mb-4 rounded-lg text-sm px-4 py-3" style="background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: #fca5a5;">
           {{.PasswordError}}
@@ -92,36 +92,48 @@
         {{end}}
         <form method="POST" action="/profile/password" class="space-y-3">
           <div>
-            <label class="block text-sm font-medium mb-1" style="color: var(--eb-muted);" for="current_password">Mot de passe actuel</label>
+            <label class="block text-sm font-medium mb-1" style="color: var(--eb-muted);" for="current_password">{{t .Lang "profile.current_password_label"}}</label>
             <input id="current_password" name="current_password" type="password" required
               class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label class="block text-sm font-medium mb-1" style="color: var(--eb-muted);" for="new_password">Nouveau mot de passe</label>
+              <label class="block text-sm font-medium mb-1" style="color: var(--eb-muted);" for="new_password">{{t .Lang "profile.new_password_label"}}</label>
               <input id="new_password" name="new_password" type="password" required minlength="8"
                 class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
-              <label class="block text-sm font-medium mb-1" style="color: var(--eb-muted);" for="confirm_password">Confirmer</label>
+              <label class="block text-sm font-medium mb-1" style="color: var(--eb-muted);" for="confirm_password">{{t .Lang "common.confirm"}}</label>
               <input id="confirm_password" name="confirm_password" type="password" required minlength="8"
                 class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
             </div>
           </div>
-          <button type="submit" class="eb-btn-primary rounded-lg text-sm px-4 py-2 transition-colors">Changer le mot de passe</button>
+          <button type="submit" class="eb-btn-primary rounded-lg text-sm px-4 py-2 transition-colors">{{t .Lang "profile.change_password_button"}}</button>
+        </form>
+      </div>
+
+      <div class="eb-card rounded-xl p-6">
+        <h2 class="font-semibold mb-1" style="color: var(--eb-text);">{{t .Lang "profile.language_section"}}</h2>
+        <p class="text-xs mb-4" style="color: var(--eb-muted);">{{t .Lang "profile.language_hint"}}</p>
+        <form method="POST" action="/profile/language" class="flex items-center gap-3">
+          <select name="language" class="eb-input rounded-lg px-3 py-2 text-sm" onchange="this.form.submit()">
+            <option value="fr" {{if eq .Lang "fr"}}selected{{end}}>Français</option>
+            <option value="en" {{if eq .Lang "en"}}selected{{end}}>English</option>
+          </select>
+          <noscript><button type="submit" class="eb-btn-secondary rounded-lg text-sm px-4 py-2 transition-colors">{{t .Lang "common.save"}}</button></noscript>
         </form>
       </div>
 
       <div id="api-keys" class="eb-card rounded-xl p-6">
-        <h2 class="font-semibold" style="color: var(--eb-text);">Clés API</h2>
-        <p class="text-xs mt-0.5 mb-4" style="color: var(--eb-muted);">Utilisées par le SDK JavaScript ou vos propres scripts pour lire vos données depuis l'extérieur. Voir la page <a href="/integration" class="hover:underline" style="color: var(--eb-accent);">Intégration</a> pour la documentation complète.</p>
+        <h2 class="font-semibold" style="color: var(--eb-text);">{{t .Lang "profile.api_keys_section"}}</h2>
+        <p class="text-xs mt-0.5 mb-4" style="color: var(--eb-muted);">{{t .Lang "profile.api_keys_hint_1"}} <a href="/integration" class="hover:underline" style="color: var(--eb-accent);">{{t .Lang "nav.integration"}}</a> {{t .Lang "profile.api_keys_hint_2"}}</p>
 
         {{if .NewAPIKey}}
         <div class="mb-4 rounded-lg text-sm px-4 py-3 space-y-2" style="background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.25);">
-          <p style="color: var(--eb-accent);">Copiez cette clé maintenant — elle ne sera plus jamais affichée :</p>
+          <p style="color: var(--eb-accent);">{{t .Lang "profile.copy_key_now"}}</p>
           <div class="flex items-center gap-2">
             <code id="new-api-key-value" class="flex-1 rounded-lg px-3 py-2 text-xs font-mono truncate" style="background: var(--eb-bg); color: var(--eb-text); border: 1px solid var(--eb-border);">{{.NewAPIKey}}</code>
-            <button id="copy-api-key-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-2 transition-colors shrink-0">Copier</button>
+            <button id="copy-api-key-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-2 transition-colors shrink-0">{{t .Lang "profile.copy_button"}}</button>
           </div>
         </div>
         {{end}}
@@ -136,24 +148,24 @@
           <div class="flex items-center justify-between gap-3 rounded-lg px-3 py-2.5" style="background: var(--eb-surface-2);">
             <div class="min-w-0">
               <p class="text-sm font-medium truncate" style="color: var(--eb-text);">{{.Name}}</p>
-              <p class="text-xs truncate" style="color: var(--eb-muted);">{{.TokenPrefix}}… — créée le {{.CreatedAt.Format "02/01/2006"}}{{if .LastUsedAt.Valid}} — utilisée le {{.LastUsedAt.Time.Format "02/01/2006"}}{{else}} — jamais utilisée{{end}}</p>
+              <p class="text-xs truncate" style="color: var(--eb-muted);">{{.TokenPrefix}}… — {{t $.Lang "profile.key_created_on"}} {{.CreatedAt.Format "02/01/2006"}}{{if .LastUsedAt.Valid}} — {{t $.Lang "profile.key_used_on"}} {{.LastUsedAt.Time.Format "02/01/2006"}}{{else}} — {{t $.Lang "profile.key_never_used"}}{{end}}</p>
             </div>
             <form method="POST" action="/profile/api-keys/{{.ID}}/delete" class="api-key-delete-form shrink-0">
-              <button type="submit" class="text-xs" style="color: #f87171;">Révoquer</button>
+              <button type="submit" class="text-xs" style="color: #f87171;">{{t $.Lang "profile.revoke_button"}}</button>
             </form>
           </div>
           {{end}}
           {{if not .APIKeys}}
-          <p class="text-sm text-center py-4" style="color: var(--eb-muted);">Aucune clé API pour le moment.</p>
+          <p class="text-sm text-center py-4" style="color: var(--eb-muted);">{{t .Lang "profile.no_api_keys"}}</p>
           {{end}}
         </div>
 
         <form method="POST" action="/profile/api-keys" class="flex items-end gap-3 pt-4" style="border-top: 1px solid var(--eb-border);">
           <div class="flex-1">
-            <label class="block text-sm font-medium mb-1" style="color: var(--eb-muted);" for="key-name">Nom de la clé</label>
-            <input id="key-name" name="name" type="text" placeholder="Mon application" class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
+            <label class="block text-sm font-medium mb-1" style="color: var(--eb-muted);" for="key-name">{{t .Lang "profile.key_name_label"}}</label>
+            <input id="key-name" name="name" type="text" placeholder="{{t .Lang "profile.key_name_placeholder"}}" class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
           </div>
-          <button type="submit" class="eb-btn-primary rounded-lg text-sm px-4 py-2 transition-colors shrink-0">Générer une clé</button>
+          <button type="submit" class="eb-btn-primary rounded-lg text-sm px-4 py-2 transition-colors shrink-0">{{t .Lang "profile.generate_key_button"}}</button>
         </form>
       </div>
 
@@ -168,7 +180,7 @@
         copyBtn.addEventListener("click", () => {
           navigator.clipboard.writeText(keyValue.textContent).then(() => {
             const original = copyBtn.textContent;
-            copyBtn.textContent = "Copié !";
+            copyBtn.textContent = "{{t .Lang "profile.copied"}}";
             setTimeout(() => { copyBtn.textContent = original; }, 1500);
           });
         });
@@ -176,7 +188,7 @@
 
       document.querySelectorAll(".api-key-delete-form").forEach((form) => {
         form.addEventListener("submit", (e) => {
-          if (!confirm("Révoquer cette clé API ? Tout script ou application qui l'utilise perdra immédiatement l'accès.")) {
+          if (!confirm("{{t .Lang "profile.revoke_confirm"}}")) {
             e.preventDefault();
           }
         });
@@ -247,7 +259,7 @@
 
           const btn = document.createElement("button");
           btn.type = "submit";
-          btn.title = "Choisir cet avatar";
+          btn.title = "{{t .Lang "profile.choose_avatar_title"}}";
           btn.className = "block w-full aspect-square rounded-lg overflow-hidden transition-colors";
           btn.style.border = "2px solid var(--eb-border)";
           btn.onmouseover = () => { btn.style.borderColor = "var(--eb-accent)"; };

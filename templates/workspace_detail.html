@@ -21,9 +21,9 @@
           {{end}}
         </div>
         <span class="text-sm font-medium group-hover:underline" style="color: var(--eb-text);">
-          {{len .Members}} membre{{if ne (len .Members) 1}}s{{end}}
+          {{len .Members}} {{t .Lang "workspace_detail.member_word"}}{{if ne (len .Members) 1}}s{{end}}
         </span>
-        <span class="text-xs" style="color: var(--eb-muted);">— gérer</span>
+        <span class="text-xs" style="color: var(--eb-muted);">— {{t .Lang "workspace_detail.manage_link"}}</span>
       </button>
 
       <section class="eb-card rounded-xl overflow-hidden flex flex-col">
@@ -33,12 +33,12 @@
               {{template "col-icon" "database"}}
             </div>
             <div class="min-w-0">
-              <h2 class="text-sm font-semibold" style="color: var(--eb-text);">Data sources</h2>
-              <p class="text-xs" style="color: var(--eb-muted);">{{len .DataSources}} source{{if ne (len .DataSources) 1}}s{{end}}</p>
+              <h2 class="text-sm font-semibold" style="color: var(--eb-text);">{{t .Lang "workspace_detail.data_sources"}}</h2>
+              <p class="text-xs" style="color: var(--eb-muted);">{{len .DataSources}} {{t .Lang "workspace_detail.source_word"}}{{if ne (len .DataSources) 1}}s{{end}}</p>
             </div>
           </div>
           {{if .CanManageSource}}
-          <button id="toggle-add-source-btn" type="button" class="eb-btn-secondary shrink-0 rounded-full text-xs font-medium px-3 py-1.5 transition-colors" style="border-color: var(--eb-accent); color: var(--eb-accent);">+ Ajouter</button>
+          <button id="toggle-add-source-btn" type="button" class="eb-btn-secondary shrink-0 rounded-full text-xs font-medium px-3 py-1.5 transition-colors" style="border-color: var(--eb-accent); color: var(--eb-accent);">+ {{t .Lang "workspace_detail.add_button"}}</button>
           {{end}}
         </div>
 
@@ -49,12 +49,12 @@
           {{end}}
           <form method="POST" action="/workspaces/{{.Workspace.Slug}}/datasources" class="space-y-3">
             <div>
-              <label class="block text-xs font-medium mb-1" style="color: var(--eb-muted);" for="ds-name">Nom</label>
+              <label class="block text-xs font-medium mb-1" style="color: var(--eb-muted);" for="ds-name">{{t .Lang "workspaces.name_label"}}</label>
               <input id="ds-name" name="name" type="text" required placeholder="Domains"
                 class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
-              <p class="mt-1 text-xs" style="color: var(--eb-muted);">Epta gère l'emplacement du fichier automatiquement.</p>
+              <p class="mt-1 text-xs" style="color: var(--eb-muted);">{{t .Lang "workspace_detail.storage_hint"}}</p>
             </div>
-            <button type="submit" class="eb-btn-primary w-full rounded-lg text-sm py-2 transition-colors">Enregistrer</button>
+            <button type="submit" class="eb-btn-primary w-full rounded-lg text-sm py-2 transition-colors">{{t .Lang "common.save"}}</button>
           </form>
         </div>
         {{end}}
@@ -74,7 +74,7 @@
           </a>
           {{end}}
           {{if not .DataSources}}
-          <div class="px-5 py-10 text-center text-sm" style="color: var(--eb-muted);">Aucune source de données enregistrée.</div>
+          <div class="px-5 py-10 text-center text-sm" style="color: var(--eb-muted);">{{t .Lang "workspace_detail.no_datasources"}}</div>
           {{end}}
         </div>
       </section>
@@ -86,7 +86,7 @@
 <div id="members-modal-backdrop" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0,0,0,0.6);">
   <div class="eb-card rounded-xl w-full max-w-md flex flex-col" style="max-height: 85vh;">
     <div class="px-5 py-4 flex items-center justify-between shrink-0" style="border-bottom: 1px solid var(--eb-border);">
-      <h2 class="text-sm font-semibold" style="color: var(--eb-text);">Membres du workspace</h2>
+      <h2 class="text-sm font-semibold" style="color: var(--eb-text);">{{t .Lang "workspace_detail.members_modal_title"}}</h2>
       <button id="close-members-modal-btn" type="button" class="eb-icon-btn text-lg leading-none">✕</button>
     </div>
 
@@ -97,28 +97,28 @@
           <img src="{{$m.AvatarImageURL}}" alt="" class="h-8 w-8 rounded-full shrink-0" style="background: var(--eb-surface-2);" />
           <span class="text-sm font-medium truncate" style="color: var(--eb-text);">{{$m.Username}}</span>
         </div>
-        <span class="eb-badge eb-badge-{{$m.Role}} shrink-0">{{$m.RoleLabel}}</span>
+        <span class="eb-badge eb-badge-{{$m.Role}} shrink-0">{{$m.RoleLabel $.Lang}}</span>
       </div>
       {{end}}
       {{if not .Members}}
-      <div class="px-5 py-10 text-center text-sm" style="color: var(--eb-muted);">Aucun membre.</div>
+      <div class="px-5 py-10 text-center text-sm" style="color: var(--eb-muted);">{{t .Lang "workspace_detail.no_members"}}</div>
       {{end}}
     </div>
 
     {{if .CanManageWSMembers}}
     <div class="px-5 py-4 space-y-3 shrink-0" style="border-top: 1px solid var(--eb-border); background: var(--eb-surface-2);">
-      <h3 class="text-xs font-semibold uppercase tracking-wide" style="color: var(--eb-muted);">Ajouter un membre</h3>
+      <h3 class="text-xs font-semibold uppercase tracking-wide" style="color: var(--eb-muted);">{{t .Lang "workspace_detail.add_member_title"}}</h3>
       {{if .MemberError}}
       <div class="rounded-lg text-sm px-3 py-2" style="background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: #fca5a5;">{{.MemberError}}</div>
       {{end}}
       <form method="POST" action="/workspaces/{{.Workspace.Slug}}/members" class="space-y-3">
         <div>
-          <label class="block text-xs font-medium mb-1" style="color: var(--eb-muted);" for="username">Identifiant (utilisateur existant)</label>
+          <label class="block text-xs font-medium mb-1" style="color: var(--eb-muted);" for="username">{{t .Lang "workspace_detail.username_existing"}}</label>
           <input id="username" name="username" type="text" required
             class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
         </div>
         <div>
-          <label class="block text-xs font-medium mb-1" style="color: var(--eb-muted);" for="role">Rôle</label>
+          <label class="block text-xs font-medium mb-1" style="color: var(--eb-muted);" for="role">{{t .Lang "members.role_label"}}</label>
           <select id="role" name="role" required
             class="eb-input w-full rounded-lg px-3 py-2 text-sm">
             {{range .AssignableRoles}}
@@ -126,7 +126,7 @@
             {{end}}
           </select>
         </div>
-        <button type="submit" class="eb-btn-primary w-full rounded-lg text-sm py-2 transition-colors">Ajouter</button>
+        <button type="submit" class="eb-btn-primary w-full rounded-lg text-sm py-2 transition-colors">{{t .Lang "workspace_detail.add_button"}}</button>
       </form>
     </div>
     {{end}}
