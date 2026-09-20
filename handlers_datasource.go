@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -115,6 +116,95 @@ func (a *App) handleDataSourceTable(w http.ResponseWriter, r *http.Request) {
 		"HeaderDescription": T(lang, "datasource.column_count", len(columns), pluralS(len(columns))),
 		"MemberCount":       len(members),
 	})
+}
+
+// handleExportDataSource downloads a data source's current data as either a
+// JSON file (the raw column store, byte-for-byte what's on disk) or a CSV
+// file (columns laid out side by side, schema columns first in their
+// declared order then any unmanaged keys, padded with empty cells since
+// columns aren't guaranteed to share the same length).
+func (a *App) handleExportDataSource(w http.ResponseWriter, r *http.Request) {
+	currentUser := userFromContext(r)
+	lang := a.resolveLang(r)
+	ws, role, ok := a.loadWorkspaceMembership(w, r, currentUser)
+	if !ok {
+		return
+	}
+	if !hasPermission(role, PermDataRead) {
+		http.Error(w, T(lang, "common.access_denied"), http.StatusForbidden)
+		return
+	}
+	ds, ok := a.loadDataSourceInWorkspace(w, r, ws)
+	if !ok {
+		return
+	}
+
+	cs, err := LoadColumnStore(ds.StoragePath)
+	if err != nil {
+		log.Printf("load column store error: %v", err)
+		http.Error(w, T(lang, "datasource.read_error"), http.StatusInternalServerError)
+		return
+	}
+
+	format := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("format")))
+	switch format {
+	case "csv":
+		schemaCols, err := a.store.ListDataSourceColumns(ds.ID)
+		if err != nil {
+			log.Printf("list schema columns error: %v", err)
+			http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
+			return
+		}
+		exportDataSourceCSV(w, ds.Slug, BuildColumns(schemaCols, cs))
+	case "json", "":
+		exportDataSourceJSON(w, ds.Slug, cs)
+	default:
+		http.Error(w, T(lang, "datasource.export_unsupported_format"), http.StatusBadRequest)
+	}
+}
+
+func exportDataSourceJSON(w http.ResponseWriter, slug string, cs ColumnStore) {
+	data, err := json.MarshalIndent(cs, "", "  ")
+	if err != nil {
+		log.Printf("export json marshal error: %v", err)
+		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s.json"`, slug))
+	_, _ = w.Write(data)
+}
+
+func exportDataSourceCSV(w http.ResponseWriter, slug string, columns []Column) {
+	maxRows := 0
+	for _, col := range columns {
+		if len(col.Values) > maxRows {
+			maxRows = len(col.Values)
+		}
+	}
+
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s.csv"`, slug))
+
+	cw := csv.NewWriter(w)
+	header := make([]string, len(columns))
+	for i, col := range columns {
+		header[i] = col.Key
+	}
+	_ = cw.Write(header)
+
+	row := make([]string, len(columns))
+	for i := 0; i < maxRows; i++ {
+		for c, col := range columns {
+			if i < len(col.Values) {
+				row[c] = FormatValue(col.Values[i])
+			} else {
+				row[c] = ""
+			}
+		}
+		_ = cw.Write(row)
+	}
+	cw.Flush()
 }
 
 // pluralS is language-agnostic on purpose: "column(s)" and "colonne(s)"

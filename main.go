@@ -57,6 +57,7 @@ func main() {
 	mux.HandleFunc("POST /workspaces/{slug}/members", app.requireAuth(app.handleAddWorkspaceMember))
 	mux.HandleFunc("POST /workspaces/{slug}/datasources", app.requireAuth(app.handleCreateDataSource))
 	mux.HandleFunc("GET /workspaces/{slug}/datasources/{dsSlug}", app.requireAuth(app.handleDataSourceTable))
+	mux.HandleFunc("GET /workspaces/{slug}/datasources/{dsSlug}/export", app.requireAuth(app.handleExportDataSource))
 	mux.HandleFunc("POST /workspaces/{slug}/datasources/{dsSlug}/records", app.requireAuth(app.handleSaveRecords))
 	mux.HandleFunc("POST /workspaces/{slug}/datasources/{dsSlug}/columns", app.requireAuth(app.handleAddDataSourceColumn))
 	mux.HandleFunc("PATCH /workspaces/{slug}/datasources/{dsSlug}/columns/{key}", app.requireAuth(app.handleUpdateDataSourceColumn))
