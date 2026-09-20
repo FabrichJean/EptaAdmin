@@ -1,6 +1,6 @@
 {
   "name": "eptaadmin-sdk",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Client SDK for reading your EptaAdmin workspace data from your own project.",
   "type": "module",
   "main": "src/index.js",
