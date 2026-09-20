@@ -61,17 +61,26 @@
 
         <div class="flex-1">
           {{range $i, $ds := .DataSources}}
-          <a href="/workspaces/{{$.Workspace.Slug}}/datasources/{{$ds.Slug}}"
-            class="px-5 py-3 flex items-center justify-between gap-2 transition-colors" style="{{if $i}}border-top: 1px solid var(--eb-border);{{end}}"
+          <div class="relative px-5 py-3 flex items-center justify-between gap-2 transition-colors" style="{{if $i}}border-top: 1px solid var(--eb-border);{{end}}"
             onmouseover="this.style.background='var(--eb-surface-2)'" onmouseout="this.style.background=''">
-            <div class="flex items-center gap-3 min-w-0">
+            <a href="/workspaces/{{$.Workspace.Slug}}/datasources/{{$ds.Slug}}" class="absolute inset-0" aria-label="{{$ds.Name}}"></a>
+            <div class="flex items-center gap-3 min-w-0 pointer-events-none">
               <div class="h-8 w-8 rounded-lg flex items-center justify-center shrink-0" style="background: var(--eb-surface-2); color: var(--eb-muted);">
                 {{template "col-icon" "database"}}
               </div>
               <span class="text-sm font-medium truncate" style="color: var(--eb-accent);">{{$ds.Name}}</span>
             </div>
-            <span class="eb-chip shrink-0">{{$ds.Type}}</span>
-          </a>
+            <div class="relative flex items-center gap-2 shrink-0">
+              <span class="eb-chip pointer-events-none">{{$ds.Type}}</span>
+              <div class="relative ds-export-wrap">
+                <button type="button" class="ds-export-btn eb-btn-secondary rounded-md text-xs px-2 py-1 transition-colors">{{t $.Lang "datasource.export_button"}}</button>
+                <div class="ds-export-menu hidden absolute right-0 mt-1 w-40 rounded-lg py-1 z-30 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+                  <a href="/workspaces/{{$.Workspace.Slug}}/datasources/{{$ds.Slug}}/export?format=csv" class="block px-3 py-2 text-sm" style="color: var(--eb-text);">{{t $.Lang "datasource.export_csv"}}</a>
+                  <a href="/workspaces/{{$.Workspace.Slug}}/datasources/{{$ds.Slug}}/export?format=json" class="block px-3 py-2 text-sm" style="color: var(--eb-text);">{{t $.Lang "datasource.export_json"}}</a>
+                </div>
+              </div>
+            </div>
+          </div>
           {{end}}
           {{if not .DataSources}}
           <div class="px-5 py-10 text-center text-sm" style="color: var(--eb-muted);">{{t .Lang "workspace_detail.no_datasources"}}</div>
@@ -149,6 +158,22 @@
   }
   bindToggle("toggle-add-source-btn", "add-source-form");
   {{if .SourceError}}document.getElementById("add-source-form")?.classList.remove("hidden");{{end}}
+
+  // --- Per-data-source export menu ---
+  document.querySelectorAll(".ds-export-btn").forEach((btn) => {
+    const menu = btn.nextElementSibling;
+    if (!menu) return;
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const isHidden = menu.classList.contains("hidden");
+      document.querySelectorAll(".ds-export-menu").forEach((m) => m.classList.add("hidden"));
+      if (isHidden) menu.classList.remove("hidden");
+    });
+  });
+  document.addEventListener("click", () => {
+    document.querySelectorAll(".ds-export-menu").forEach((m) => m.classList.add("hidden"));
+  });
 
   // --- Members modal ---
   const openBtn = document.getElementById("open-members-modal-btn");
