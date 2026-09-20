@@ -58,17 +58,27 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, page string, data a
 		if _, exists := m["Lang"]; !exists {
 			m["Lang"] = a.resolveLang(r)
 		}
-		// The "Membres" nav link and the /members roster only make sense for
-		// someone who owns at least one workspace to assign members into —
-		// resolved once here so every page (not just the members page
-		// itself) can hide the link for everyone else.
+		// The "Membres" nav link and role badge shown next to the username
+		// (sidebar footer, header user menu) both depend on the same
+		// per-account workspace membership lookup, so it's done once here
+		// for every page rather than duplicated in every handler.
 		if _, exists := m["CanAccessMembers"]; !exists {
 			if u, ok := m["CurrentUser"].(*User); ok {
-				owner, err := a.store.IsWorkspaceOwner(u.ID)
+				workspaces, err := a.store.ListWorkspacesForUser(u.ID)
 				if err != nil {
-					log.Printf("check workspace owner error: %v", err)
+					log.Printf("list workspaces for user error: %v", err)
 				} else {
+					owner := false
+					for _, ws := range workspaces {
+						if ws.Role == RoleOwner {
+							owner = true
+							break
+						}
+					}
 					m["CanAccessMembers"] = owner
+					if len(workspaces) > 0 {
+						m["CurrentUserRoleLabel"] = workspaces[0].RoleLabel(m["Lang"].(string))
+					}
 				}
 			}
 		}
