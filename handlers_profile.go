@@ -17,12 +17,17 @@ func (a *App) profilePageData(lang string, currentUser *User) map[string]any {
 	if err != nil {
 		log.Printf("list api keys error: %v", err)
 	}
+	activity, err := a.store.ListUserActivity(currentUser.ID, 50)
+	if err != nil {
+		log.Printf("list user activity error: %v", err)
+	}
 	return map[string]any{
 		"CurrentUser": currentUser,
 		"ActiveNav":   "",
 		"PageTitle":   T(lang, "profile.title"),
 		"HeaderIcon":  "person",
 		"APIKeys":     keys,
+		"MyActivity":  activity,
 	}
 }
 
@@ -55,6 +60,7 @@ func (a *App) handleUpdateProfileEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	oldEmail := currentUser.Email
 	if err := a.store.UpdateUserEmail(currentUser.ID, email); err != nil {
 		if err == ErrEmailExists {
 			renderError(T(lang, "profile.email_exists"))
@@ -64,6 +70,7 @@ func (a *App) handleUpdateProfileEmail(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	a.logActivity(logActivityParams{UserID: currentUser.ID, Action: ActionEmailChange, Details: map[string]any{"old": oldEmail, "new": email}})
 
 	http.Redirect(w, r, "/profile?updated=email", http.StatusSeeOther)
 }
@@ -105,6 +112,7 @@ func (a *App) handleUpdateProfilePassword(w http.ResponseWriter, r *http.Request
 		renderError(T(lang, "common.error_generic_retry"))
 		return
 	}
+	a.logActivity(logActivityParams{UserID: currentUser.ID, Action: ActionPasswordChange})
 
 	http.Redirect(w, r, "/profile?updated=password", http.StatusSeeOther)
 }
@@ -119,11 +127,13 @@ func (a *App) handleUpdateProfileLanguage(w http.ResponseWriter, r *http.Request
 		http.Error(w, "Unsupported language.", http.StatusBadRequest)
 		return
 	}
+	oldLang := currentUser.Language
 	if err := a.store.UpdateUserLanguage(currentUser.ID, lang); err != nil {
 		log.Printf("update language error: %v", err)
 		http.Error(w, T(lang, "common.error_generic"), http.StatusInternalServerError)
 		return
 	}
+	a.logActivity(logActivityParams{UserID: currentUser.ID, Action: ActionLanguageChange, Details: map[string]any{"old": oldLang, "new": lang}})
 	// Switched from the profile page's own dropdown: show the confirmation
 	// banner there. Switched from the header (any other page): stay put
 	// instead of jumping to /profile.
@@ -152,6 +162,7 @@ func (a *App) handleUpdateProfileAvatarSeed(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	removeAvatarUpload(oldUpload)
+	a.logActivity(logActivityParams{UserID: currentUser.ID, Action: ActionAvatarChange})
 
 	http.Redirect(w, r, "/profile?updated=avatar", http.StatusSeeOther)
 }
@@ -191,6 +202,7 @@ func (a *App) handleUploadProfileAvatar(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	removeAvatarUpload(oldUpload)
+	a.logActivity(logActivityParams{UserID: currentUser.ID, Action: ActionAvatarChange})
 
 	http.Redirect(w, r, "/profile?updated=avatar", http.StatusSeeOther)
 }
@@ -223,6 +235,7 @@ func (a *App) handleCreateAPIKey(w http.ResponseWriter, r *http.Request) {
 		a.render(w, r, "profile.html", data)
 		return
 	}
+	a.logActivity(logActivityParams{UserID: currentUser.ID, Action: ActionAPIKeyCreate, Details: map[string]any{"name": name}})
 
 	data := a.profilePageData(lang, currentUser)
 	data["NewAPIKey"] = plaintext
@@ -239,10 +252,15 @@ func (a *App) handleDeleteAPIKey(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	keyName := ""
+	if key, err := a.store.getAPIKeyByID(id); err == nil && key != nil {
+		keyName = key.Name
+	}
 	if err := a.store.DeleteAPIKey(id, currentUser.ID); err != nil {
 		log.Printf("delete api key error: %v", err)
 		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
 		return
 	}
+	a.logActivity(logActivityParams{UserID: currentUser.ID, Action: ActionAPIKeyDelete, Details: map[string]any{"name": keyName}})
 	http.Redirect(w, r, "/profile?updated=apikey", http.StatusSeeOther)
 }
