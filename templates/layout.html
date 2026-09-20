@@ -103,6 +103,14 @@
       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
       {{t .Lang "nav.workspaces"}}
     </a>
+    <a href="/activity"
+      class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
+      style="{{if eq .ActiveNav "activity"}}background: rgba(52,211,153,0.12); color: var(--eb-accent);{{else}}color: var(--eb-muted);{{end}}"
+      onmouseover="if(!this.dataset.active)this.style.background='var(--eb-surface-2)'" onmouseout="if(!this.dataset.active)this.style.background=''"
+      {{if eq .ActiveNav "activity"}}data-active="true"{{end}}>
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+      {{t .Lang "activity.link"}}
+    </a>
     <a href="/integration"
       class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
       style="{{if eq .ActiveNav "integration"}}background: rgba(52,211,153,0.12); color: var(--eb-accent);{{else}}color: var(--eb-muted);{{end}}"
