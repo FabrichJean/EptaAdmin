@@ -128,3 +128,45 @@ func (s *Store) DeleteDataSourceColumn(dataSourceID int64, key string) error {
 	)
 	return err
 }
+
+// ColumnPosition is one column card's saved (x, y) on the "free layout"
+// canvas (see datasource_table.html) — a shared, per-data-source display
+// preference, not per-viewer, so every workspace member sees the same
+// arrangement on any device.
+type ColumnPosition struct {
+	Key string
+	X   int
+	Y   int
+}
+
+func (s *Store) ListColumnPositions(dataSourceID int64) ([]*ColumnPosition, error) {
+	rows, err := s.db.Query(
+		`SELECT column_key, pos_x, pos_y FROM column_canvas_positions WHERE data_source_id = ?`,
+		dataSourceID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*ColumnPosition
+	for rows.Next() {
+		p := &ColumnPosition{}
+		if err := rows.Scan(&p.Key, &p.X, &p.Y); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// SetColumnPosition saves (or moves) one column's card position, upserting
+// so repeated drags of the same card just update its row.
+func (s *Store) SetColumnPosition(dataSourceID int64, key string, x, y int) error {
+	_, err := s.db.Exec(
+		`INSERT INTO column_canvas_positions (data_source_id, column_key, pos_x, pos_y) VALUES (?, ?, ?, ?)
+		 ON CONFLICT(data_source_id, column_key) DO UPDATE SET pos_x = excluded.pos_x, pos_y = excluded.pos_y`,
+		dataSourceID, key, x, y,
+	)
+	return err
+}
