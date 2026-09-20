@@ -93,25 +93,25 @@ type RoleOption struct {
 	Label string
 }
 
-func assignableRolesWithLabels(actorRole string) []RoleOption {
+func assignableRolesWithLabels(lang, actorRole string) []RoleOption {
 	roles := assignableRoles(actorRole)
 	opts := make([]RoleOption, 0, len(roles))
 	for _, r := range roles {
-		opts = append(opts, RoleOption{Value: r, Label: roleLabel(r)})
+		opts = append(opts, RoleOption{Value: r, Label: roleLabel(lang, r)})
 	}
 	return opts
 }
 
-func roleLabel(role string) string {
+func roleLabel(lang, role string) string {
 	switch role {
 	case RoleOwner:
-		return "Propriétaire"
+		return T(lang, "role.owner")
 	case RoleAdmin:
-		return "Administrateur"
+		return T(lang, "role.admin")
 	case RoleEditor:
-		return "Éditeur"
+		return T(lang, "role.editor")
 	case RoleViewer:
-		return "Lecteur"
+		return T(lang, "role.viewer")
 	default:
 		return role
 	}

@@ -10,7 +10,7 @@ import (
 // workspace_detail.html, so the header context (breadcrumb, icon, badge...)
 // stays consistent across the initial render and the two form-error
 // redisplays.
-func workspaceDetailData(currentUser *User, ws *Workspace, role string, members []*WorkspaceMember, dataSources []*DataSource) map[string]any {
+func workspaceDetailData(lang string, currentUser *User, ws *Workspace, role string, members []*WorkspaceMember, dataSources []*DataSource) map[string]any {
 	return map[string]any{
 		"CurrentUser":        currentUser,
 		"ActiveNav":          "workspaces",
@@ -21,15 +21,15 @@ func workspaceDetailData(currentUser *User, ws *Workspace, role string, members 
 		"CanManageMembers":   canManageMembers(currentUser.Role),
 		"CanManageWSMembers": hasPermission(role, PermMembersManage),
 		"CanManageSource":    hasPermission(role, PermSettingsManage),
-		"AssignableRoles":    assignableRolesWithLabels(role),
+		"AssignableRoles":    assignableRolesWithLabels(lang, role),
 		"Breadcrumb": []Breadcrumb{
-			{Label: "Workspaces", URL: "/workspaces"},
+			{Label: T(lang, "nav.workspaces"), URL: "/workspaces"},
 			{Label: ws.Name},
 		},
 		"HeaderTitle":       ws.Name,
 		"HeaderIcon":        "workspace",
-		"HeaderBadge":       "Workspace actif",
-		"HeaderDescription": "Slug : " + ws.Slug,
+		"HeaderBadge":       T(lang, "workspace_detail.active_badge"),
+		"HeaderDescription": T(lang, "workspace_detail.slug_prefix", ws.Slug),
 		"MemberCount":       len(members),
 	}
 }
@@ -38,12 +38,12 @@ func workspaceDetailData(currentUser *User, ws *Workspace, role string, members 
 // plain single-line header instead of the icon/title/description block —
 // that richer header exists to pair with a breadcrumb that says something
 // the big title doesn't already say (see workspaceDetailData).
-func workspacesPageData(currentUser *User, workspaces []*UserWorkspace) map[string]any {
+func workspacesPageData(lang string, currentUser *User, workspaces []*UserWorkspace) map[string]any {
 	return map[string]any{
 		"CurrentUser":      currentUser,
 		"Workspaces":       workspaces,
 		"ActiveNav":        "workspaces",
-		"PageTitle":        "Workspaces",
+		"PageTitle":        T(lang, "nav.workspaces"),
 		"CanManageMembers": canManageMembers(currentUser.Role),
 		"HeaderIcon":       "workspace",
 	}
@@ -57,12 +57,13 @@ func (a *App) handleWorkspacesPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
 		return
 	}
-	a.render(w, "workspaces.html", workspacesPageData(currentUser, workspaces))
+	a.render(w, r, "workspaces.html", workspacesPageData(a.resolveLang(r), currentUser, workspaces))
 }
 
 // Any authenticated user may create a workspace; they become its Owner.
 func (a *App) handleCreateWorkspace(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
+	lang := a.resolveLang(r)
 	name := strings.TrimSpace(r.FormValue("name"))
 
 	renderError := func(msg string) {
@@ -72,24 +73,24 @@ func (a *App) handleCreateWorkspace(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
 			return
 		}
-		data := workspacesPageData(currentUser, workspaces)
+		data := workspacesPageData(lang, currentUser, workspaces)
 		data["Error"] = msg
 		data["Name"] = name
-		a.render(w, "workspaces.html", data)
+		a.render(w, r, "workspaces.html", data)
 	}
 
 	if name == "" {
-		renderError("Merci de renseigner un nom de workspace.")
+		renderError(T(lang, "workspaces.name_required"))
 		return
 	}
 
 	ws, err := a.store.CreateWorkspace(name, currentUser.ID)
 	if err != nil {
 		if err == ErrWorkspaceExists {
-			renderError(err.Error())
+			renderError(T(lang, "workspaces.name_exists"))
 		} else {
 			log.Printf("create workspace error: %v", err)
-			renderError("Une erreur est survenue, réessayez.")
+			renderError(T(lang, "common.error_generic_retry"))
 		}
 		return
 	}
@@ -118,7 +119,7 @@ func (a *App) loadWorkspaceMembership(w http.ResponseWriter, r *http.Request, cu
 		return nil, "", false
 	}
 	if role == "" {
-		http.Error(w, "Accès refusé.", http.StatusForbidden)
+		http.Error(w, T(a.resolveLang(r), "common.access_denied"), http.StatusForbidden)
 		return nil, "", false
 	}
 	return ws, role, true
@@ -144,7 +145,7 @@ func (a *App) handleWorkspaceDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.render(w, "workspace_detail.html", workspaceDetailData(currentUser, ws, role, members, dataSources))
+	a.render(w, r, "workspace_detail.html", workspaceDetailData(a.resolveLang(r), currentUser, ws, role, members, dataSources))
 }
 
 func (a *App) handleAddWorkspaceMember(w http.ResponseWriter, r *http.Request) {
@@ -153,8 +154,9 @@ func (a *App) handleAddWorkspaceMember(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	lang := a.resolveLang(r)
 	if !hasPermission(role, PermMembersManage) {
-		http.Error(w, "Accès refusé.", http.StatusForbidden)
+		http.Error(w, T(lang, "common.access_denied"), http.StatusForbidden)
 		return
 	}
 
@@ -174,33 +176,33 @@ func (a *App) handleAddWorkspaceMember(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
 			return
 		}
-		data := workspaceDetailData(currentUser, ws, role, members, dataSources)
+		data := workspaceDetailData(lang, currentUser, ws, role, members, dataSources)
 		data["MemberError"] = msg
-		a.render(w, "workspace_detail.html", data)
+		a.render(w, r, "workspace_detail.html", data)
 	}
 
 	if username == "" || !canAssignRole(role, targetRole) {
-		renderDetail("Identifiant invalide ou rôle non autorisé.")
+		renderDetail(T(lang, "workspace_detail.invalid_username_or_role"))
 		return
 	}
 
 	target, err := a.store.GetUserByUsername(username)
 	if err != nil {
 		log.Printf("lookup user error: %v", err)
-		renderDetail("Une erreur est survenue, réessayez.")
+		renderDetail(T(lang, "common.error_generic_retry"))
 		return
 	}
 	if target == nil {
-		renderDetail("Aucun utilisateur avec cet identifiant.")
+		renderDetail(T(lang, "workspace_detail.user_not_found"))
 		return
 	}
 
 	if err := a.store.AddWorkspaceMember(ws.ID, target.ID, targetRole); err != nil {
 		if err == ErrAlreadyMember {
-			renderDetail(err.Error())
+			renderDetail(T(lang, "workspace_detail.already_member"))
 		} else {
 			log.Printf("add workspace member error: %v", err)
-			renderDetail("Une erreur est survenue, réessayez.")
+			renderDetail(T(lang, "common.error_generic_retry"))
 		}
 		return
 	}
@@ -214,8 +216,9 @@ func (a *App) handleCreateDataSource(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	lang := a.resolveLang(r)
 	if !hasPermission(role, PermSettingsManage) {
-		http.Error(w, "Accès refusé.", http.StatusForbidden)
+		http.Error(w, T(lang, "common.access_denied"), http.StatusForbidden)
 		return
 	}
 
@@ -234,22 +237,22 @@ func (a *App) handleCreateDataSource(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
 			return
 		}
-		data := workspaceDetailData(currentUser, ws, role, members, dataSources)
+		data := workspaceDetailData(lang, currentUser, ws, role, members, dataSources)
 		data["SourceError"] = msg
-		a.render(w, "workspace_detail.html", data)
+		a.render(w, r, "workspace_detail.html", data)
 	}
 
 	if name == "" {
-		renderDetail("Merci de renseigner un nom.")
+		renderDetail(T(lang, "workspace_detail.datasource_name_required"))
 		return
 	}
 
 	if _, err := a.store.CreateDataSource(ws.ID, name, "json"); err != nil {
 		if err == ErrDataSourceExists {
-			renderDetail(err.Error())
+			renderDetail(T(lang, "workspace_detail.datasource_exists"))
 		} else {
 			log.Printf("create data source error: %v", err)
-			renderDetail("Une erreur est survenue, réessayez.")
+			renderDetail(T(lang, "common.error_generic_retry"))
 		}
 		return
 	}

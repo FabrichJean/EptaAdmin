@@ -28,8 +28,8 @@ type UserWorkspace struct {
 	Role string
 }
 
-func (w *UserWorkspace) RoleLabel() string {
-	return roleLabel(w.Role)
+func (w *UserWorkspace) RoleLabel(lang string) string {
+	return roleLabel(lang, w.Role)
 }
 
 type WorkspaceMember struct {
@@ -42,8 +42,8 @@ type WorkspaceMember struct {
 	CreatedAt    time.Time
 }
 
-func (m *WorkspaceMember) RoleLabel() string {
-	return roleLabel(m.Role)
+func (m *WorkspaceMember) RoleLabel(lang string) string {
+	return roleLabel(lang, m.Role)
 }
 
 // AvatarImageURL mirrors User.AvatarImageURL — a member's avatar follows
