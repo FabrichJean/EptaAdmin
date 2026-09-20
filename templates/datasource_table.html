@@ -84,17 +84,18 @@
             </div>
             <div class="flex items-center gap-1.5 shrink-0">
               <span class="value-count eb-chip">{{len .Values}}</span>
-              {{if and .Managed $.CanEdit}}
               <div class="relative">
                 <button type="button" class="column-menu-btn eb-icon-btn text-sm px-1">⋯</button>
                 <div class="column-menu hidden fixed w-48 rounded-lg py-1 z-50 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
-                  <button type="button" class="edit-description-btn w-full text-left px-3 py-2 text-sm" style="color: var(--eb-text);">{{t $.Lang "datasource.edit_description"}}</button>
-                  {{if $.CanDelete}}
-                  <button type="button" class="delete-column-btn w-full text-left px-3 py-2 text-sm" style="color: #f87171;">{{t $.Lang "datasource.delete_column"}}</button>
+                  <button type="button" class="column-code-btn w-full text-left px-3 py-2 text-sm" style="color: var(--eb-text);">{{t $.Lang "datasource.code_button"}}</button>
+                  {{if and .Managed $.CanEdit}}
+                  <button type="button" class="edit-description-btn w-full text-left px-3 py-2 text-sm" style="color: var(--eb-text); border-top: 1px solid var(--eb-border);">{{t $.Lang "datasource.edit_description"}}</button>
+                  {{end}}
+                  {{if and .Managed $.CanDelete}}
+                  <button type="button" class="delete-column-btn w-full text-left px-3 py-2 text-sm" style="color: #f87171; border-top: 1px solid var(--eb-border);">{{t $.Lang "datasource.delete_column"}}</button>
                   {{end}}
                 </div>
               </div>
-              {{end}}
             </div>
           </div>
 
@@ -144,15 +145,14 @@
               {{else}}
               <span class="flex-1 min-w-0{{if $isLongText}} whitespace-pre-wrap{{end}}"{{if $isImage}} data-type="image" data-value="{{formatValue $v}}"{{end}} style="color: var(--eb-muted);">{{if $isImage}}<span class="eb-image-chip"><img src="{{formatValue $v}}" class="eb-image-chip-thumb" onerror="this.style.display='none'" /> {{t $.Lang "datasource.preview"}}</span>{{else}}{{formatValue $v}}{{end}}</span>
               {{end}}
-              {{if and $col.Managed (or $.CanEdit $.CanDelete)}}
               <div class="relative shrink-0">
                 <button type="button" class="value-menu-btn eb-icon-btn text-sm px-1">⋮</button>
                 <div class="value-menu hidden fixed w-36 rounded-lg py-1 z-50 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
-                  {{if $.CanEdit}}<button type="button" class="value-menu-edit w-full text-left px-3 py-1.5 text-sm" style="color: var(--eb-text);">{{t $.Lang "common.edit"}}</button>{{end}}
-                  {{if $.CanDelete}}<button type="button" class="value-menu-delete w-full text-left px-3 py-1.5 text-sm" style="color: #f87171;">{{t $.Lang "common.delete"}}</button>{{end}}
+                  <button type="button" class="value-menu-code w-full text-left px-3 py-1.5 text-sm" style="color: var(--eb-text);">{{t $.Lang "datasource.code_button"}}</button>
+                  {{if and $col.Managed $.CanEdit}}<button type="button" class="value-menu-edit w-full text-left px-3 py-1.5 text-sm" style="color: var(--eb-text); border-top: 1px solid var(--eb-border);">{{t $.Lang "common.edit"}}</button>{{end}}
+                  {{if and $col.Managed $.CanDelete}}<button type="button" class="value-menu-delete w-full text-left px-3 py-1.5 text-sm" style="color: #f87171; border-top: 1px solid var(--eb-border);">{{t $.Lang "common.delete"}}</button>{{end}}
                 </div>
               </div>
-              {{end}}
             </div>
             {{end}}
             {{if not .Values}}
@@ -238,14 +238,7 @@
         <span class="text-xs font-mono" style="color: var(--eb-muted);">{{t .Lang "integration.example_label"}}</span>
         <button id="code-modal-copy-btn" class="text-xs transition-colors" type="button" style="color: var(--eb-muted);">{{t .Lang "integration.copy"}}</button>
       </div>
-      <pre class="eb-code" style="border: none; border-radius: 0;"><code id="code-modal-snippet" class="language-javascript">import { EptaAdminClient } from "eptaadmin-sdk";
-
-const client = new EptaAdminClient({
-  apiKey: process.env.EPTAADMIN_API_KEY,
-});
-
-const data = await client.getDataSource("{{.Workspace.Slug}}", "{{.DataSource.Slug}}");
-console.log(data.columns);</code></pre>
+      <pre class="eb-code" style="border: none; border-radius: 0;"><code id="code-modal-snippet" class="language-javascript"></code></pre>
     </div>
   </div>
 </div>
@@ -1091,13 +1084,36 @@ console.log(data.columns);</code></pre>
     window.history.replaceState({}, "", url);
   })();
 
-  // --- "Code" modal (⋯ menu) ---
+  // --- "Code" modal (⋯ menu, column menu, value menu) ---
+  const DATASOURCE_SLUG = window.location.pathname.split("/").filter(Boolean)[3];
   const openCodeModalBtn = document.getElementById("open-code-modal-btn");
   const codeBackdrop = document.getElementById("code-modal-backdrop");
   const codeCloseBtn = document.getElementById("close-code-modal-btn");
   const codeSnippetEl = document.getElementById("code-modal-snippet");
   const codeCopyBtn = document.getElementById("code-modal-copy-btn");
-  function openCodeModal() {
+  function sdkSnippet(callLine, resultVar) {
+    return [
+      'import { EptaAdminClient } from "eptaadmin-sdk";',
+      "",
+      "const client = new EptaAdminClient({",
+      "  apiKey: process.env.EPTAADMIN_API_KEY,",
+      "});",
+      "",
+      callLine,
+      "console.log(" + resultVar + ");",
+    ].join("\n");
+  }
+  function datasourceSnippet() {
+    return sdkSnippet('const data = await client.getDataSource("' + WORKSPACE_SLUG + '", "' + DATASOURCE_SLUG + '");', "data.columns");
+  }
+  function columnSnippet(column) {
+    return sdkSnippet('const values = await client.getValue("' + WORKSPACE_SLUG + "/" + DATASOURCE_SLUG + "/" + column + '");', "values");
+  }
+  function valueSnippet(column, index) {
+    return sdkSnippet('const value = await client.getValue("' + WORKSPACE_SLUG + "/" + DATASOURCE_SLUG + "/" + column + "/" + index + '");', "value");
+  }
+  function openCodeModal(snippet) {
+    codeSnippetEl.textContent = snippet;
     if (window.Prism) Prism.highlightElement(codeSnippetEl);
     codeBackdrop.classList.remove("hidden");
   }
@@ -1105,9 +1121,24 @@ console.log(data.columns);</code></pre>
   if (openCodeModalBtn) {
     openCodeModalBtn.addEventListener("click", () => {
       document.getElementById("page-menu")?.classList.add("hidden");
-      openCodeModal();
+      openCodeModal(datasourceSnippet());
     });
   }
+  document.querySelectorAll(".column-code-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const panel = btn.closest(".column-panel");
+      btn.closest(".column-menu")?.classList.add("hidden");
+      openCodeModal(columnSnippet(panel.dataset.column));
+    });
+  });
+  document.querySelectorAll(".value-menu-code").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const row = btn.closest(".value-row");
+      const panel = btn.closest(".column-panel");
+      btn.closest(".value-menu")?.classList.add("hidden");
+      openCodeModal(valueSnippet(panel.dataset.column, row.dataset.index));
+    });
+  });
   if (codeCloseBtn) codeCloseBtn.addEventListener("click", closeCodeModal);
   if (codeBackdrop) {
     codeBackdrop.addEventListener("click", (e) => { if (e.target === codeBackdrop) closeCodeModal(); });

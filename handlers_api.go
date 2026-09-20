@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"path/filepath"
 	"strconv"
 )
 
@@ -184,4 +185,23 @@ func (a *App) handleAPIGetColumnValue(w http.ResponseWriter, r *http.Request) {
 		"index":  index,
 		"value":  values[index],
 	})
+}
+
+// handleAPIServeUpload serves an uploaded image (a "type.image" column
+// value) to API-key callers. Image values are stored as the same
+// app-internal URL the browser UI uses (/workspaces/{slug}/uploads/{file}),
+// which only accepts a session cookie — an external SDK caller has no
+// session, so it needs this API-key-authenticated equivalent instead. The
+// SDK rewrites image URLs to point here rather than at the browser route,
+// so external callers never see or depend on that internal route shape.
+func (a *App) handleAPIServeUpload(w http.ResponseWriter, r *http.Request) {
+	currentUser := userFromContext(r)
+	ws, ok := a.apiLoadWorkspace(w, r, currentUser)
+	if !ok {
+		return
+	}
+	// filepath.Base strips any directory components the client might sneak
+	// into the path value, closing off path traversal.
+	filename := filepath.Base(r.PathValue("filename"))
+	http.ServeFile(w, r, filepath.Join(uploadDir(ws.ID), filename))
 }

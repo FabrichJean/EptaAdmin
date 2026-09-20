@@ -50,6 +50,7 @@ func main() {
 	mux.HandleFunc("GET /api/v1/workspaces/{slug}/datasources/{dsSlug}", app.requireAPIKey(app.handleAPIGetDataSource))
 	mux.HandleFunc("GET /api/v1/workspaces/{slug}/datasources/{dsSlug}/columns/{key}", app.requireAPIKey(app.handleAPIGetColumn))
 	mux.HandleFunc("GET /api/v1/workspaces/{slug}/datasources/{dsSlug}/columns/{key}/{index}", app.requireAPIKey(app.handleAPIGetColumnValue))
+	mux.HandleFunc("GET /api/v1/workspaces/{slug}/uploads/{filename}", app.requireAPIKey(app.handleAPIServeUpload))
 	mux.HandleFunc("GET /workspaces", app.requireAuth(app.handleWorkspacesPage))
 	mux.HandleFunc("GET /api/search", app.requireAuth(app.handleGlobalSearch))
 	mux.HandleFunc("POST /workspaces", app.requireAuth(app.handleCreateWorkspace))
