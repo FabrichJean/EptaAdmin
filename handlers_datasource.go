@@ -88,6 +88,17 @@ func (a *App) handleDataSourceTable(w http.ResponseWriter, r *http.Request) {
 
 	columns := BuildColumns(schemaCols, cs)
 
+	positions, err := a.store.ListColumnPositions(ds.ID)
+	if err != nil {
+		log.Printf("list column positions error: %v", err)
+		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
+		return
+	}
+	positionsByKey := make(map[string]*ColumnPosition, len(positions))
+	for _, p := range positions {
+		positionsByKey[p.Key] = p
+	}
+
 	members, err := a.store.ListWorkspaceMembers(ws.ID)
 	if err != nil {
 		log.Printf("list workspace members error: %v", err)
@@ -96,15 +107,16 @@ func (a *App) handleDataSourceTable(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.render(w, r, "datasource_table.html", map[string]any{
-		"CurrentUser": currentUser,
-		"ActiveNav":   "workspaces",
-		"PageTitle":   ds.Name,
-		"Workspace":   ws,
-		"DataSource":  ds,
-		"Columns":     columns,
-		"CanEdit":     hasPermission(role, PermDataUpdate),
-		"CanDelete":   hasPermission(role, PermDataDelete),
-		"CanCreate":   hasPermission(role, PermDataCreate),
+		"CurrentUser":     currentUser,
+		"ActiveNav":       "workspaces",
+		"PageTitle":       ds.Name,
+		"Workspace":       ws,
+		"DataSource":      ds,
+		"Columns":         columns,
+		"ColumnPositions": positionsByKey,
+		"CanEdit":         hasPermission(role, PermDataUpdate),
+		"CanDelete":       hasPermission(role, PermDataDelete),
+		"CanCreate":       hasPermission(role, PermDataCreate),
 		"Breadcrumb": []Breadcrumb{
 			{Label: T(lang, "nav.workspaces"), URL: "/workspaces"},
 			{Label: ws.Name, URL: "/workspaces/" + ws.Slug},
@@ -637,6 +649,49 @@ func (a *App) handleAddDataSourceColumn(w http.ResponseWriter, r *http.Request) 
 	a.logActivity(logActivityParams{WorkspaceID: ws.ID, DataSourceID: ds.ID, UserID: currentUser.ID, Action: ActionColumnAdd, Details: map[string]any{"key": col.Key, "type": col.Type}})
 
 	writeJSON(w, http.StatusOK, map[string]any{"key": col.Key, "type": col.Type})
+}
+
+type setColumnPositionRequest struct {
+	X int `json:"x"`
+	Y int `json:"y"`
+}
+
+// handleSetColumnPosition saves where a column's card was dropped on the
+// "free layout" canvas — a shared, per-data-source display preference
+// (every workspace member sees the same arrangement), so it only requires
+// read+update permission on the data itself, not a separate concept.
+func (a *App) handleSetColumnPosition(w http.ResponseWriter, r *http.Request) {
+	currentUser := userFromContext(r)
+	lang := a.resolveLang(r)
+	ws, role, ok := a.loadWorkspaceMembership(w, r, currentUser)
+	if !ok {
+		return
+	}
+	if !hasPermission(role, PermDataUpdate) {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": T(lang, "common.access_denied")})
+		return
+	}
+	ds, ok := a.loadDataSourceInWorkspace(w, r, ws)
+	if !ok {
+		return
+	}
+
+	var req setColumnPositionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "common.invalid_request")})
+		return
+	}
+	key := r.PathValue("key")
+	if key == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "common.invalid_request")})
+		return
+	}
+	if err := a.store.SetColumnPosition(ds.ID, key, req.X, req.Y); err != nil {
+		log.Printf("set column position error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 type updateColumnRequest struct {
