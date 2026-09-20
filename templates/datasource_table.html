@@ -63,6 +63,10 @@
             <button id="open-code-modal-btn" type="button" class="w-full text-left px-3 py-2 text-sm" style="color: var(--eb-text); border-top: 1px solid var(--eb-border);">{{t .Lang "datasource.code_button"}}</button>
             <a href="/workspaces/{{.Workspace.Slug}}/datasources/{{.DataSource.Slug}}/export?format=csv" class="block px-3 py-2 text-sm" style="color: var(--eb-text); border-top: 1px solid var(--eb-border);">{{t .Lang "datasource.export_csv"}}</a>
             <a href="/workspaces/{{.Workspace.Slug}}/datasources/{{.DataSource.Slug}}/export?format=json" class="block px-3 py-2 text-sm" style="color: var(--eb-text);">{{t .Lang "datasource.export_json"}}</a>
+            {{if .CanCreate}}
+            <button id="ds-import-btn" type="button" class="w-full text-left px-3 py-2 text-sm" style="color: var(--eb-text); border-top: 1px solid var(--eb-border);">{{t .Lang "datasource.import_button"}}</button>
+            <input id="ds-import-input" type="file" class="hidden" accept=".json,application/json" />
+            {{end}}
           </div>
         </div>
       </div>
@@ -1083,6 +1087,42 @@
     url.searchParams.delete("highlightIndex");
     window.history.replaceState({}, "", url);
   })();
+
+  // --- Import (⋯ menu) ---
+  const dsImportBtn = document.getElementById("ds-import-btn");
+  const dsImportInput = document.getElementById("ds-import-input");
+  if (dsImportBtn && dsImportInput) {
+    dsImportBtn.addEventListener("click", () => {
+      document.getElementById("page-menu")?.classList.add("hidden");
+      dsImportInput.click();
+    });
+    dsImportInput.addEventListener("change", async () => {
+      const file = dsImportInput.files[0];
+      if (!file) return;
+      if (!confirm("{{t .Lang "datasource.import_confirm"}}")) {
+        dsImportInput.value = "";
+        return;
+      }
+      const formData = new FormData();
+      formData.append("file", file);
+      try {
+        const res = await fetch(window.location.pathname.replace(/\/$/, "") + "/import", {
+          method: "POST",
+          body: formData,
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          alert(body.error || "{{t .Lang "common.error_generic_retry"}}");
+          dsImportInput.value = "";
+          return;
+        }
+        location.reload();
+      } catch (e) {
+        alert("{{t .Lang "datasource.cannot_contact_server"}}");
+        dsImportInput.value = "";
+      }
+    });
+  }
 
   // --- "Code" modal (⋯ menu, column menu, value menu) ---
   const DATASOURCE_SLUG = window.location.pathname.split("/").filter(Boolean)[3];
