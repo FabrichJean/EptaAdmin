@@ -6,25 +6,40 @@ import (
 	"path/filepath"
 )
 
+// uploadErrorMessage translates the sentinel errors SaveUploadedImage and
+// SaveAvatarUpload can return; anything else is an internal error that
+// shouldn't be echoed to the client verbatim.
+func uploadErrorMessage(lang string, err error) string {
+	switch err {
+	case ErrUnsupportedImageType:
+		return T(lang, "upload.unsupported_type")
+	case ErrImageTooLarge:
+		return T(lang, "upload.too_large")
+	default:
+		return T(lang, "common.error_generic")
+	}
+}
+
 func (a *App) handleUploadImage(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
+	lang := a.resolveLang(r)
 	ws, role, ok := a.loadWorkspaceMembership(w, r, currentUser)
 	if !ok {
 		return
 	}
 	if !hasPermission(role, PermDataCreate) {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "Accès refusé."})
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": T(lang, "common.access_denied")})
 		return
 	}
 
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize+1<<20) // leave headroom for multipart overhead
 	if err := r.ParseMultipartForm(maxUploadSize + 1<<20); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Fichier trop volumineux ou requête invalide."})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "profile.avatar_upload_too_large")})
 		return
 	}
 	file, header, err := r.FormFile("file")
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Aucun fichier reçu."})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "profile.avatar_upload_missing")})
 		return
 	}
 	defer file.Close()
@@ -36,7 +51,7 @@ func (a *App) handleUploadImage(w http.ResponseWriter, r *http.Request) {
 			status = http.StatusInternalServerError
 			log.Printf("save uploaded image error: %v", err)
 		}
-		writeJSON(w, status, map[string]string{"error": err.Error()})
+		writeJSON(w, status, map[string]string{"error": uploadErrorMessage(lang, err)})
 		return
 	}
 
@@ -50,7 +65,7 @@ func (a *App) handleServeUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !hasPermission(role, PermDataRead) {
-		http.Error(w, "Accès refusé.", http.StatusForbidden)
+		http.Error(w, T(a.resolveLang(r), "common.access_denied"), http.StatusForbidden)
 		return
 	}
 

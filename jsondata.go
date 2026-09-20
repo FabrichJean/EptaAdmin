@@ -289,17 +289,17 @@ func SearchColumnStore(cs ColumnStore, query string, limit int) []SearchHit {
 // CoerceTyped validates and converts a user-submitted string to match a
 // column's declared schema type, rejecting values that don't fit rather
 // than silently guessing.
-func CoerceTyped(colType, raw string) (any, error) {
+func CoerceTyped(lang, colType, raw string) (any, error) {
 	switch colType {
 	case ColumnTypeNumber:
 		n, err := strconv.ParseFloat(raw, 64)
 		if err != nil {
-			return nil, fmt.Errorf("%q n'est pas un nombre valide", raw)
+			return nil, fmt.Errorf(T(lang, "datasource.invalid_number"), raw)
 		}
 		return n, nil
 	case ColumnTypeBoolean:
 		if raw != "true" && raw != "false" {
-			return nil, fmt.Errorf("%q n'est pas un booléen valide (true/false)", raw)
+			return nil, fmt.Errorf(T(lang, "datasource.invalid_boolean"), raw)
 		}
 		return raw == "true", nil
 	default:
