@@ -6,7 +6,13 @@ This SDK is currently **read-only**: it fetches workspaces, data sources, and th
 
 ## Install
 
-This package isn't published to the npm registry yet. Install it directly from the EptaAdmin repository, e.g. by copying `sdk/js/` into your project or adding it as a local/git dependency:
+```sh
+npm install eptaadmin-sdk
+```
+
+The package is published on the [npm registry](https://www.npmjs.com/package/eptaadmin-sdk) and versioned automatically from this repository (see `.github/workflows/publish-sdk.yml`) — every change under `sdk/js/` merged to `main` bumps the version and publishes a new release.
+
+If you'd rather work against an unreleased change, point at the local folder instead:
 
 ```json
 {
