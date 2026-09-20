@@ -1,0 +1,107 @@
+{{define "title"}}{{t .Lang "workspace_detail.members_modal_title"}} — {{.Workspace.Name}} — EptaAdmin{{end}}
+{{define "content"}}
+<div class="h-full flex">
+  {{template "sidebar" .}}
+
+  <div class="flex-1 min-w-0 flex flex-col">
+    {{template "header" .}}
+
+    <main class="flex-1 overflow-y-auto px-4 sm:px-8 py-10">
+     <div class="max-w-3xl mx-auto">
+
+      <section class="eb-card rounded-xl overflow-hidden">
+        <div class="px-5 py-4" style="border-bottom: 1px solid var(--eb-border);">
+          <h2 class="text-sm font-semibold" style="color: var(--eb-text);">{{t .Lang "workspace_detail.members_modal_title"}}</h2>
+        </div>
+
+        {{range $i, $m := .Members}}
+        <div class="px-5 py-3 flex items-center justify-between gap-3" style="{{if $i}}border-top: 1px solid var(--eb-border);{{end}}">
+          <div class="flex items-center gap-3 min-w-0">
+            <img src="{{$m.AvatarImageURL}}" alt="" class="h-8 w-8 rounded-full shrink-0" style="background: var(--eb-surface-2);" />
+            <span class="text-sm font-medium truncate" style="color: var(--eb-text);">{{$m.Username}}</span>
+            {{if eq $m.UserID $.CurrentUser.ID}}
+            <span class="eb-chip shrink-0">{{t $.Lang "workspace_members.you_badge"}}</span>
+            {{end}}
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            {{if eq $m.Role "owner"}}
+            <span class="eb-badge eb-badge-owner">{{$m.RoleLabel $.Lang}}</span>
+            {{else if $.CanManageWSMembers}}
+            <form method="POST" action="/workspaces/{{$.Workspace.Slug}}/members/{{$m.UserID}}/role">
+              <select name="role" class="eb-input rounded-lg px-2 py-1 text-xs" onchange="this.form.submit()">
+                {{range $.AssignableRoles}}
+                <option value="{{.Value}}" {{if eq .Value $m.Role}}selected{{end}}>{{.Label}}</option>
+                {{end}}
+              </select>
+            </form>
+            <form method="POST" action="/workspaces/{{$.Workspace.Slug}}/members/{{$m.UserID}}/remove" class="member-remove-form">
+              <button type="submit" class="text-xs" style="color: #f87171;">{{t $.Lang "workspace_members.remove_button"}}</button>
+            </form>
+            {{else}}
+            <span class="eb-badge eb-badge-{{$m.Role}}">{{$m.RoleLabel $.Lang}}</span>
+            {{end}}
+          </div>
+        </div>
+        {{end}}
+        {{if not .Members}}
+        <div class="px-5 py-10 text-center text-sm" style="color: var(--eb-muted);">{{t .Lang "workspace_detail.no_members"}}</div>
+        {{end}}
+      </section>
+
+      {{if .CanManageWSMembers}}
+      <section class="eb-card rounded-xl overflow-hidden mt-6">
+        <div class="px-5 py-4 space-y-3" style="border-bottom: 1px solid var(--eb-border);">
+          <h3 class="text-xs font-semibold uppercase tracking-wide" style="color: var(--eb-muted);">{{t .Lang "workspace_detail.assign_member_title"}}</h3>
+        </div>
+        <div class="px-5 py-4 space-y-3">
+          {{if .MemberError}}
+          <div class="rounded-lg text-sm px-3 py-2" style="background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: #fca5a5;">{{.MemberError}}</div>
+          {{end}}
+          {{if .AssignableMembers}}
+          <form method="POST" action="/workspaces/{{.Workspace.Slug}}/members" class="space-y-3">
+            <div>
+              <label class="block text-xs font-medium mb-1" style="color: var(--eb-muted);" for="user_id">{{t .Lang "workspace_detail.select_member"}}</label>
+              <select id="user_id" name="user_id" required
+                class="eb-input w-full rounded-lg px-3 py-2 text-sm">
+                {{range .AssignableMembers}}
+                <option value="{{.ID}}">{{.Username}}</option>
+                {{end}}
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium mb-1" style="color: var(--eb-muted);" for="role">{{t .Lang "members.role_label"}}</label>
+              <select id="role" name="role" required
+                class="eb-input w-full rounded-lg px-3 py-2 text-sm">
+                {{range .AssignableRoles}}
+                <option value="{{.Value}}">{{.Label}}</option>
+                {{end}}
+              </select>
+            </div>
+            <button type="submit" class="eb-btn-primary w-full rounded-lg text-sm py-2 transition-colors">{{t .Lang "workspace_detail.add_button"}}</button>
+          </form>
+          {{else}}
+          <p class="text-sm" style="color: var(--eb-muted);">
+            {{t .Lang "workspace_detail.no_assignable_members"}}
+            <a href="/members" class="hover:underline" style="color: var(--eb-accent);">{{t .Lang "members.page_title"}}</a>
+          </p>
+          {{end}}
+        </div>
+      </section>
+      {{end}}
+
+     </div>
+    </main>
+  </div>
+</div>
+
+<script>
+(function () {
+  document.querySelectorAll(".member-remove-form").forEach((form) => {
+    form.addEventListener("submit", (e) => {
+      if (!confirm("{{t .Lang "workspace_members.remove_confirm"}}")) e.preventDefault();
+    });
+  });
+})();
+</script>
+{{end}}
+{{template "layout" .}}
