@@ -21,11 +21,12 @@ type User struct {
 	Role         string
 	AvatarSeed   string
 	AvatarUpload string
+	Language     string
 	CreatedAt    time.Time
 }
 
-func (u *User) RoleLabel() string {
-	return roleLabel(u.Role)
+func (u *User) RoleLabel(lang string) string {
+	return roleLabel(lang, u.Role)
 }
 
 // AvatarImageURL resolves the avatar to display for this user: a custom
@@ -138,6 +139,7 @@ func (s *Store) migrate() error {
 		`ALTER TABLE data_source_columns ADD COLUMN description TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE users ADD COLUMN avatar_seed TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE users ADD COLUMN avatar_upload TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE users ADD COLUMN language TEXT NOT NULL DEFAULT 'fr'`,
 	} {
 		if _, err := s.db.Exec(alter); err != nil {
 			if !strings.Contains(err.Error(), "duplicate column name") {
@@ -198,7 +200,7 @@ func (s *Store) CreateUser(username, email, passwordHash, role string) (*User, e
 	return s.GetUserByID(id)
 }
 
-const userColumns = `id, username, email, password_hash, role, avatar_seed, avatar_upload, created_at`
+const userColumns = `id, username, email, password_hash, role, avatar_seed, avatar_upload, language, created_at`
 
 func (s *Store) GetUserByUsername(username string) (*User, error) {
 	row := s.db.QueryRow(`SELECT `+userColumns+` FROM users WHERE username = ?`, username)
@@ -220,7 +222,7 @@ func (s *Store) ListUsers() ([]*User, error) {
 	var users []*User
 	for rows.Next() {
 		u := &User{}
-		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.AvatarSeed, &u.AvatarUpload, &u.CreatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.AvatarSeed, &u.AvatarUpload, &u.Language, &u.CreatedAt); err != nil {
 			return nil, err
 		}
 		users = append(users, u)
@@ -262,6 +264,13 @@ func (s *Store) UpdateUserPassword(id int64, passwordHash string) error {
 	return err
 }
 
+// UpdateUserLanguage sets the account-wide UI language, persisted so it
+// follows the user across devices (unlike the pre-login cookie fallback).
+func (s *Store) UpdateUserLanguage(id int64, lang string) error {
+	_, err := s.db.Exec(`UPDATE users SET language = ? WHERE id = ?`, lang, id)
+	return err
+}
+
 func (s *Store) CountUsers() (int, error) {
 	var n int
 	err := s.db.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&n)
@@ -270,7 +279,7 @@ func (s *Store) CountUsers() (int, error) {
 
 func scanUser(row *sql.Row) (*User, error) {
 	u := &User{}
-	err := row.Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.AvatarSeed, &u.AvatarUpload, &u.CreatedAt)
+	err := row.Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.AvatarSeed, &u.AvatarUpload, &u.Language, &u.CreatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -290,7 +299,7 @@ func (s *Store) CreateSession(token string, userID int64, expiresAt time.Time) e
 
 func (s *Store) GetSessionUser(token string) (*User, error) {
 	row := s.db.QueryRow(`
-		SELECT users.id, users.username, users.email, users.password_hash, users.role, users.avatar_seed, users.avatar_upload, users.created_at
+		SELECT users.id, users.username, users.email, users.password_hash, users.role, users.avatar_seed, users.avatar_upload, users.language, users.created_at
 		FROM sessions
 		JOIN users ON users.id = sessions.user_id
 		WHERE sessions.token = ? AND sessions.expires_at > CURRENT_TIMESTAMP

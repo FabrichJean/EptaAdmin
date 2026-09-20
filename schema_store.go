@@ -25,18 +25,18 @@ func IsValidColumnType(t string) bool {
 	return validColumnTypes[t]
 }
 
-func ColumnTypeLabel(t string) string {
+func ColumnTypeLabel(lang, t string) string {
 	switch t {
 	case ColumnTypeNumber:
-		return "Nombre"
+		return T(lang, "type.number")
 	case ColumnTypeBoolean:
-		return "Booléen"
+		return T(lang, "type.boolean")
 	case ColumnTypeLongText:
-		return "Texte long"
+		return T(lang, "type.long_text")
 	case ColumnTypeImage:
-		return "Image"
+		return T(lang, "type.image")
 	default:
-		return "Texte"
+		return T(lang, "type.text")
 	}
 }
 
@@ -55,8 +55,8 @@ type DataSourceColumn struct {
 	Description  string
 }
 
-func (c *DataSourceColumn) TypeLabel() string {
-	return ColumnTypeLabel(c.Type)
+func (c *DataSourceColumn) TypeLabel(lang string) string {
+	return ColumnTypeLabel(lang, c.Type)
 }
 
 func (s *Store) ListDataSourceColumns(dataSourceID int64) ([]*DataSourceColumn, error) {

@@ -41,6 +41,8 @@ func main() {
 	mux.HandleFunc("GET /avatars/{filename}", app.requireAuth(app.handleServeAvatar))
 	mux.HandleFunc("POST /profile/api-keys", app.requireAuth(app.handleCreateAPIKey))
 	mux.HandleFunc("POST /profile/api-keys/{id}/delete", app.requireAuth(app.handleDeleteAPIKey))
+	mux.HandleFunc("POST /profile/language", app.requireAuth(app.handleUpdateProfileLanguage))
+	mux.HandleFunc("GET /lang/{lang}", app.handleSetLangCookie)
 
 	// Public read-only API (personal API key auth) — consumed by the JS SDK.
 	mux.HandleFunc("GET /api/v1/workspaces", app.requireAPIKey(app.handleAPIListWorkspaces))
