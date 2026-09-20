@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type App struct {
@@ -27,11 +28,12 @@ var templateFuncs = template.FuncMap{
 	"columnColorHex": ColumnColorHex,
 	"t":              T,
 	"sub":            func(a, b int) int { return a - b },
+	"formatTime":     func(t time.Time) string { return t.Local().Format("02/01/2006 15:04") },
 }
 
 func NewApp(store *Store) (*App, error) {
 	a := &App{store: store, templates: map[string]*template.Template{}}
-	pages := []string{"login.html", "register.html", "dashboard.html", "members.html", "profile.html", "integration.html", "workspaces.html", "workspace_detail.html", "datasource_table.html"}
+	pages := []string{"login.html", "register.html", "dashboard.html", "members.html", "profile.html", "integration.html", "workspaces.html", "workspace_detail.html", "datasource_table.html", "activity.html"}
 	for _, page := range pages {
 		tmpl, err := template.New("layout.html").Funcs(templateFuncs).ParseFiles("templates/layout.html", "templates/"+page)
 		if err != nil {
@@ -114,6 +116,7 @@ func (a *App) handleLogin(w http.ResponseWriter, r *http.Request) {
 		a.render(w, r, "login.html", map[string]any{"Error": T(lang, "common.error_generic_retry")})
 		return
 	}
+	a.logActivity(logActivityParams{UserID: user.ID, Action: ActionLogin})
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
@@ -196,10 +199,14 @@ func (a *App) handleRegister(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
+	a.logActivity(logActivityParams{UserID: user.ID, Action: ActionRegister})
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 func (a *App) handleLogout(w http.ResponseWriter, r *http.Request) {
+	if user := a.userFromRequest(r); user != nil {
+		a.logActivity(logActivityParams{UserID: user.ID, Action: ActionLogout})
+	}
 	a.endSession(w, r)
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }

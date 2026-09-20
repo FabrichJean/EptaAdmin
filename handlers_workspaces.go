@@ -95,6 +95,7 @@ func (a *App) handleCreateWorkspace(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	a.logActivity(logActivityParams{WorkspaceID: ws.ID, UserID: currentUser.ID, Action: ActionWorkspaceCreate, Details: map[string]any{"name": ws.Name}})
 
 	http.Redirect(w, r, "/workspaces/"+ws.Slug, http.StatusSeeOther)
 }
@@ -207,6 +208,7 @@ func (a *App) handleAddWorkspaceMember(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	a.logActivity(logActivityParams{WorkspaceID: ws.ID, UserID: currentUser.ID, Action: ActionMemberAdd, Details: map[string]any{"username": target.Username, "role": roleLabel(lang, targetRole)}})
 
 	http.Redirect(w, r, "/workspaces/"+ws.Slug, http.StatusSeeOther)
 }
@@ -248,7 +250,8 @@ func (a *App) handleCreateDataSource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := a.store.CreateDataSource(ws.ID, name, "json"); err != nil {
+	ds, err := a.store.CreateDataSource(ws.ID, name, "json")
+	if err != nil {
 		if err == ErrDataSourceExists {
 			renderDetail(T(lang, "workspace_detail.datasource_exists"))
 		} else {
@@ -257,6 +260,7 @@ func (a *App) handleCreateDataSource(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	a.logActivity(logActivityParams{WorkspaceID: ws.ID, DataSourceID: ds.ID, UserID: currentUser.ID, Action: ActionDataSourceCreate, Details: map[string]any{"name": ds.Name}})
 
 	http.Redirect(w, r, "/workspaces/"+ws.Slug, http.StatusSeeOther)
 }
