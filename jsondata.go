@@ -140,6 +140,15 @@ func LoadColumnStore(path string) (ColumnStore, error) {
 	if err != nil {
 		return nil, err
 	}
+	return ParseColumnStoreJSON(data)
+}
+
+// ParseColumnStoreJSON parses the bytes of a data source's JSON — either
+// the columnar object shape this app writes, or the legacy row-array shape
+// — into a ColumnStore. Shared by LoadColumnStore (reading a data source's
+// own file) and data source import (reading an uploaded file), so both
+// tolerate the same two shapes.
+func ParseColumnStoreJSON(data []byte) (ColumnStore, error) {
 	trimmed := strings.TrimSpace(string(data))
 	if trimmed == "" {
 		return ColumnStore{}, nil
