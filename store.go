@@ -115,6 +115,14 @@ func (s *Store) migrate() error {
 		UNIQUE (data_source_id, key)
 	);
 
+	CREATE TABLE IF NOT EXISTS column_canvas_positions (
+		data_source_id INTEGER NOT NULL REFERENCES data_sources(id) ON DELETE CASCADE,
+		column_key TEXT NOT NULL,
+		pos_x INTEGER NOT NULL,
+		pos_y INTEGER NOT NULL,
+		PRIMARY KEY (data_source_id, column_key)
+	);
+
 	CREATE TABLE IF NOT EXISTS api_keys (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
