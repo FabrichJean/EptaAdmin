@@ -429,18 +429,33 @@ type GridRow struct {
 // BuildGridRows transposes a set of already-aligned columns back into rows,
 // the shape the grid view renders (one <tr> per record) rather than the
 // per-column card view's shape (one block per field).
+//
+// A record every field has been deleted from (see RecordStore.DeleteField —
+// it deliberately keeps the now-empty record in place rather than removing
+// it, so every other record's index stays stable for activity-log undo) is
+// left out here: it carries no data at all, so showing it would just be an
+// empty "skeleton" row with nothing to click on. Skipping it is purely a
+// display choice — Index still reflects its true position in the store, so
+// row actions on every other, real row keep working exactly as before.
 func BuildGridRows(columns []Column) []GridRow {
 	if len(columns) == 0 {
 		return nil
 	}
 	rowCount := len(columns[0].Values)
-	rows := make([]GridRow, rowCount)
+	rows := make([]GridRow, 0, rowCount)
 	for i := 0; i < rowCount; i++ {
 		cells := make([]any, len(columns))
+		empty := true
 		for c, col := range columns {
 			cells[c] = col.Values[i]
+			if cells[c] != nil {
+				empty = false
+			}
 		}
-		rows[i] = GridRow{Index: i, Cells: cells}
+		if empty {
+			continue
+		}
+		rows = append(rows, GridRow{Index: i, Cells: cells})
 	}
 	return rows
 }
