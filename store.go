@@ -140,6 +140,22 @@ func (s *Store) migrate() error {
 		value TEXT NOT NULL
 	);
 
+	-- A webhook fires an HTTP POST to an external server whenever its
+	-- workspace changes (see logActivity) or on a manual "Envoyer" click
+	-- (see handleTriggerWebhook) — settings.html is where members manage
+	-- them.
+	CREATE TABLE IF NOT EXISTS webhooks (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		workspace_id INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+		url TEXT NOT NULL,
+		secret TEXT NOT NULL,
+		enabled INTEGER NOT NULL DEFAULT 1,
+		last_triggered_at DATETIME,
+		last_status TEXT NOT NULL DEFAULT '',
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE INDEX IF NOT EXISTS idx_webhooks_workspace ON webhooks(workspace_id);
+
 	CREATE TABLE IF NOT EXISTS api_keys (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

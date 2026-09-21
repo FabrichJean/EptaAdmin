@@ -36,7 +36,7 @@ var templateFuncs = template.FuncMap{
 
 func NewApp(store *Store) (*App, error) {
 	a := &App{store: store, templates: map[string]*template.Template{}}
-	pages := []string{"login.html", "register.html", "dashboard.html", "profile.html", "integration.html", "workspaces.html", "workspace_detail.html", "workspace_members.html", "members.html", "datasource_table.html", "activity.html"}
+	pages := []string{"login.html", "register.html", "dashboard.html", "profile.html", "integration.html", "workspaces.html", "workspace_detail.html", "workspace_members.html", "members.html", "datasource_table.html", "activity.html", "settings.html", "webhooks.html"}
 	for _, page := range pages {
 		tmpl, err := template.New("layout.html").Funcs(templateFuncs).ParseFiles("templates/layout.html", "templates/"+page)
 		if err != nil {

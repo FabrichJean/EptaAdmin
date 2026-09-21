@@ -1,0 +1,296 @@
+{{define "title"}}{{t .Lang "settings.title"}} — {{.Workspace.Name}} — EptaAdmin{{end}}
+{{define "content"}}
+<div class="h-full flex">
+  {{template "sidebar" .}}
+
+  <div class="flex-1 min-w-0 flex flex-col">
+    {{template "header" .}}
+
+    <main class="flex-1 overflow-y-auto px-4 sm:px-8 py-10">
+     <div class="max-w-3xl mx-auto">
+
+      <section class="eb-card rounded-xl overflow-hidden">
+        <div class="px-5 py-4 flex items-center justify-between gap-2" style="border-bottom: 1px solid var(--eb-border);">
+          <div class="min-w-0">
+            <h2 class="text-sm font-semibold" style="color: var(--eb-text);">{{t .Lang "settings.webhooks_title"}}</h2>
+            <p class="text-xs mt-0.5" style="color: var(--eb-muted);">{{t .Lang "settings.webhooks_subtitle"}}</p>
+          </div>
+          <button id="toggle-add-webhook-btn" type="button" class="eb-btn-secondary shrink-0 rounded-full text-xs font-medium px-3 py-1.5 transition-colors" style="border-color: var(--eb-accent); color: var(--eb-accent);">+ {{t .Lang "settings.add_webhook_button"}}</button>
+        </div>
+
+        <div id="add-webhook-form" class="hidden px-5 py-4 space-y-3" style="border-bottom: 1px solid var(--eb-border); background: var(--eb-surface-2);">
+          <div id="add-webhook-error" class="hidden rounded-lg text-sm px-3 py-2" style="background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: #fca5a5;"></div>
+          <div>
+            <label class="block text-xs font-medium mb-1" style="color: var(--eb-muted);" for="webhook-url">{{t .Lang "settings.webhook_url_label"}}</label>
+            <input id="webhook-url" type="text" placeholder="https://example.com/hooks/eptaadmin"
+              class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <button id="submit-webhook-btn" type="button" class="eb-btn-primary w-full rounded-lg text-sm py-2 transition-colors">{{t .Lang "common.save"}}</button>
+        </div>
+
+        <div id="webhook-list">
+          {{range .Webhooks}}
+          <div class="webhook-row px-5 py-4" style="border-bottom: 1px solid var(--eb-border);" data-id="{{.ID}}">
+            <div class="flex items-center justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-sm font-medium truncate" style="color: var(--eb-text);">{{.URL}}</p>
+                <p class="text-xs mt-0.5" style="color: var(--eb-muted);">
+                  {{if .LastTriggeredAt.Valid}}{{t $.Lang "settings.webhook_last_triggered" (formatTime .LastTriggeredAt.Time) .LastStatus}}{{else}}{{t $.Lang "settings.webhook_never"}}{{end}}
+                </p>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <label class="flex items-center gap-1.5 text-xs" style="color: var(--eb-muted);">
+                  <input type="checkbox" class="webhook-enabled-toggle" data-id="{{.ID}}" {{if .Enabled}}checked{{end}} />
+                  {{if .Enabled}}{{t $.Lang "settings.webhook_enabled"}}{{else}}{{t $.Lang "settings.webhook_disabled"}}{{end}}
+                </label>
+                <button type="button" class="webhook-trigger-btn eb-btn-secondary rounded-md text-xs px-2 py-1 transition-colors" data-id="{{.ID}}">{{t $.Lang "settings.webhook_send_button"}}</button>
+                <button type="button" class="webhook-delete-btn eb-icon-btn text-xs leading-none" data-id="{{.ID}}" title="{{t $.Lang "settings.webhook_delete_confirm"}}">✕</button>
+              </div>
+            </div>
+            <details class="mt-2">
+              <summary class="text-xs cursor-pointer" style="color: var(--eb-muted);">{{t $.Lang "settings.webhook_secret_label"}}</summary>
+              <p class="text-xs mt-1" style="color: var(--eb-muted);">{{t $.Lang "settings.webhook_secret_hint"}}</p>
+              <code class="webhook-secret-value block mt-1 text-xs font-mono rounded px-2 py-1" style="background: var(--eb-bg); color: var(--eb-text); border: 1px solid var(--eb-border);">{{.Secret}}</code>
+            </details>
+            <details class="webhook-snippet-details mt-2">
+              <summary class="text-xs cursor-pointer" style="color: var(--eb-muted);">{{t $.Lang "settings.webhook_snippet_toggle"}}</summary>
+              <div class="mt-2">
+                <div class="flex items-center gap-1 flex-wrap">
+                  <button type="button" class="webhook-snippet-tab text-xs px-2 py-1 rounded-md transition-colors" data-lang="node" style="color: var(--eb-muted);">Node.js</button>
+                  <button type="button" class="webhook-snippet-tab text-xs px-2 py-1 rounded-md transition-colors" data-lang="python" style="color: var(--eb-muted);">Python</button>
+                  <button type="button" class="webhook-snippet-tab text-xs px-2 py-1 rounded-md transition-colors" data-lang="php" style="color: var(--eb-muted);">PHP</button>
+                  <button type="button" class="webhook-snippet-tab text-xs px-2 py-1 rounded-md transition-colors" data-lang="go" style="color: var(--eb-muted);">Go</button>
+                  <button type="button" class="webhook-snippet-copy-btn text-xs px-2 py-1 rounded-md ml-auto" style="color: var(--eb-muted);">{{t $.Lang "common.copy"}}</button>
+                </div>
+                <pre class="mt-2 text-xs font-mono rounded-lg overflow-x-auto" style="border: 1px solid var(--eb-border);"><code class="webhook-snippet-code"></code></pre>
+              </div>
+            </details>
+          </div>
+          {{end}}
+          {{if not .Webhooks}}
+          <div id="webhook-empty-row" class="px-5 py-10 text-center text-sm" style="color: var(--eb-muted);">{{t .Lang "settings.no_webhooks"}}</div>
+          {{end}}
+        </div>
+      </section>
+
+     </div>
+    </main>
+  </div>
+</div>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+(function () {
+  const wsSlug = {{.Workspace.Slug}};
+  const I18N = {
+    errorRetry: "{{t .Lang "common.error_generic_retry"}}",
+    cannotContact: "{{t .Lang "datasource.cannot_contact_server"}}",
+    urlInvalid: "{{t .Lang "settings.webhook_url_invalid"}}",
+    deleteConfirm: "{{t .Lang "settings.webhook_delete_confirm"}}",
+    triggerFailed: "{{t .Lang "settings.webhook_trigger_failed"}}",
+    triggerOk: "{{t .Lang "settings.webhook_trigger_ok"}}",
+    copyLabel: "{{t .Lang "common.copy"}}",
+    copiedLabel: "{{t .Lang "common.copied"}}",
+  };
+
+  const WEBHOOK_SNIPPETS = {
+    node: (secret) => `const crypto = require("crypto");
+const express = require("express");
+const app = express();
+
+app.post("/webhooks/eptaadmin", express.raw({ type: "application/json" }), (req, res) => {
+  const signature = req.header("X-EptaAdmin-Signature");
+  const expected = crypto
+    .createHmac("sha256", "${secret}")
+    .update(req.body)
+    .digest("hex");
+
+  if (signature !== expected) {
+    return res.status(401).send("invalid signature");
+  }
+
+  const payload = JSON.parse(req.body);
+  console.log("event:", payload.event, payload.details);
+  res.sendStatus(200);
+});
+
+app.listen(3000);`,
+    python: (secret) => `import hashlib
+import hmac
+from flask import Flask, request, abort
+
+app = Flask(__name__)
+SECRET = "${secret}"
+
+@app.post("/webhooks/eptaadmin")
+def webhook():
+    signature = request.headers.get("X-EptaAdmin-Signature", "")
+    expected = hmac.new(SECRET.encode(), request.data, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(signature, expected):
+        abort(401)
+
+    payload = request.get_json()
+    print("event:", payload["event"], payload.get("details"))
+    return "", 200`,
+    php: (secret) => `<?php
+$secret = "${secret}";
+$body = file_get_contents("php://input");
+$signature = $_SERVER["HTTP_X_EPTAADMIN_SIGNATURE"] ?? "";
+$expected = hash_hmac("sha256", $body, $secret);
+
+if (!hash_equals($expected, $signature)) {
+    http_response_code(401);
+    exit("invalid signature");
+}
+
+$payload = json_decode($body, true);
+error_log("event: " . $payload["event"]);
+http_response_code(200);`,
+    go: (secret) => `func webhookHandler(w http.ResponseWriter, r *http.Request) {
+	body, _ := io.ReadAll(r.Body)
+	mac := hmac.New(sha256.New, []byte("${secret}"))
+	mac.Write(body)
+	expected := hex.EncodeToString(mac.Sum(nil))
+
+	if !hmac.Equal([]byte(expected), []byte(r.Header.Get("X-EptaAdmin-Signature"))) {
+		http.Error(w, "invalid signature", http.StatusUnauthorized)
+		return
+	}
+
+	var payload map[string]any
+	json.Unmarshal(body, &payload)
+	log.Println("event:", payload["event"])
+	w.WriteHeader(http.StatusOK)
+}`,
+  };
+
+  const HLJS_LANG = { node: "javascript", python: "python", php: "php", go: "go" };
+
+  function renderWebhookSnippet(details, lang) {
+    const row = details.closest(".webhook-row");
+    const secret = row.querySelector(".webhook-secret-value").textContent.trim();
+    const codeEl = details.querySelector(".webhook-snippet-code");
+    codeEl.textContent = WEBHOOK_SNIPPETS[lang](secret);
+    codeEl.className = "webhook-snippet-code language-" + HLJS_LANG[lang];
+    codeEl.removeAttribute("data-highlighted");
+    if (window.hljs) hljs.highlightElement(codeEl);
+    details.querySelectorAll(".webhook-snippet-tab").forEach((tab) => {
+      const active = tab.dataset.lang === lang;
+      tab.style.background = active ? "var(--eb-accent)" : "";
+      tab.style.color = active ? "#fff" : "var(--eb-muted)";
+    });
+    details.dataset.activeLang = lang;
+  }
+
+  document.querySelectorAll(".webhook-snippet-details").forEach((details) => {
+    details.addEventListener("toggle", () => {
+      if (details.open && !details.dataset.rendered) {
+        details.dataset.rendered = "1";
+        renderWebhookSnippet(details, "node");
+      }
+    });
+    details.querySelectorAll(".webhook-snippet-tab").forEach((tab) => {
+      tab.addEventListener("click", () => renderWebhookSnippet(details, tab.dataset.lang));
+    });
+    const copyBtn = details.querySelector(".webhook-snippet-copy-btn");
+    copyBtn.addEventListener("click", async () => {
+      const code = details.querySelector(".webhook-snippet-code").textContent;
+      try {
+        await navigator.clipboard.writeText(code);
+        copyBtn.textContent = I18N.copiedLabel;
+        setTimeout(() => { copyBtn.textContent = I18N.copyLabel; }, 1500);
+      } catch (e) {}
+    });
+  });
+
+  const addBtn = document.getElementById("toggle-add-webhook-btn");
+  const addForm = document.getElementById("add-webhook-form");
+  const urlInput = document.getElementById("webhook-url");
+  const errorBox = document.getElementById("add-webhook-error");
+  const submitBtn = document.getElementById("submit-webhook-btn");
+
+  if (addBtn && addForm) {
+    addBtn.addEventListener("click", () => {
+      addForm.classList.toggle("hidden");
+      if (!addForm.classList.contains("hidden")) urlInput?.focus();
+    });
+  }
+
+  if (submitBtn) {
+    submitBtn.addEventListener("click", async () => {
+      const url = urlInput.value.trim();
+      errorBox.classList.add("hidden");
+      try {
+        const res = await fetch(`/workspaces/${wsSlug}/webhooks`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          errorBox.textContent = body.error || I18N.errorRetry;
+          errorBox.classList.remove("hidden");
+          return;
+        }
+        location.reload();
+      } catch (e) {
+        errorBox.textContent = I18N.cannotContact;
+        errorBox.classList.remove("hidden");
+      }
+    });
+  }
+
+  document.querySelectorAll(".webhook-delete-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!confirm(I18N.deleteConfirm)) return;
+      try {
+        const res = await fetch(`/workspaces/${wsSlug}/webhooks/${btn.dataset.id}`, { method: "DELETE" });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) { alert(body.error || I18N.errorRetry); return; }
+        location.reload();
+      } catch (e) { alert(I18N.cannotContact); }
+    });
+  });
+
+  document.querySelectorAll(".webhook-enabled-toggle").forEach((toggle) => {
+    toggle.addEventListener("change", async () => {
+      try {
+        const res = await fetch(`/workspaces/${wsSlug}/webhooks/${toggle.dataset.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: toggle.checked }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) { alert(body.error || I18N.errorRetry); toggle.checked = !toggle.checked; return; }
+        const label = toggle.closest("label");
+        if (label) label.lastChild.textContent = " " + (toggle.checked ? "{{t .Lang "settings.webhook_enabled"}}" : "{{t .Lang "settings.webhook_disabled"}}");
+      } catch (e) { alert(I18N.cannotContact); toggle.checked = !toggle.checked; }
+    });
+  });
+
+  document.querySelectorAll(".webhook-trigger-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = "…";
+      try {
+        const res = await fetch(`/workspaces/${wsSlug}/webhooks/${btn.dataset.id}/trigger`, { method: "POST" });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          alert((body.error || I18N.triggerFailed));
+        } else {
+          alert(I18N.triggerOk);
+        }
+        location.reload();
+      } catch (e) {
+        alert(I18N.cannotContact);
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+  });
+})();
+</script>
+{{end}}
+{{template "layout" .}}

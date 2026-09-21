@@ -55,6 +55,13 @@ func main() {
 	mux.HandleFunc("GET /api/search", app.requireAuth(app.handleGlobalSearch))
 	mux.HandleFunc("POST /workspaces", app.requireAuth(app.handleCreateWorkspace))
 	mux.HandleFunc("GET /workspaces/{slug}", app.requireAuth(app.handleWorkspaceDetail))
+	mux.HandleFunc("GET /webhooks", app.requireAuth(app.handleGlobalWebhooks))
+	mux.HandleFunc("GET /workspaces/{slug}/settings", app.requireAuth(app.handleSettingsPage))
+	mux.HandleFunc("POST /workspaces/{slug}/webhooks", app.requireAuth(app.handleCreateWebhook))
+	mux.HandleFunc("DELETE /workspaces/{slug}/webhooks/{id}", app.requireAuth(app.handleDeleteWebhook))
+	mux.HandleFunc("PATCH /workspaces/{slug}/webhooks/{id}", app.requireAuth(app.handleToggleWebhook))
+	mux.HandleFunc("POST /workspaces/{slug}/webhooks/{id}/trigger", app.requireAuth(app.handleTriggerWebhook))
+
 	mux.HandleFunc("GET /workspaces/{slug}/activity", app.requireAuth(app.handleWorkspaceActivity))
 	mux.HandleFunc("POST /workspaces/{slug}/activity/{id}/revert", app.requireAuth(app.handleRevertActivity))
 	mux.HandleFunc("GET /members", app.requireAuth(app.handleMembersPage))

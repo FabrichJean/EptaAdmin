@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -45,6 +46,10 @@ const (
 	ActionValueMove        = "value.move"
 
 	ActionImageUpload = "upload.image"
+
+	ActionWebhookCreate        = "webhook.create"
+	ActionWebhookDelete        = "webhook.delete"
+	ActionWebhookManualTrigger = "webhook.manual_trigger"
 )
 
 // reversibleActions is the confirmed scope: real undo for actions on data
@@ -162,6 +167,12 @@ func (e *ActivityEntry) Describe(lang string) string {
 		return T(lang, "activity.desc.value.move", actor, detailString(d, "column"))
 	case ActionImageUpload:
 		return T(lang, "activity.desc.upload.image", actor)
+	case ActionWebhookCreate:
+		return T(lang, "activity.desc.webhook.create", actor, detailString(d, "url"))
+	case ActionWebhookDelete:
+		return T(lang, "activity.desc.webhook.delete", actor, detailString(d, "url"))
+	case ActionWebhookManualTrigger:
+		return T(lang, "activity.desc.webhook.manual_trigger", actor, detailString(d, "url"))
 	default:
 		return actor + " — " + e.Action
 	}
@@ -191,6 +202,17 @@ func (a *App) logActivity(p logActivityParams) {
 	}
 	if err := a.store.InsertActivity(p.WorkspaceID, p.DataSourceID, p.TableID, p.UserID, p.Action, string(data), reversibleActions[p.Action]); err != nil {
 		log.Printf("activity log insert error: %v", err)
+	}
+	// Every workspace-scoped activity is a "workspace update" for webhook
+	// purposes — fireWebhooks itself no-ops when WorkspaceID is 0
+	// (account-level actions like login), and delivery runs in its own
+	// goroutine so a slow external server never delays this request.
+	// Webhook management actions are excluded: handleTriggerWebhook already
+	// delivers its one webhook synchronously, and broadcasting create/
+	// delete/manual-trigger to every OTHER webhook too would be surprising
+	// noise rather than a real "workspace update".
+	if !strings.HasPrefix(p.Action, "webhook.") {
+		a.fireWebhooks(p.WorkspaceID, p.Action, p.Details)
 	}
 }
 
