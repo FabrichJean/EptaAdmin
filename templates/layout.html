@@ -269,6 +269,17 @@
           children.appendChild(link);
           children.classList.remove("hidden");
           const caret = node.querySelector(".tree-caret");
+          if (caret) caret.style.transform = "rotate(90deg)";
+        }
+      } catch (err) {
+        alert("{{t .Lang "datasource.cannot_contact_server"}}");
+      }
+    });
+  });
+})();
+</script>
+{{end}}
+
 {{define "col-icon"}}
 {{if eq . "location"}}<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
 {{else if eq . "person"}}<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
@@ -281,6 +292,7 @@
 {{else if eq . "image"}}<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
 {{else if eq . "text"}}<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>
 {{else if eq . "database"}}<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+{{else if eq . "table"}}<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
 {{else if eq . "workspace"}}<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
 {{else}}<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65M22 12.65l-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg>
 {{end}}
@@ -297,19 +309,36 @@
       {{end}}
     </div>
     {{else}}
-    <h1 class="flex items-center gap-2 text-lg font-semibold" style="color: var(--eb-text);">
+    <h1 class="flex items-center gap-2 text-lg font-semibold shrink-0" style="color: var(--eb-text);">
       {{if .HeaderIcon}}<span style="color: var(--eb-accent);">{{template "col-icon" .HeaderIcon}}</span>{{end}}
       {{if .HeaderTitle}}{{.HeaderTitle}}{{else}}{{.PageTitle}}{{end}}
     </h1>
     {{end}}
 
+    <!-- <div class="hidden md:flex flex-1 justify-center px-2 min-w-0">
+      <div class="relative w-full" style="max-width: 10rem;">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--eb-muted);"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="global-search-input" type="text" placeholder="{{t .Lang "header.search_placeholder"}}" autocomplete="off"
+          class="eb-input w-full rounded-lg pl-9 pr-12 py-1.5 text-sm" />
+        <kbd id="global-search-kbd" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-medium rounded px-1.5 py-0.5" style="color: var(--eb-muted); border: 1px solid var(--eb-border);">⌘K</kbd>
+        <div id="global-search-results-panel" class="hidden absolute left-0 right-0 top-full mt-2 rounded-xl overflow-hidden eb-card z-30 text-left" style="box-shadow: 0 12px 32px rgba(0,0,0,0.5);">
+          <div id="global-search-results-list" class="max-h-80 overflow-y-auto"></div>
+        </div>
+      </div>
+    </div> -->
+
     <div class="flex items-center gap-3 shrink-0 ml-auto">
-      {{if .MemberCount}}
-      <span class="hidden sm:inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium" style="background: var(--eb-surface-2); color: var(--eb-muted);">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        {{.MemberCount}}
-      </span>
-      {{end}}
+      <div class="hidden md:flex flex-1 justify-center px-2 min-w-0">
+        <div class="relative w-full" style="max-width: 10rem;">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--eb-muted);"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input id="global-search-input" type="text" placeholder="{{t .Lang "header.search_placeholder"}}" autocomplete="off"
+            class="eb-input w-full rounded-lg pl-9 pr-12 py-1.5 text-sm" />
+          <kbd id="global-search-kbd" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-medium rounded px-1.5 py-0.5" style="color: var(--eb-muted); border: 1px solid var(--eb-border);">⌘K</kbd>
+          <div id="global-search-results-panel" class="hidden absolute left-0 right-0 top-full mt-2 rounded-xl overflow-hidden eb-card z-30 text-left" style="box-shadow: 0 12px 32px rgba(0,0,0,0.5);">
+            <div id="global-search-results-list" class="max-h-80 overflow-y-auto"></div>
+          </div>
+        </div>
+      </div>
       <form method="POST" action="/profile/language" class="hidden sm:flex items-center text-xs font-medium rounded-lg overflow-hidden shrink-0" style="border: 1px solid var(--eb-border);">
         <button type="submit" name="language" value="fr" class="px-2 py-1 transition-colors" style="{{if eq .Lang "fr"}}background: var(--eb-surface-2); color: var(--eb-text);{{else}}color: var(--eb-muted);{{end}}">FR</button>
         <button type="submit" name="language" value="en" class="px-2 py-1 transition-colors" style="{{if eq .Lang "en"}}background: var(--eb-surface-2); color: var(--eb-text);{{else}}color: var(--eb-muted);{{end}}">EN</button>
@@ -362,6 +391,109 @@
     menu.classList.toggle("hidden");
   });
   document.addEventListener("click", () => menu.classList.add("hidden"));
+})();
+
+(function () {
+  const input = document.getElementById("global-search-input");
+  const kbd = document.getElementById("global-search-kbd");
+  const panel = document.getElementById("global-search-results-panel");
+  const list = document.getElementById("global-search-results-list");
+  if (!input || !panel || !list) return;
+
+  const I18N_NO_RESULTS_PREFIX = "{{t .Lang "workspaces.search_no_results_prefix"}}";
+  const I18N_NO_RESULTS_SUFFIX = "{{t .Lang "workspaces.search_no_results_suffix"}}";
+  const I18N_EMPTY_VALUE = "{{t .Lang "workspaces.search_empty_value"}}";
+  let debounce = null;
+  let seq = 0;
+
+  function hidePanel() {
+    panel.classList.add("hidden");
+    list.innerHTML = "";
+  }
+
+  function renderResults(items, query) {
+    list.innerHTML = "";
+    if (!items.length) {
+      const empty = document.createElement("div");
+      empty.className = "px-4 py-4 text-sm text-center";
+      empty.style.color = "var(--eb-muted)";
+      empty.textContent = I18N_NO_RESULTS_PREFIX + query + I18N_NO_RESULTS_SUFFIX;
+      list.appendChild(empty);
+      panel.classList.remove("hidden");
+      return;
+    }
+    items.forEach((item, i) => {
+      const row = document.createElement("a");
+      row.href = "/workspaces/" + item.workspaceSlug + "/tables/" + item.dataSourceSlug
+        + "?highlightColumn=" + encodeURIComponent(item.column) + "&highlightIndex=" + item.index;
+      row.className = "flex items-center justify-between gap-3 px-4 py-3 transition-colors";
+      row.style.color = "var(--eb-text)";
+      if (i > 0) row.style.borderTop = "1px solid var(--eb-border)";
+      row.onmouseover = () => { row.style.background = "var(--eb-surface-2)"; };
+      row.onmouseout = () => { row.style.background = ""; };
+
+      const left = document.createElement("div");
+      left.className = "min-w-0";
+      const title = document.createElement("p");
+      title.className = "text-sm font-semibold truncate";
+      title.textContent = item.dataSourceName + " · " + item.column;
+      const sub = document.createElement("p");
+      sub.className = "text-xs truncate";
+      sub.style.color = "var(--eb-muted)";
+      sub.textContent = item.value || I18N_EMPTY_VALUE;
+      left.appendChild(title);
+      left.appendChild(sub);
+
+      const badge = document.createElement("span");
+      badge.className = "eb-badge eb-badge-viewer shrink-0";
+      badge.textContent = item.workspaceName;
+
+      row.appendChild(left);
+      row.appendChild(badge);
+      list.appendChild(row);
+    });
+    panel.classList.remove("hidden");
+  }
+
+  function runSearch(q) {
+    const mySeq = ++seq;
+    fetch("/api/search?q=" + encodeURIComponent(q))
+      .then((res) => (res.ok ? res.json() : []))
+      .then((items) => {
+        if (mySeq !== seq) return; // a newer query superseded this one
+        renderResults(items || [], q);
+      })
+      .catch(() => { if (mySeq === seq) hidePanel(); });
+  }
+
+  input.addEventListener("input", () => {
+    const q = input.value.trim();
+    clearTimeout(debounce);
+    if (q.length < 1) {
+      seq++;
+      hidePanel();
+      return;
+    }
+    debounce = setTimeout(() => runSearch(q), 250);
+  });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { hidePanel(); input.blur(); }
+  });
+  document.addEventListener("click", (e) => {
+    if (!panel.contains(e.target) && e.target !== input) hidePanel();
+  });
+
+  // ⌘K / Ctrl+K focuses the search box from anywhere on the page.
+  document.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      input.focus();
+      input.select();
+    }
+  });
+  if (kbd) kbd.textContent = navigator.platform.toUpperCase().includes("MAC") ? "⌘K" : "Ctrl+K";
+  input.addEventListener("focus", () => { if (kbd) kbd.classList.add("hidden"); });
+  input.addEventListener("blur", () => { if (kbd) kbd.classList.remove("hidden"); });
 })();
 </script>
 {{end}}
