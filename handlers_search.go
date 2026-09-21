@@ -48,18 +48,18 @@ func (a *App) handleGlobalSearch(w http.ResponseWriter, r *http.Request) {
 		if !hasPermission(ws.Role, PermDataRead) {
 			continue
 		}
-		dataSources, err := a.store.ListDataSources(ws.ID)
+		tables, err := a.store.ListTablesByWorkspace(ws.ID)
 		if err != nil {
-			log.Printf("global search: list data sources error: %v", err)
+			log.Printf("global search: list tables error: %v", err)
 			continue
 		}
-		for _, ds := range dataSources {
-			cs, err := LoadColumnStore(ds.StoragePath)
+		for _, t := range tables {
+			records, err := LoadRecordStore(t.StoragePath)
 			if err != nil {
-				log.Printf("global search: load column store error: %v", err)
+				log.Printf("global search: load record store error: %v", err)
 				continue
 			}
-			hits := SearchColumnStore(cs, query, maxSearchResultsPerSource)
+			hits := SearchRecords(records, query, maxSearchResultsPerSource)
 			for _, hit := range hits {
 				value := hit.Value
 				if len(value) > 120 {
@@ -68,8 +68,8 @@ func (a *App) handleGlobalSearch(w http.ResponseWriter, r *http.Request) {
 				results = append(results, searchResult{
 					WorkspaceName:  ws.Name,
 					WorkspaceSlug:  ws.Slug,
-					DataSourceName: ds.Name,
-					DataSourceSlug: ds.Slug,
+					DataSourceName: t.Name,
+					DataSourceSlug: t.Slug,
 					Column:         hit.Column,
 					Index:          hit.Index,
 					Value:          value,
