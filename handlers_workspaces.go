@@ -67,6 +67,7 @@ func workspaceDetailData(lang string, currentUser *User, ws *Workspace, role str
 		"CanManageSource":    hasPermission(role, PermSettingsManage),
 		"CanImportData":      hasPermission(role, PermDataCreate),
 		"CanEditData":        hasPermission(role, PermDataUpdate),
+		"CanDeleteData":      hasPermission(role, PermDataDelete),
 		"AssignableRoles":    assignableRolesWithLabels(lang, role),
 		"Breadcrumb": []Breadcrumb{
 			{Label: T(lang, "nav.workspaces"), URL: "/workspaces"},

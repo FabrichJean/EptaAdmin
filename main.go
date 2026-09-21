@@ -67,6 +67,8 @@ func main() {
 	mux.HandleFunc("POST /workspaces/{slug}/datasources", app.requireAuth(app.handleCreateDataSource))
 	mux.HandleFunc("POST /workspaces/{slug}/datasources/{dsSlug}/tables", app.requireAuth(app.handleCreateTable))
 	mux.HandleFunc("GET /workspaces/{slug}/tables/{tableSlug}", app.requireAuth(app.handleTableGrid))
+	mux.HandleFunc("PATCH /workspaces/{slug}/tables/{tableSlug}", app.requireAuth(app.handleRenameTable))
+	mux.HandleFunc("DELETE /workspaces/{slug}/tables/{tableSlug}", app.requireAuth(app.handleDeleteTable))
 	mux.HandleFunc("GET /workspaces/{slug}/tables/{tableSlug}/export", app.requireAuth(app.handleExportTable))
 	mux.HandleFunc("POST /workspaces/{slug}/tables/{tableSlug}/import", app.requireAuth(app.handleImportTable))
 	mux.HandleFunc("POST /workspaces/{slug}/tables/{tableSlug}/records", app.requireAuth(app.handleSaveRecords))

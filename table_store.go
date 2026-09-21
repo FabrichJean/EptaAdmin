@@ -168,6 +168,25 @@ func (s *Store) ListTablesByWorkspace(workspaceID int64) ([]*Table, error) {
 	return out, rows.Err()
 }
 
+// RenameTable changes a table's display name — its slug (and therefore
+// every existing SDK/API link to it) never changes, only the name shown
+// in the admin UI.
+func (s *Store) RenameTable(id int64, name string) error {
+	_, err := s.db.Exec(`UPDATE tables SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, name, id)
+	if err != nil && isUniqueConstraintErr(err) {
+		return ErrTableExists
+	}
+	return err
+}
+
+// DeleteTable removes a table and, via ON DELETE CASCADE, its columns and
+// activity log entries. The caller is responsible for also removing its
+// on-disk record store file.
+func (s *Store) DeleteTable(id int64) error {
+	_, err := s.db.Exec(`DELETE FROM tables WHERE id = ?`, id)
+	return err
+}
+
 // BumpTableVersion increments a table's version, but only if it currently
 // matches expectedVersion — the same optimistic-concurrency guard
 // BumpDataSourceVersion used to provide when a data source held its own

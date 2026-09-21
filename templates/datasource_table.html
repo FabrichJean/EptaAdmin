@@ -12,8 +12,8 @@
   .eb-grid-table tbody tr:hover td { background: var(--eb-surface-2); }
   .eb-grid-table td.eb-grid-cell { cursor: pointer; min-width: 6rem; max-width: 28rem; overflow: hidden; text-overflow: ellipsis; }
   .eb-grid-table td.eb-grid-cell:has(.eb-cell-editor) { white-space: normal; max-width: none; overflow: visible; }
-  .eb-grid-table th .eb-col-del-btn, .eb-grid-table td.eb-grid-id-col .eb-row-del-btn, .eb-grid-table td.eb-grid-id-col .eb-row-code-btn { opacity: 0; transition: opacity 0.1s; }
-  .eb-grid-table th:hover .eb-col-del-btn, .eb-grid-table tbody tr:hover .eb-row-del-btn, .eb-grid-table tbody tr:hover .eb-row-code-btn { opacity: 1; }
+  .eb-grid-table th .eb-col-del-btn, .eb-grid-table th .eb-col-rename-btn, .eb-grid-table td.eb-grid-id-col .eb-row-del-btn, .eb-grid-table td.eb-grid-id-col .eb-row-code-btn { opacity: 0; transition: opacity 0.1s; }
+  .eb-grid-table th:hover .eb-col-del-btn, .eb-grid-table th:hover .eb-col-rename-btn, .eb-grid-table tbody tr:hover .eb-row-del-btn, .eb-grid-table tbody tr:hover .eb-row-code-btn { opacity: 1; }
   .eb-cell-editor select, .eb-cell-editor input, .eb-cell-editor textarea { font-size: 0.8125rem; }
 </style>
 {{end}}
@@ -56,6 +56,7 @@
             <th data-key="{{.Key}}">
               <span class="inline-flex items-center gap-1.5">
                 <span>{{.Key}}</span>
+                {{if $.CanEdit}}<button type="button" class="eb-col-rename-btn eb-icon-btn-ok text-xs leading-none" data-key="{{.Key}}" title="{{t $.Lang "datasource.rename_column"}}">✎</button>{{end}}
                 {{if $.CanDelete}}<button type="button" class="eb-col-del-btn eb-icon-btn text-xs leading-none" data-key="{{.Key}}" title="{{t $.Lang "datasource.delete_column_confirm"}}">✕</button>{{end}}
               </span>
             </th>
@@ -129,6 +130,7 @@
     cannotContact: "{{t .Lang "datasource.cannot_contact_server"}}",
     conflict: "{{t .Lang "datasource.conflict"}}",
     newColumnPrompt: "{{t .Lang "datasource.new_column_prompt"}}",
+    renameColumnPrompt: "{{t .Lang "datasource.rename_column_prompt"}}",
     deleteColumnConfirm: "{{t .Lang "datasource.delete_column_confirm"}}",
     deleteRowConfirm: "{{t .Lang "datasource.delete_row_confirm"}}",
     typeText: "{{t .Lang "type.text"}}",
@@ -175,6 +177,25 @@
   }
   document.getElementById("ds-add-column-btn")?.addEventListener("click", addColumn);
   document.getElementById("ds-add-column-empty-btn")?.addEventListener("click", addColumn);
+
+  // --- Rename column ---
+  document.querySelectorAll(".eb-col-rename-btn").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const newKey = window.prompt(I18N.renameColumnPrompt, btn.dataset.key);
+      if (!newKey || !newKey.trim() || newKey.trim() === btn.dataset.key) return;
+      try {
+        const res = await fetch(`/workspaces/${wsSlug}/tables/${tableSlug}/columns/${encodeURIComponent(btn.dataset.key)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: newKey.trim() }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) { alert(body.error || I18N.errorRetry); return; }
+        location.reload();
+      } catch (err) { alert(I18N.cannotContact); }
+    });
+  });
 
   // --- Delete column ---
   document.querySelectorAll(".eb-col-del-btn").forEach((btn) => {

@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -87,6 +88,89 @@ func (a *App) handleCreateTable(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{"name": t.Name, "slug": t.Slug})
+}
+
+// handleRenameTable changes a table's display name only — its slug (and
+// therefore every existing SDK/API link and record-store file path) stays
+// exactly as it was.
+func (a *App) handleRenameTable(w http.ResponseWriter, r *http.Request) {
+	currentUser := userFromContext(r)
+	lang := a.resolveLang(r)
+	ws, role, ok := a.loadWorkspaceMembership(w, r, currentUser)
+	if !ok {
+		return
+	}
+	if !hasPermission(role, PermDataUpdate) {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": T(lang, "common.access_denied")})
+		return
+	}
+	t, ok := a.loadTableInWorkspace(w, r, ws)
+	if !ok {
+		return
+	}
+
+	var req struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "common.invalid_request")})
+		return
+	}
+	newName := strings.TrimSpace(req.Name)
+	if newName == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "sidebar2.table_name_required")})
+		return
+	}
+	oldName := t.Name
+
+	if err := a.store.RenameTable(t.ID, newName); err != nil {
+		if err == ErrTableExists {
+			writeJSON(w, http.StatusConflict, map[string]string{"error": T(lang, "sidebar2.table_exists")})
+		} else {
+			log.Printf("rename table error: %v", err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		}
+		return
+	}
+	a.logActivity(logActivityParams{WorkspaceID: ws.ID, TableID: t.ID, UserID: currentUser.ID, Action: ActionTableRename, Details: map[string]any{"oldName": oldName, "newName": newName}})
+
+	writeJSON(w, http.StatusOK, map[string]string{"name": newName})
+}
+
+// handleDeleteTable permanently removes a table: its schema, its on-disk
+// record store, and (via ON DELETE CASCADE) every activity log entry tied
+// to it. There is no undo — same as every other destructive, non-record
+// level action in this app (workspaces, members).
+func (a *App) handleDeleteTable(w http.ResponseWriter, r *http.Request) {
+	currentUser := userFromContext(r)
+	lang := a.resolveLang(r)
+	ws, role, ok := a.loadWorkspaceMembership(w, r, currentUser)
+	if !ok {
+		return
+	}
+	if !hasPermission(role, PermDataDelete) {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": T(lang, "common.access_denied")})
+		return
+	}
+	t, ok := a.loadTableInWorkspace(w, r, ws)
+	if !ok {
+		return
+	}
+
+	dataWriteMu.Lock()
+	defer dataWriteMu.Unlock()
+
+	if err := a.store.DeleteTable(t.ID); err != nil {
+		log.Printf("delete table error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		return
+	}
+	if err := os.Remove(t.StoragePath); err != nil && !os.IsNotExist(err) {
+		log.Printf("remove table storage file error: %v", err)
+	}
+	a.logActivity(logActivityParams{WorkspaceID: ws.ID, UserID: currentUser.ID, Action: ActionTableDelete, Details: map[string]any{"name": t.Name}})
+
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 func (a *App) handleTableGrid(w http.ResponseWriter, r *http.Request) {
@@ -180,6 +264,7 @@ func (a *App) handleTableGrid(w http.ResponseWriter, r *http.Request) {
 		"CanManageSource":  hasPermission(role, PermSettingsManage),
 		"CanEdit":          hasPermission(role, PermDataUpdate),
 		"CanEditData":      hasPermission(role, PermDataUpdate),
+		"CanDeleteData":    hasPermission(role, PermDataDelete),
 		"CanDelete":        hasPermission(role, PermDataDelete),
 		"CanCreate":        hasPermission(role, PermDataCreate),
 		"CanImportData":    hasPermission(role, PermDataCreate),
@@ -712,9 +797,14 @@ func (a *App) handleAddTableColumn(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateColumnRequest struct {
-	Description string `json:"description"`
+	Description *string `json:"description"`
+	Key         *string `json:"key"`
 }
 
+// handleUpdateTableColumn updates a column's description and/or renames
+// its key. A rename touches both the schema (table_columns.key) and every
+// record's data (see RecordStore.RenameField) — the two must move
+// together, under the same lock as every other record-store write.
 func (a *App) handleUpdateTableColumn(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
 	lang := a.resolveLang(r)
@@ -737,7 +827,9 @@ func (a *App) handleUpdateTableColumn(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "common.invalid_request")})
 		return
 	}
-	newDescription := strings.TrimSpace(req.Description)
+
+	dataWriteMu.Lock()
+	defer dataWriteMu.Unlock()
 
 	oldDescription := ""
 	if cols, err := a.store.ListTableColumns(t.ID); err == nil {
@@ -749,14 +841,63 @@ func (a *App) handleUpdateTableColumn(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := a.store.UpdateTableColumnDescription(t.ID, key, newDescription); err != nil {
-		log.Printf("update column error: %v", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
-		return
-	}
-	a.logActivity(logActivityParams{WorkspaceID: ws.ID, TableID: t.ID, UserID: currentUser.ID, Action: ActionColumnUpdate, Details: map[string]any{"key": key, "oldDescription": oldDescription, "newDescription": newDescription}})
+	details := map[string]any{"key": key}
+	currentKey := key
 
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	if req.Key != nil {
+		newKey := strings.TrimSpace(*req.Key)
+		if newKey == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "datasource.column_name_required")})
+			return
+		}
+		if newKey != key {
+			fresh, err := a.store.GetTable(t.ID)
+			if err != nil {
+				log.Printf("get table error: %v", err)
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+				return
+			}
+			records, err := LoadRecordStore(fresh.StoragePath)
+			if err != nil {
+				log.Printf("load record store error: %v", err)
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+				return
+			}
+			if err := a.store.RenameTableColumn(t.ID, key, newKey); err != nil {
+				if err == ErrTableColumnExists {
+					writeJSON(w, http.StatusConflict, map[string]string{"error": T(lang, "datasource.column_exists")})
+				} else {
+					log.Printf("rename column error: %v", err)
+					writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+				}
+				return
+			}
+			records.RenameField(key, newKey)
+			if err := SaveRecordStore(fresh.StoragePath, records); err != nil {
+				log.Printf("save record store error: %v", err)
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": T(lang, "datasource.write_error")})
+				return
+			}
+			details["oldKey"] = key
+			details["newKey"] = newKey
+			currentKey = newKey
+		}
+	}
+
+	if req.Description != nil {
+		newDescription := strings.TrimSpace(*req.Description)
+		if err := a.store.UpdateTableColumnDescription(t.ID, currentKey, newDescription); err != nil {
+			log.Printf("update column error: %v", err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+			return
+		}
+		details["oldDescription"] = oldDescription
+		details["newDescription"] = newDescription
+	}
+
+	a.logActivity(logActivityParams{WorkspaceID: ws.ID, TableID: t.ID, UserID: currentUser.ID, Action: ActionColumnUpdate, Details: details})
+
+	writeJSON(w, http.StatusOK, map[string]string{"key": currentKey})
 }
 
 func (a *App) handleDeleteTableColumn(w http.ResponseWriter, r *http.Request) {

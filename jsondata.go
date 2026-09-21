@@ -235,6 +235,18 @@ func (rs RecordStore) DeleteColumn(key string) []any {
 	return old
 }
 
+// RenameField moves every record's value from oldKey to newKey in place —
+// used when a column is renamed, so its existing values follow the new
+// key instead of silently becoming an orphaned, unmanaged field.
+func (rs RecordStore) RenameField(oldKey, newKey string) {
+	for _, rec := range rs {
+		if v, ok := rec[oldKey]; ok {
+			rec[newKey] = v
+			delete(rec, oldKey)
+		}
+	}
+}
+
 // SetColumn overwrites key's aligned values across records, growing the
 // store with blank records if values is longer than it — used to restore a
 // column's exact prior values when reverting its deletion.

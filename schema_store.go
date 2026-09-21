@@ -125,6 +125,21 @@ func (s *Store) UpdateTableColumnDescription(tableID int64, key, description str
 	return err
 }
 
+// RenameTableColumn changes a column's key in the schema only — the
+// caller is responsible for also renaming that field across every record
+// in the table's record store (see RecordStore.RenameField), since the
+// two must stay in sync.
+func (s *Store) RenameTableColumn(tableID int64, oldKey, newKey string) error {
+	_, err := s.db.Exec(
+		`UPDATE table_columns SET key = ? WHERE table_id = ? AND key = ?`,
+		newKey, tableID, oldKey,
+	)
+	if err != nil && isUniqueConstraintErr(err) {
+		return ErrTableColumnExists
+	}
+	return err
+}
+
 // DeleteTableColumn removes a column from the schema. The caller is
 // responsible for also removing its values from the JSON store.
 func (s *Store) DeleteTableColumn(tableID int64, key string) error {
