@@ -638,10 +638,12 @@
 </head>
 <body class="h-full font-sans antialiased">
   <div class="eb-dotbg"></div>
-  <div id="webhook-deploy-notice" class="hidden fixed top-3 left-1/2 -translate-x-1/2 z-[100] rounded-xl px-4 py-3 text-sm shadow-xl" style="background: var(--eb-surface); border: 1px solid var(--eb-accent); color: var(--eb-text); min-width: min(92vw, 24rem);">
+  <div id="webhook-deploy-notice" class="fixed top-3 left-1/2 -translate-x-1/2 z-[100] rounded-xl px-4 py-3 text-sm shadow-xl opacity-0 pointer-events-none transition-opacity duration-300" style="background: var(--eb-surface); border: 1px solid var(--eb-accent); color: var(--eb-text); min-width: min(92vw, 24rem);">
     <div class="flex items-center gap-3">
-      <span id="webhook-deploy-spinner" class="h-4 w-4 rounded-full border-2 border-white/20 border-t-[var(--eb-accent)] animate-spin shrink-0"></span>
-      <span id="webhook-deploy-message">{{t .Lang "webhook.deploy_running"}}</span>
+      <span id="webhook-deploy-spinner" class="hidden h-4 w-4 rounded-full border-2 border-white/20 border-t-[var(--eb-accent)] animate-spin shrink-0"></span>
+      <span id="webhook-deploy-success-icon" class="hidden shrink-0" style="color: var(--eb-accent);">✓</span>
+      <span id="webhook-deploy-error-icon" class="hidden shrink-0" style="color: #f87171;">✕</span>
+      <span id="webhook-deploy-message"></span>
     </div>
   </div>
   <div class="relative z-10 h-full">
@@ -652,33 +654,73 @@
     const notice = document.getElementById("webhook-deploy-notice");
     const message = document.getElementById("webhook-deploy-message");
     const spinner = document.getElementById("webhook-deploy-spinner");
+    const successIcon = document.getElementById("webhook-deploy-success-icon");
+    const errorIcon = document.getElementById("webhook-deploy-error-icon");
     if (!notice || !message) return;
-    const runningText = {{printf "%q" (t .Lang "webhook.deploy_running")}};
-    const failedText = {{printf "%q" (t .Lang "webhook.deploy_failed")}};
-    let timer;
+
+    const runningTemplate = {{printf "%q" (t .Lang "webhook.deploy_running")}};
+    const successTemplate = {{printf "%q" (t .Lang "webhook.deploy_success")}};
+    const failedTemplate = {{printf "%q" (t .Lang "webhook.deploy_failed")}};
+
+    function fmt(tmpl, ...args) {
+      let i = 0;
+      return tmpl.replace(/%s/g, () => args[i++]);
+    }
+    function show(borderColor) {
+      notice.style.borderColor = borderColor;
+      notice.classList.remove("opacity-0", "pointer-events-none");
+    }
+    function hide() {
+      notice.classList.add("opacity-0", "pointer-events-none");
+    }
+
+    let hideTimer;
+    let lastFinishedAt = null;
+
     async function refreshDeployStatus() {
       try {
         const res = await fetch("/api/webhook-status", { credentials: "same-origin" });
         if (!res.ok) return;
         const status = await res.json();
+
         if (status.active) {
-          notice.classList.remove("hidden");
-          message.textContent = runningText;
+          clearTimeout(hideTimer);
+          const elapsed = Math.max(0, Math.round((Date.now() - new Date(status.startedAt).getTime()) / 1000));
           spinner.classList.remove("hidden");
-        } else if (status.error) {
-          notice.classList.remove("hidden");
-          notice.style.borderColor = "#f87171";
-          message.textContent = failedText;
-          spinner.classList.add("hidden");
-          clearInterval(timer);
-          setTimeout(() => notice.classList.add("hidden"), 8000);
-        } else {
-          notice.classList.add("hidden");
+          successIcon.classList.add("hidden");
+          errorIcon.classList.add("hidden");
+          message.textContent = fmt(runningTemplate, status.target || "?", elapsed + "s");
+          show("var(--eb-accent)");
+          return;
+        }
+
+        // Only react to a batch that just finished — avoids resurrecting a
+        // stale result from long before this page was even loaded.
+        if (status.result && status.finishedAt && status.finishedAt !== lastFinishedAt) {
+          lastFinishedAt = status.finishedAt;
+          const finishedMs = new Date(status.finishedAt).getTime();
+          if (Date.now() - finishedMs < 15000) {
+            spinner.classList.add("hidden");
+            clearTimeout(hideTimer);
+            if (status.result === "success") {
+              successIcon.classList.remove("hidden");
+              errorIcon.classList.add("hidden");
+              message.textContent = fmt(successTemplate, status.target || "?");
+              show("var(--eb-accent)");
+              hideTimer = setTimeout(hide, 4000);
+            } else {
+              errorIcon.classList.remove("hidden");
+              successIcon.classList.add("hidden");
+              message.textContent = fmt(failedTemplate, status.target || "?");
+              show("#f87171");
+              hideTimer = setTimeout(hide, 8000);
+            }
+          }
         }
       } catch (error) {}
     }
     refreshDeployStatus();
-    timer = setInterval(refreshDeployStatus, 2000);
+    setInterval(refreshDeployStatus, 2000);
   })();
   </script>
 </body>

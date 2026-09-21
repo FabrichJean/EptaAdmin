@@ -210,14 +210,25 @@ func (a *App) handleTriggerWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := a.deliverWebhook(hook, ActionWebhookManualTrigger, true, map[string]any{"triggeredBy": currentUser.Username})
+	deliverErr := a.deliverWebhook(hook, ActionWebhookManualTrigger, true, map[string]any{"triggeredBy": currentUser.Username})
 	a.logActivity(logActivityParams{WorkspaceID: ws.ID, UserID: currentUser.ID, Action: ActionWebhookManualTrigger, Details: map[string]any{"url": hook.URL}})
-	if err != nil {
-		writeJSON(w, http.StatusBadGateway, map[string]string{"error": T(lang, "settings.webhook_trigger_failed") + " (" + err.Error() + ")"})
-		return
+
+	// Reload the row so the caller can update its "last triggered" text in
+	// place instead of reloading the whole page to see the outcome.
+	resp := map[string]any{"ok": deliverErr == nil}
+	if updated, err := a.store.GetWebhook(hook.ID); err != nil {
+		log.Printf("get webhook after trigger error: %v", err)
+	} else if updated != nil && updated.LastTriggeredAt.Valid {
+		resp["lastTriggeredAt"] = updated.LastTriggeredAt.Time.Local().Format("02/01/2006 15:04")
+		resp["lastStatus"] = updated.LastStatus
 	}
 
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	if deliverErr != nil {
+		resp["error"] = T(lang, "settings.webhook_trigger_failed") + " (" + deliverErr.Error() + ")"
+		writeJSON(w, http.StatusBadGateway, resp)
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // loadWebhookInWorkspace resolves {id} to a webhook that really belongs

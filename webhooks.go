@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -29,6 +30,16 @@ type webhookPayload struct {
 	Details   map[string]any `json:"details,omitempty"`
 }
 
+// webhookTargetLabel is the friendly, short label shown in the global
+// delivery banner — the host, not the whole URL with its path/query, and a
+// safe fallback to the raw string if it doesn't even parse as a URL.
+func webhookTargetLabel(rawURL string) string {
+	if u, err := url.Parse(rawURL); err == nil && u.Host != "" {
+		return u.Host
+	}
+	return rawURL
+}
+
 // computeWebhookSignature signs the exact request body with the
 // webhook's own secret (never the account's API key), so the receiving
 // server can verify a payload really came from this EptaAdmin instance —
@@ -47,7 +58,7 @@ func computeWebhookSignature(secret string, body []byte) string {
 // trigger from logActivity, which must never block the request that
 // caused it).
 func (a *App) deliverWebhook(hook *Webhook, event string, manual bool, details map[string]any) (err error) {
-	a.webhookDeploy.start(event)
+	a.webhookDeploy.start(webhookTargetLabel(hook.URL))
 	defer func() { a.webhookDeploy.finish(err) }()
 
 	payload := webhookPayload{

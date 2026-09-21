@@ -35,7 +35,7 @@
             <div class="flex items-center justify-between gap-3">
               <div class="min-w-0">
                 <p class="text-sm font-medium truncate" style="color: var(--eb-text);">{{.URL}}</p>
-                <p class="text-xs mt-0.5" style="color: var(--eb-muted);">
+                <p class="webhook-last-triggered text-xs mt-0.5" style="color: var(--eb-muted);">
                   {{if .LastTriggeredAt.Valid}}{{t $.Lang "settings.webhook_last_triggered" (formatTime .LastTriggeredAt.Time) .LastStatus}}{{else}}{{t $.Lang "settings.webhook_never"}}{{end}}
                 </p>
               </div>
@@ -80,6 +80,8 @@
       {{end}}
      </div>
     </main>
+
+    <div id="webhook-toast" class="hidden fixed bottom-5 right-5 z-[100] max-w-sm rounded-xl px-4 py-3 text-sm shadow-xl" style="background: var(--eb-surface); border: 1px solid var(--eb-border-strong); color: var(--eb-text);"></div>
   </div>
 </div>
 
@@ -93,11 +95,29 @@
     deleteConfirm: "{{t .Lang "settings.webhook_delete_confirm"}}",
     triggerFailed: "{{t .Lang "settings.webhook_trigger_failed"}}",
     triggerOk: "{{t .Lang "settings.webhook_trigger_ok"}}",
+    triggerSending: "{{t .Lang "settings.webhook_trigger_sending"}}",
+    lastTriggeredTemplate: "{{t .Lang "settings.webhook_last_triggered"}}",
     enabledLabel: "{{t .Lang "settings.webhook_enabled"}}",
     disabledLabel: "{{t .Lang "settings.webhook_disabled"}}",
     copyLabel: "{{t .Lang "common.copy"}}",
     copiedLabel: "{{t .Lang "common.copied"}}",
   };
+
+  function fmt(tmpl, ...args) {
+    let i = 0;
+    return tmpl.replace(/%s/g, () => args[i++]);
+  }
+
+  const toast = document.getElementById("webhook-toast");
+  let toastTimer;
+  function showToast(message, kind = "error") {
+    if (!toast) return;
+    clearTimeout(toastTimer);
+    toast.textContent = message;
+    toast.style.borderColor = kind === "success" ? "var(--eb-accent)" : "#f87171";
+    toast.classList.remove("hidden");
+    toastTimer = setTimeout(() => toast.classList.add("hidden"), 5000);
+  }
 
   const WEBHOOK_SNIPPETS = {
     node: (secret) => `const crypto = require("crypto");
@@ -252,9 +272,9 @@ http_response_code(200);`,
       try {
         const res = await fetch(`/workspaces/${btn.dataset.wsSlug}/webhooks/${btn.dataset.id}`, { method: "DELETE" });
         const body = await res.json().catch(() => ({}));
-        if (!res.ok) { alert(body.error || I18N.errorRetry); return; }
+        if (!res.ok) { showToast(body.error || I18N.errorRetry); return; }
         location.reload();
-      } catch (e) { alert(I18N.cannotContact); }
+      } catch (e) { showToast(I18N.cannotContact); }
     });
   });
 
@@ -267,27 +287,42 @@ http_response_code(200);`,
           body: JSON.stringify({ enabled: toggle.checked }),
         });
         const body = await res.json().catch(() => ({}));
-        if (!res.ok) { alert(body.error || I18N.errorRetry); toggle.checked = !toggle.checked; return; }
+        if (!res.ok) { showToast(body.error || I18N.errorRetry); toggle.checked = !toggle.checked; return; }
         const label = toggle.closest("label")?.querySelector(".webhook-enabled-label");
         if (label) label.textContent = toggle.checked ? I18N.enabledLabel : I18N.disabledLabel;
-      } catch (e) { alert(I18N.cannotContact); toggle.checked = !toggle.checked; }
+      } catch (e) { showToast(I18N.cannotContact); toggle.checked = !toggle.checked; }
     });
   });
 
   document.querySelectorAll(".webhook-trigger-btn").forEach((btn) => {
     btn.addEventListener("click", async () => {
+      if (btn.dataset.busy) return;
+      btn.dataset.busy = "1";
       const original = btn.textContent;
+      const row = btn.closest(".webhook-row");
+      const lastTriggeredEl = row?.querySelector(".webhook-last-triggered");
       btn.disabled = true;
-      btn.textContent = "…";
+      let seconds = 0;
+      btn.textContent = `${I18N.triggerSending}…`;
+      const tick = setInterval(() => {
+        seconds++;
+        btn.textContent = `${I18N.triggerSending}… (${seconds}s)`;
+      }, 1000);
       try {
         const res = await fetch(`/workspaces/${btn.dataset.wsSlug}/webhooks/${btn.dataset.id}/trigger`, { method: "POST" });
         const body = await res.json().catch(() => ({}));
-        alert(res.ok ? I18N.triggerOk : (body.error || I18N.triggerFailed));
-        location.reload();
+        clearInterval(tick);
+        showToast(res.ok ? I18N.triggerOk : (body.error || I18N.triggerFailed), res.ok ? "success" : "error");
+        if (lastTriggeredEl && body.lastTriggeredAt) {
+          lastTriggeredEl.textContent = fmt(I18N.lastTriggeredTemplate, body.lastTriggeredAt, body.lastStatus || "");
+        }
       } catch (e) {
-        alert(I18N.cannotContact);
+        clearInterval(tick);
+        showToast(I18N.cannotContact);
+      } finally {
         btn.disabled = false;
         btn.textContent = original;
+        delete btn.dataset.busy;
       }
     });
   });
