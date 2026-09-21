@@ -6,24 +6,22 @@ import (
 	"net/http"
 )
 
-// exampleColumnsPreview truncates a column store to a few columns and a few
-// values each, so the "getDataSource" demo shows real data shapes without
-// dumping an entire (possibly large) data source into the page.
-func exampleColumnsPreview(cs ColumnStore) map[string][]any {
+// exampleColumnsPreview truncates a record store's projected columns to a
+// few fields and a few values each, so the "getDataSource" demo shows real
+// data shapes without dumping an entire (possibly large) data source into
+// the page.
+func exampleColumnsPreview(records RecordStore) map[string][]any {
 	const maxColumns = 4
 	const maxValuesPerColumn = 3
 
-	keys := make([]string, 0, len(cs))
-	for k := range cs {
-		keys = append(keys, k)
-	}
+	keys := records.Keys()
 	if len(keys) > maxColumns {
 		keys = keys[:maxColumns]
 	}
 
 	out := make(map[string][]any, len(keys))
 	for _, k := range keys {
-		values := cs[k]
+		values := records.Column(k)
 		if len(values) > maxValuesPerColumn {
 			values = values[:maxValuesPerColumn]
 		}
@@ -63,18 +61,18 @@ func (a *App) handleIntegrationPage(w http.ResponseWriter, r *http.Request) {
 		exampleWorkspaceName = ws.Name
 		exampleWorkspaceRole = ws.Role
 
-		dataSources, err := a.store.ListDataSources(ws.ID)
+		tables, err := a.store.ListTablesByWorkspace(ws.ID)
 		if err != nil {
-			log.Printf("integration page: list data sources error: %v", err)
-		} else if len(dataSources) > 0 {
-			ds := dataSources[0]
-			exampleDataSourceSlug = ds.Slug
-			exampleDataSourceName = ds.Name
+			log.Printf("integration page: list tables error: %v", err)
+		} else if len(tables) > 0 {
+			t := tables[0]
+			exampleDataSourceSlug = t.Slug
+			exampleDataSourceName = t.Name
 
-			if cs, err := LoadColumnStore(ds.StoragePath); err != nil {
-				log.Printf("integration page: load column store error: %v", err)
-			} else if len(cs) > 0 {
-				preview := exampleColumnsPreview(cs)
+			if records, err := LoadRecordStore(t.StoragePath); err != nil {
+				log.Printf("integration page: load record store error: %v", err)
+			} else if len(records) > 0 {
+				preview := exampleColumnsPreview(records)
 				if b, err := json.MarshalIndent(preview, "", "  "); err == nil {
 					exampleColumnsJSON = string(b)
 				}
