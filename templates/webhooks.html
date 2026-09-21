@@ -1,5 +1,22 @@
 {{define "title"}}{{t .Lang "settings.webhooks_title"}} — EptaAdmin{{end}}
 {{define "content"}}
+<style>
+  .webhook-config-details[open] {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(42rem, calc(100vw - 2rem));
+    max-height: calc(100vh - 4rem);
+    z-index: 60;
+    overflow-y: auto;
+    padding: 1.25rem;
+    border: 1px solid var(--eb-border-strong);
+    border-radius: 1rem;
+    background: var(--eb-surface);
+    box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.68), 0 24px 80px rgba(0, 0, 0, 0.45);
+  }
+</style>
 <div class="h-full flex">
   {{template "sidebar" .}}
 
@@ -31,11 +48,11 @@
           {{range .Webhooks}}
           <div class="webhook-row eb-card rounded-xl p-5" data-id="{{.ID}}" data-ws-slug="{{$ws.Slug}}">
             <div class="flex items-start justify-between gap-4">
-              <div class="flex items-start gap-3 min-w-0">
+              <div class="flex items-start gap-3 min-w-0 flex-1">
                 <div class="h-10 w-10 rounded-lg flex items-center justify-center shrink-0" style="background: var(--eb-surface-2); color: var(--eb-muted);">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                 </div>
-                <div class="min-w-0">
+                <div class="min-w-0 flex-1">
                   <div class="flex items-center gap-2 flex-wrap">
                     <p class="webhook-url-display text-sm font-semibold truncate" style="color: var(--eb-text);">{{.URL}}</p>
                     <span class="webhook-status-badge eb-badge text-xs" style="background: {{if .Enabled}}rgba(52,211,153,0.15){{else}}rgba(156,163,175,0.15){{end}}; color: {{if .Enabled}}var(--eb-accent){{else}}var(--eb-muted){{end}};">{{if .Enabled}}{{t $.Lang "settings.webhook_enabled"}}{{else}}{{t $.Lang "settings.webhook_disabled"}}{{end}}</span>
@@ -51,29 +68,6 @@
                     {{if .LastTriggeredAt.Valid}}{{t $.Lang "settings.webhook_last_triggered" (formatTime .LastTriggeredAt.Time) .LastStatus}}{{else}}{{t $.Lang "settings.webhook_never"}}{{end}}
                   </p>
 
-                  <details class="webhook-config-details mt-2">
-                    <summary class="webhook-config-summary text-xs cursor-pointer inline-flex items-center gap-1 select-none" style="color: var(--eb-accent);">
-                      <svg class="webhook-config-chevron h-3 w-3 transition-transform" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
-                      {{t $.Lang "settings.webhook_view_config"}}
-                    </summary>
-                    <div class="mt-3 space-y-3 max-w-lg">
-                      <div>
-                        <p class="text-xs mb-1" style="color: var(--eb-muted);">{{t $.Lang "settings.webhook_secret_label"}}</p>
-                        <p class="text-xs mb-1" style="color: var(--eb-muted);">{{t $.Lang "settings.webhook_secret_hint"}}</p>
-                        <code class="webhook-secret-value block text-xs font-mono rounded px-2 py-1" style="background: var(--eb-bg); color: var(--eb-text); border: 1px solid var(--eb-border);">{{.Secret}}</code>
-                      </div>
-                      <div>
-                        <div class="flex items-center gap-1 flex-wrap">
-                          <button type="button" class="webhook-snippet-tab text-xs px-2 py-1 rounded-md transition-colors" data-lang="node" style="color: var(--eb-muted);">Node.js</button>
-                          <button type="button" class="webhook-snippet-tab text-xs px-2 py-1 rounded-md transition-colors" data-lang="python" style="color: var(--eb-muted);">Python</button>
-                          <button type="button" class="webhook-snippet-tab text-xs px-2 py-1 rounded-md transition-colors" data-lang="php" style="color: var(--eb-muted);">PHP</button>
-                          <button type="button" class="webhook-snippet-tab text-xs px-2 py-1 rounded-md transition-colors" data-lang="go" style="color: var(--eb-muted);">Go</button>
-                          <button type="button" class="webhook-snippet-copy-btn text-xs px-2 py-1 rounded-md ml-auto" style="color: var(--eb-muted);">{{t $.Lang "common.copy"}}</button>
-                        </div>
-                        <pre class="mt-2 text-xs font-mono rounded-lg overflow-x-auto" style="border: 1px solid var(--eb-border);"><code class="webhook-snippet-code"></code></pre>
-                      </div>
-                    </div>
-                  </details>
                 </div>
               </div>
 
@@ -109,7 +103,30 @@
                 </div>
               </div>
             </div>
-          </div>
+          <details class="webhook-config-details block w-full mt-4">
+            <summary class="webhook-config-summary text-xs cursor-pointer inline-flex items-center gap-1 select-none" style="color: var(--eb-accent);">
+              <svg class="webhook-config-icon h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              {{t $.Lang "settings.webhook_view_config"}}
+            </summary>
+            <div class="mt-3 space-y-3 w-full">
+              <div class="w-full">
+                <p class="text-xs mb-1" style="color: var(--eb-muted);">{{t $.Lang "settings.webhook_secret_label"}}</p>
+                <p class="text-xs mb-1" style="color: var(--eb-muted);">{{t $.Lang "settings.webhook_secret_hint"}}</p>
+                <code class="webhook-secret-value block w-full text-xs font-mono rounded px-2 py-1" style="background: var(--eb-bg); color: var(--eb-text); border: 1px solid var(--eb-border);">{{.Secret}}</code>
+              </div>
+              <div class="w-full">
+                <div class="flex items-center gap-1 flex-wrap">
+                  <button type="button" class="webhook-snippet-tab text-xs px-2 py-1 rounded-md transition-colors" data-lang="node" style="color: var(--eb-muted);">Node.js</button>
+                  <button type="button" class="webhook-snippet-tab text-xs px-2 py-1 rounded-md transition-colors" data-lang="python" style="color: var(--eb-muted);">Python</button>
+                  <button type="button" class="webhook-snippet-tab text-xs px-2 py-1 rounded-md transition-colors" data-lang="php" style="color: var(--eb-muted);">PHP</button>
+                  <button type="button" class="webhook-snippet-tab text-xs px-2 py-1 rounded-md transition-colors" data-lang="go" style="color: var(--eb-muted);">Go</button>
+                  <button type="button" class="webhook-snippet-copy-btn text-xs px-2 py-1 rounded-md ml-auto" style="color: var(--eb-muted);">{{t $.Lang "common.copy"}}</button>
+                </div>
+                <pre class="mt-2 w-full text-xs font-mono rounded-lg overflow-x-auto" style="border: 1px solid var(--eb-border);"><code class="webhook-snippet-code"></code></pre>
+              </div>
+            </div>
+          </details>
+        </div>
           {{end}}
           {{if not .Webhooks}}
           <div class="eb-card rounded-xl px-5 py-8 text-center text-sm" style="color: var(--eb-muted);">{{t $.Lang "settings.no_webhooks"}}</div>
@@ -365,10 +382,13 @@ http_response_code(200);`,
     details.dataset.activeLang = lang;
   }
 
+  const EYE_OPEN = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+  const EYE_CLOSED = '<path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a20.3 20.3 0 0 1 5.06-6.06M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a20.3 20.3 0 0 1-4.42 5.94"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+
   document.querySelectorAll(".webhook-config-details").forEach((details) => {
-    const chevron = details.querySelector(".webhook-config-chevron");
+    const eyeIcon = details.querySelector(".webhook-config-icon");
     details.addEventListener("toggle", () => {
-      if (chevron) chevron.style.transform = details.open ? "rotate(90deg)" : "";
+      if (eyeIcon) eyeIcon.innerHTML = details.open ? EYE_CLOSED : EYE_OPEN;
       if (details.open && !details.dataset.rendered) {
         details.dataset.rendered = "1";
         renderWebhookSnippet(details, "node");

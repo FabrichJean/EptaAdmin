@@ -44,6 +44,24 @@
       {{end}}
     </div>
 
+    <div class="mt-8 eb-card rounded-xl overflow-hidden">
+      <div class="px-5 py-4 flex items-center justify-between gap-2" style="border-bottom: 1px solid var(--eb-border);">
+        <h2 class="text-sm font-semibold" style="color: var(--eb-text);">{{t .Lang "dashboard.recent_activity"}}</h2>
+        <a href="/activity" class="text-xs font-medium hover:underline" style="color: var(--eb-accent);">{{t .Lang "dashboard.view_all_activity"}}</a>
+      </div>
+      {{range $i, $row := .RecentActivity}}
+      <div class="px-5 py-3" style="{{if $i}}border-top: 1px solid var(--eb-border);{{end}}">
+        <p class="text-sm" style="color: var(--eb-text);">{{$row.Describe $.Lang}}</p>
+        <p class="text-xs mt-0.5" style="color: var(--eb-muted);">
+          {{formatTime $row.CreatedAt}}{{if $row.WorkspaceName}} · {{$row.WorkspaceName}}{{end}}
+        </p>
+      </div>
+      {{end}}
+      {{if not .RecentActivity}}
+      <div class="px-5 py-10 text-center text-sm" style="color: var(--eb-muted);">{{t .Lang "dashboard.recent_activity_empty"}}</div>
+      {{end}}
+    </div>
+
      </div>
     </main>
   </div>

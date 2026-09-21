@@ -282,5 +282,18 @@ func (a *App) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		data["WorkspaceRoleLabel"] = workspaces[0].RoleLabel(lang)
 	}
 
+	// Same merged, newest-first timeline as the global Activité page and the
+	// header notification bell — just capped to a handful for a compact
+	// dashboard widget, not a full page.
+	if entries, err := a.recentActivityForUser(currentUser.ID, 6); err != nil {
+		log.Printf("dashboard recent activity error: %v", err)
+	} else {
+		rows := make([]ActivityRow, 0, len(entries))
+		for _, e := range entries {
+			rows = append(rows, ActivityRow{ActivityEntry: e})
+		}
+		data["RecentActivity"] = rows
+	}
+
 	a.render(w, r, "dashboard.html", data)
 }
