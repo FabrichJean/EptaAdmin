@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -379,6 +380,24 @@ func (a *App) handleGlobalActivity(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
 		return
 	}
+
+	// Account-level activity (login, logout, register, profile changes...)
+	// has no workspace at all, so it's never returned by
+	// ListActivityForUserWorkspaces above — merge it in here so the global
+	// feed is a real single timeline instead of silently missing every
+	// login/logout.
+	accountEntries, err := a.store.ListUserActivity(currentUser.ID, 300)
+	if err != nil {
+		log.Printf("list user activity error: %v", err)
+		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
+		return
+	}
+	entries = append(entries, accountEntries...)
+	sort.Slice(entries, func(i, j int) bool { return entries[i].ID > entries[j].ID })
+	if len(entries) > 300 {
+		entries = entries[:300]
+	}
+
 	rows := make([]ActivityRow, 0, len(entries))
 	for _, e := range entries {
 		canRevert := e.WorkspaceID.Valid && hasPermission(roleByWorkspace[e.WorkspaceID.Int64], PermDataUpdate)
