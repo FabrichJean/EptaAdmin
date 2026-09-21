@@ -111,7 +111,7 @@
         }
         items.forEach((item, i) => {
           const row = document.createElement("a");
-          row.href = "/workspaces/" + item.workspaceSlug + "/datasources/" + item.dataSourceSlug
+          row.href = "/workspaces/" + item.workspaceSlug + "/tables/" + item.dataSourceSlug
             + "?highlightColumn=" + encodeURIComponent(item.column) + "&highlightIndex=" + item.index;
           row.className = "flex items-center justify-between gap-3 px-4 py-3 transition-colors";
           row.style.color = "var(--eb-text)";

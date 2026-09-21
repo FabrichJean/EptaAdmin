@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html/template"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -119,66 +120,211 @@ func newDataSourcePath(workspaceID int64, name string) (string, error) {
 	return filepath.Join(dir, base+".json"), nil
 }
 
-// ColumnStore is the on-disk shape of a data source: each column is its own
-// independent, ordered list of values. Columns are not required to have the
-// same length, and there is no assumption that index i of one column
-// relates in any way to index i of another — they are unrelated lists that
-// merely happen to be grouped under the same data source.
-type ColumnStore map[string][]any
+// Record is one real, whole item in a data source — a set of named field
+// values. A record needn't have every declared field set: an absent key
+// simply means that field is empty for this record (rendered as nil in the
+// aligned per-field view — see RecordStore.Column).
+type Record map[string]any
 
-// LoadColumnStore reads a data source's JSON file. A missing file is an
+// RecordStore is the on-disk shape of a data source: an ordered list of
+// records. Unlike the old independent-per-column-list model, index i really
+// is "the same item" across every field — Column(key)[i] and
+// Column(otherKey)[i] always come from the same Record.
+type RecordStore []Record
+
+// Keys returns every field name that appears in at least one record,
+// sorted for deterministic output (JSON/CSV export, the public API...).
+func (rs RecordStore) Keys() []string {
+	seen := map[string]bool{}
+	var keys []string
+	for _, rec := range rs {
+		for k := range rec {
+			if !seen[k] {
+				seen[k] = true
+				keys = append(keys, k)
+			}
+		}
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// HasField reports whether any record has ever had this key set — used to
+// distinguish "this field has no values yet" from "this field doesn't
+// exist" (the public API's 404 for an unknown column).
+func (rs RecordStore) HasField(key string) bool {
+	for _, rec := range rs {
+		if _, ok := rec[key]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// Column returns one field's values, aligned to every record (nil for a
+// record that doesn't have this field) — the same shape the old
+// map[string][]any model exposed directly, but now a real, guaranteed
+// alignment rather than an accident of independent lists.
+func (rs RecordStore) Column(key string) []any {
+	out := make([]any, len(rs))
+	for i, rec := range rs {
+		out[i] = rec[key]
+	}
+	return out
+}
+
+// ToColumnsMap projects every field into its own aligned list — the shape
+// the public API and JSON export hand external callers, so nothing
+// consuming this app's data (the SDK, an export re-imported elsewhere) has
+// to change just because the internal storage is now record-based.
+func (rs RecordStore) ToColumnsMap() map[string][]any {
+	keys := rs.Keys()
+	out := make(map[string][]any, len(keys))
+	for _, k := range keys {
+		out[k] = rs.Column(k)
+	}
+	return out
+}
+
+// AppendField sets value for key on the record that should receive it: the
+// last record, unless it already has key set, in which case a new
+// trailing record is started instead. This is what makes filling in one
+// field at a time (the existing "+ Ajouter" UI, one click per field) land
+// in the same shared record as the other fields entered right before it,
+// rather than each field starting its own, unrelated record.
+func (rs RecordStore) AppendField(key string, value any) (RecordStore, int) {
+	if len(rs) == 0 {
+		rs = append(rs, Record{})
+	} else if _, exists := rs[len(rs)-1][key]; exists {
+		rs = append(rs, Record{})
+	}
+	idx := len(rs) - 1
+	rs[idx][key] = value
+	return rs, idx
+}
+
+// UpdateField sets key on the record at index, which must already exist.
+func (rs RecordStore) UpdateField(key string, index int, value any) error {
+	if index < 0 || index >= len(rs) {
+		return errRecordIndexOutOfRange
+	}
+	rs[index][key] = value
+	return nil
+}
+
+// DeleteField removes key from the record at index, returning its prior
+// value. The record itself is kept in place (possibly now with no fields
+// at all) rather than removed, so every other field's alignment to the
+// remaining records is never disturbed by an unrelated field's delete.
+func (rs RecordStore) DeleteField(key string, index int) (any, error) {
+	if index < 0 || index >= len(rs) {
+		return nil, errRecordIndexOutOfRange
+	}
+	old := rs[index][key]
+	delete(rs[index], key)
+	return old, nil
+}
+
+// DeleteColumn removes key from every record at once (dropping a field
+// from the schema entirely), returning its previous aligned values.
+func (rs RecordStore) DeleteColumn(key string) []any {
+	old := rs.Column(key)
+	for _, rec := range rs {
+		delete(rec, key)
+	}
+	return old
+}
+
+// SetColumn overwrites key's aligned values across records, growing the
+// store with blank records if values is longer than it — used to restore a
+// column's exact prior values when reverting its deletion.
+func (rs RecordStore) SetColumn(key string, values []any) RecordStore {
+	for len(rs) < len(values) {
+		rs = append(rs, Record{})
+	}
+	for i, v := range values {
+		if v != nil {
+			rs[i][key] = v
+		}
+	}
+	return rs
+}
+
+// MoveRecord moves the whole record at position from to position to. A
+// field's value can no longer be reordered in isolation — reordering one
+// of a record's fields necessarily means reordering the record itself,
+// since every other field travels along with it by definition now.
+func (rs RecordStore) MoveRecord(from, to int) (RecordStore, error) {
+	if from < 0 || from >= len(rs) {
+		return rs, errRecordIndexOutOfRange
+	}
+	v := rs[from]
+	rs = append(rs[:from], rs[from+1:]...)
+	if to < 0 {
+		to = 0
+	}
+	if to > len(rs) {
+		to = len(rs)
+	}
+	rs = append(rs[:to], append(RecordStore{v}, rs[to:]...)...)
+	return rs, nil
+}
+
+var errRecordIndexOutOfRange = errors.New("index out of range")
+
+// LoadRecordStore reads a data source's JSON file. A missing file is an
 // empty store rather than an error, since a freshly registered data source
 // has nothing written to disk yet. It also transparently migrates the
-// older row-based format (a JSON array of objects) the first time it's
-// read, since that format assumed a row-to-row relation between columns
-// that this app no longer imposes.
-func LoadColumnStore(path string) (ColumnStore, error) {
+// older independent-columns format (a JSON object of {field: [values]},
+// with no guaranteed alignment between fields) the first time it's read,
+// since that's exactly the property this format restores.
+func LoadRecordStore(path string) (RecordStore, error) {
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
-		return ColumnStore{}, nil
+		return RecordStore{}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return ParseColumnStoreJSON(data)
+	return ParseRecordStoreJSON(data)
 }
 
-// ParseColumnStoreJSON parses the bytes of a data source's JSON — either
-// the columnar object shape this app writes, or the legacy row-array shape
-// — into a ColumnStore. Shared by LoadColumnStore (reading a data source's
-// own file) and data source import (reading an uploaded file), so both
-// tolerate the same two shapes.
-func ParseColumnStoreJSON(data []byte) (ColumnStore, error) {
+// ParseRecordStoreJSON parses the bytes of a data source's JSON — either
+// the row-array shape this app now writes, or the legacy columnar-object
+// shape — into a RecordStore. Shared by LoadRecordStore (reading a data
+// source's own file) and data source import (reading an uploaded file), so
+// both tolerate the same two shapes.
+func ParseRecordStoreJSON(data []byte) (RecordStore, error) {
 	trimmed := strings.TrimSpace(string(data))
 	if trimmed == "" {
-		return ColumnStore{}, nil
+		return RecordStore{}, nil
 	}
 
 	if strings.HasPrefix(trimmed, "[") {
-		var rows []map[string]any
-		if err := json.Unmarshal(data, &rows); err != nil {
+		var records RecordStore
+		if err := json.Unmarshal(data, &records); err != nil {
 			return nil, fmt.Errorf("le fichier JSON n'est pas reconnu: %w", err)
 		}
-		return columnStoreFromRows(rows), nil
+		if records == nil {
+			records = RecordStore{}
+		}
+		return records, nil
 	}
 
-	var cs ColumnStore
+	var cs map[string][]any
 	if err := json.Unmarshal(data, &cs); err != nil {
 		return nil, fmt.Errorf("le fichier JSON n'est pas un objet de colonnes valide: %w", err)
 	}
-	if cs == nil {
-		cs = ColumnStore{}
-	}
-	return cs, nil
+	return recordsFromColumns(cs), nil
 }
 
-// columnStoreFromRows converts the legacy row-based format into independent
-// columns. A column's resulting list simply skips rows that didn't have
-// that key — there is no attempt to preserve positional alignment between
-// columns, since that alignment is exactly what this model discards.
-func columnStoreFromRows(rows []map[string]any) ColumnStore {
-	cs := ColumnStore{}
-	for _, row := range rows {
+// recordsFromColumns transposes the legacy independent-columns shape into
+// real, aligned records — record i takes index i from every column that
+// has one, nil-padding any column shorter than the longest.
+func recordsFromColumns(cs map[string][]any) RecordStore {
+	maxLen := 0
+	for _, values := range cs {
+		if len(values) > maxLen {
 		for k, v := range row {
 			cs[k] = append(cs[k], v)
 		}
