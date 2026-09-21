@@ -72,6 +72,8 @@ func main() {
 	mux.HandleFunc("POST /workspaces/{slug}/members/{userID}/remove", app.requireAuth(app.handleRemoveWorkspaceMember))
 	mux.HandleFunc("POST /workspaces/{slug}/members/{userID}/role", app.requireAuth(app.handleUpdateWorkspaceMemberRole))
 	mux.HandleFunc("POST /workspaces/{slug}/datasources", app.requireAuth(app.handleCreateDataSource))
+	mux.HandleFunc("PATCH /workspaces/{slug}/datasources/{dsSlug}", app.requireAuth(app.handleRenameDataSource))
+	mux.HandleFunc("DELETE /workspaces/{slug}/datasources/{dsSlug}", app.requireAuth(app.handleDeleteDataSource))
 	mux.HandleFunc("POST /workspaces/{slug}/datasources/{dsSlug}/tables", app.requireAuth(app.handleCreateTable))
 	mux.HandleFunc("GET /workspaces/{slug}/tables/{tableSlug}", app.requireAuth(app.handleTableGrid))
 	mux.HandleFunc("PATCH /workspaces/{slug}/tables/{tableSlug}", app.requireAuth(app.handleRenameTable))

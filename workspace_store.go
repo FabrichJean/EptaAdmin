@@ -360,6 +360,24 @@ func (s *Store) CreateDataSource(workspaceID int64, name, sourceType string) (*D
 	return s.GetDataSource(id)
 }
 
+// RenameDataSource changes only the display name. Its slug remains stable so
+// SDK/API consumers and the table tree keep their existing addresses.
+func (s *Store) RenameDataSource(id int64, name string) error {
+	_, err := s.db.Exec(`UPDATE data_sources SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, name, id)
+	if err != nil && isUniqueConstraintErr(err) {
+		return ErrDataSourceExists
+	}
+	return err
+}
+
+// DeleteDataSource removes a folder and all tables beneath it. Foreign-key
+// cascades remove table schemas and activity rows; callers remove storage
+// files separately because SQLite does not own those files.
+func (s *Store) DeleteDataSource(id int64) error {
+	_, err := s.db.Exec(`DELETE FROM data_sources WHERE id = ?`, id)
+	return err
+}
+
 const dataSourceColumns = `id, workspace_id, name, slug, type, storage_path, version, created_at, updated_at`
 
 func scanDataSource(row *sql.Row) (*DataSource, error) {

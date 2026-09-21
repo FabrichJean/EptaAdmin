@@ -34,6 +34,8 @@ const (
 	ActionMemberDelete     = "member.delete"
 
 	ActionDataSourceCreate = "datasource.create"
+	ActionDataSourceRename = "datasource.rename"
+	ActionDataSourceDelete = "datasource.delete"
 	ActionTableRename      = "table.rename"
 	ActionTableDelete      = "table.delete"
 	ActionImport           = "datasource.import"
@@ -145,6 +147,10 @@ func (e *ActivityEntry) Describe(lang string) string {
 		return T(lang, "activity.desc.member.delete", actor, detailString(d, "username"))
 	case ActionDataSourceCreate:
 		return T(lang, "activity.desc.datasource.create", actor, detailString(d, "name"))
+	case ActionDataSourceRename:
+		return T(lang, "activity.desc.datasource.rename", actor, detailString(d, "oldName"), detailString(d, "newName"))
+	case ActionDataSourceDelete:
+		return T(lang, "activity.desc.datasource.delete", actor, detailString(d, "name"))
 	case ActionTableRename:
 		return T(lang, "activity.desc.table.rename", actor, detailString(d, "oldName"), detailString(d, "newName"))
 	case ActionTableDelete:

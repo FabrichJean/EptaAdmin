@@ -194,9 +194,9 @@
   </div>
   {{end}}
 
-  <nav class="flex-1 overflow-y-auto py-2">
+  <nav id="secondary-sidebar-scroll" class="flex-1 overflow-y-auto py-2">
     {{range $item := .DataSourceTree}}
-    <div class="tree-ds-node">
+    <div class="tree-ds-node" data-ds-slug="{{$item.DataSource.Slug}}">
       <div class="group flex items-center gap-1 pr-2">
         <button type="button" class="tree-ds-toggle shrink-0 h-7 w-5 flex items-center justify-center">
           <svg xmlns="http://www.w3.org/2000/svg" class="tree-caret h-3 w-3 shrink-0 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--eb-muted);"><path d="m9 18 6-6-6-6"/></svg>
@@ -208,6 +208,12 @@
         {{if $.CanEditData}}
         <button type="button" class="tree-add-table-btn shrink-0 h-5 w-5 hidden group-hover:flex items-center justify-center rounded text-sm leading-none eb-icon-btn-ok"
           data-ws-slug="{{$.Workspace.Slug}}" data-ds-slug="{{$item.DataSource.Slug}}" title="{{t $.Lang "sidebar2.add_table"}}">+</button>
+        {{end}}
+        {{if $.CanManageSource}}
+        <button type="button" class="tree-rename-datasource-btn shrink-0 h-5 w-5 hidden group-hover:flex items-center justify-center rounded text-xs leading-none eb-icon-btn-ok"
+          data-ws-slug="{{$.Workspace.Slug}}" data-ds-slug="{{$item.DataSource.Slug}}" data-ds-name="{{$item.DataSource.Name}}" title="{{t $.Lang "sidebar2.rename_datasource"}}">✎</button>
+        <button type="button" class="tree-delete-datasource-btn shrink-0 h-5 w-5 hidden group-hover:flex items-center justify-center rounded text-xs leading-none eb-icon-btn"
+          data-ws-slug="{{$.Workspace.Slug}}" data-ds-slug="{{$item.DataSource.Slug}}" title="{{t $.Lang "sidebar2.delete_datasource"}}">✕</button>
         {{end}}
       </div>
       <div class="tree-ds-children pl-7">
@@ -253,12 +259,47 @@
   document.querySelectorAll(".tree-ds-toggle").forEach((btn) => {
     const children = btn.closest(".tree-ds-node")?.querySelector(".tree-ds-children");
     const caret = btn.querySelector(".tree-caret");
+    const node = btn.closest(".tree-ds-node");
+    const storageKey = `eptaadmin:tree:collapsed:${location.pathname.split('/')[2] || ''}`;
     if (!children) return;
+
+    let collapsed = {};
+    try { collapsed = JSON.parse(localStorage.getItem(storageKey) || "{}"); } catch (err) {}
+    const hasSavedState = node?.dataset.dsSlug && Object.prototype.hasOwnProperty.call(collapsed, node.dataset.dsSlug);
+    const shouldCollapse = hasSavedState ? collapsed[node.dataset.dsSlug] : true;
+    if (node?.dataset.dsSlug && shouldCollapse) {
+      children.classList.add("hidden");
+      if (caret) caret.style.transform = "";
+    } else if (caret) {
+      caret.style.transform = "rotate(90deg)";
+    }
+
     btn.addEventListener("click", () => {
       children.classList.toggle("hidden");
-      if (caret) caret.style.transform = children.classList.contains("hidden") ? "" : "rotate(90deg)";
+      const isCollapsed = children.classList.contains("hidden");
+      if (caret) caret.style.transform = isCollapsed ? "" : "rotate(90deg)";
+      if (node?.dataset.dsSlug) {
+        collapsed[node.dataset.dsSlug] = isCollapsed;
+        localStorage.setItem(storageKey, JSON.stringify(collapsed));
+      }
     });
   });
+
+  // Preserve the tree position when opening a table, since navigation reloads
+  // the server-rendered page and would otherwise return this scroll container
+  // to its top edge every time.
+  const treeScroll = document.getElementById("secondary-sidebar-scroll");
+  const scrollKey = `eptaadmin:tree:scroll:${location.pathname.split('/')[2] || ''}`;
+  if (treeScroll) {
+    const savedScroll = sessionStorage.getItem(scrollKey);
+    if (savedScroll) treeScroll.scrollTop = Number(savedScroll) || 0;
+    treeScroll.addEventListener("scroll", () => {
+      sessionStorage.setItem(scrollKey, String(treeScroll.scrollTop));
+    }, { passive: true });
+    document.querySelectorAll("#secondary-sidebar-scroll a[href*='/tables/']").forEach((link) => {
+      link.addEventListener("click", () => sessionStorage.setItem(scrollKey, String(treeScroll.scrollTop)));
+    });
+  }
 
   // --- Add a table to a data source directly from the tree ---
   document.querySelectorAll(".tree-add-table-btn").forEach((btn) => {
@@ -281,6 +322,39 @@
       } catch (err) {
         alert("{{t .Lang "datasource.cannot_contact_server"}}");
       }
+    });
+  });
+
+  // --- Rename a data source ---
+  document.querySelectorAll(".tree-rename-datasource-btn").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const name = window.prompt("{{t .Lang "sidebar2.rename_datasource_prompt"}}", btn.dataset.dsName);
+      if (!name || !name.trim() || name.trim() === btn.dataset.dsName) return;
+      try {
+        const res = await fetch(`/workspaces/${btn.dataset.wsSlug}/datasources/${btn.dataset.dsSlug}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: name.trim() }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) { alert(body.error || "{{t .Lang "common.error_generic_retry"}}"); return; }
+        location.reload();
+      } catch (err) { alert("{{t .Lang "datasource.cannot_contact_server"}}"); }
+    });
+  });
+
+  // --- Delete a data source and all its tables ---
+  document.querySelectorAll(".tree-delete-datasource-btn").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (!confirm("{{t .Lang "sidebar2.delete_datasource_confirm"}}")) return;
+      try {
+        const res = await fetch(`/workspaces/${btn.dataset.wsSlug}/datasources/${btn.dataset.dsSlug}`, { method: "DELETE" });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) { alert(body.error || "{{t .Lang "common.error_generic_retry"}}"); return; }
+        window.location.href = `/workspaces/${btn.dataset.wsSlug}`;
+      } catch (err) { alert("{{t .Lang "datasource.cannot_contact_server"}}"); }
     });
   });
 
