@@ -11,11 +11,11 @@
 
       <div class="flex items-center justify-between gap-3 mb-5">
         <p class="text-sm" style="color: var(--eb-muted);">{{t .Lang "activity.subtitle"}}</p>
-        {{if .DataSources}}
+        {{if .Tables}}
         <select id="ds-filter" class="eb-input rounded-lg px-3 py-2 text-sm">
           <option value="">{{t .Lang "activity.filter_all"}}</option>
-          {{range .DataSources}}
-          <option value="{{.Slug}}" {{if eq $.FilterDS .Slug}}selected{{end}}>{{.Name}}</option>
+          {{range .Tables}}
+          <option value="{{.Slug}}" {{if eq $.FilterTable .Slug}}selected{{end}}>{{.Name}}</option>
           {{end}}
         </select>
         {{end}}
@@ -28,7 +28,7 @@
             <p class="text-sm" style="color: var(--eb-text);">{{$row.Describe $.Lang}}</p>
             <p class="text-xs mt-0.5" style="color: var(--eb-muted);">
               {{formatTime $row.CreatedAt}}
-              {{if $.Global}}{{if $row.WorkspaceName}}· {{$row.WorkspaceName}}{{end}}{{else if $row.DataSourceID.Valid}}· {{index $.DSNames $row.DataSourceID.Int64}}{{end}}
+              {{if $.Global}}{{if $row.WorkspaceName}}· {{$row.WorkspaceName}}{{end}}{{else if $row.TableID.Valid}}· {{index $.TableNames $row.TableID.Int64}}{{end}}
               {{if $row.RevertedAt.Valid}}· <span style="color: var(--eb-warn);">{{t $.Lang "activity.reverted_badge"}}{{if $row.RevertedByName}} ({{t $.Lang "activity.reverted_by" $row.RevertedByName}}){{end}}</span>{{end}}
             </p>
           </div>
@@ -59,8 +59,8 @@
   if (dsFilter) {
     dsFilter.addEventListener("change", () => {
       const url = new URL(window.location.href);
-      if (dsFilter.value) url.searchParams.set("ds", dsFilter.value);
-      else url.searchParams.delete("ds");
+      if (dsFilter.value) url.searchParams.set("table", dsFilter.value);
+      else url.searchParams.delete("table");
       window.location.href = url.toString();
     });
   }
