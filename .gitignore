@@ -8,3 +8,4 @@ docs/
 backup*
 eptaadmin*
 export/
+.env*

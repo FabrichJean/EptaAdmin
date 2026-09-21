@@ -3,8 +3,48 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 )
+
+// handleLegacyUploadRedirect keeps already-deployed frontend bundles working
+// while they still reference the old session-only upload path. Redirecting to
+// the signed API URL preserves the public image use case without exposing the
+// workspace's session-authenticated browser handler.
+func (a *App) handleLegacyUploadRedirect(w http.ResponseWriter, r *http.Request) {
+	slug := r.PathValue("slug")
+	filename := filepath.Base(r.PathValue("filename"))
+	if filename == "." || filename == "" {
+		http.NotFound(w, r)
+		return
+	}
+	ws, err := a.store.GetWorkspaceBySlug(slug)
+	if err != nil {
+		log.Printf("legacy upload workspace lookup error: %v", err)
+		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
+		return
+	}
+	if ws == nil {
+		http.NotFound(w, r)
+		return
+	}
+	if _, err := os.Stat(filepath.Join(uploadDir(ws.ID), filename)); err != nil {
+		if os.IsNotExist(err) {
+			http.NotFound(w, r)
+			return
+		}
+		log.Printf("legacy upload stat error: %v", err)
+		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
+		return
+	}
+	signed, err := a.signUploadPath(slug, filename)
+	if err != nil {
+		log.Printf("legacy upload signing error: %v", err)
+		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, signed, http.StatusFound)
+}
 
 // uploadErrorMessage translates the sentinel errors SaveUploadedImage and
 // SaveAvatarUpload can return; anything else is an internal error that

@@ -8,6 +8,10 @@ import (
 )
 
 func main() {
+	if err := loadDotEnv(".env"); err != nil {
+		log.Printf("impossible de charger .env: %v", err)
+	}
+
 	dbPath := os.Getenv("EPTAADMIN_DB")
 	if dbPath == "" {
 		dbPath = "eptaadmin.db"
@@ -85,9 +89,11 @@ func main() {
 	mux.HandleFunc("PATCH /workspaces/{slug}/tables/{tableSlug}/columns/{key}", app.requireAuth(app.handleUpdateTableColumn))
 	mux.HandleFunc("DELETE /workspaces/{slug}/tables/{tableSlug}/columns/{key}", app.requireAuth(app.handleDeleteTableColumn))
 	mux.HandleFunc("POST /workspaces/{slug}/uploads", app.requireAuth(app.handleUploadImage))
-	mux.HandleFunc("GET /workspaces/{slug}/uploads/{filename}", app.requireAuth(app.handleServeUpload))
+	// Legacy browser upload URLs are redirected to signed API URLs so older
+	// frontend bundles keep working after the upload API migration.
+	mux.HandleFunc("GET /workspaces/{slug}/uploads/{filename}", app.handleLegacyUploadRedirect)
 
-	addr := ":3334"
+	addr := ":8080"
 	if port := os.Getenv("PORT"); port != "" {
 		addr = ":" + port
 	}
