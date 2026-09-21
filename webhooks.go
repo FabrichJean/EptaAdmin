@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -23,11 +24,34 @@ const webhookDeliveryTimeout = 15 * time.Minute
 // mirrors whatever was passed to logActivity for the triggering action —
 // same shape a member would see described on the Activité page, just
 // structured instead of pre-rendered into a sentence.
+//
+// DeliveryID and ProgressURL are the real-time progress convention: a
+// receiver doing long work before it can respond (a deploy, a build...) MAY
+// POST JSON {"message": "...", "percent": 0-100} to ProgressURL any number
+// of times while it works — EptaAdmin surfaces the latest one in its global
+// delivery banner and on the "Envoyer" button, instead of just a blind
+// elapsed-time counter. Entirely optional: a receiver that ignores both
+// fields still gets delivered to exactly as before. ProgressURL is only
+// present when this instance knows its own public URL (EPTAADMIN_PUBLIC_URL).
 type webhookPayload struct {
-	Event     string         `json:"event"`
-	Manual    bool           `json:"manual"`
-	Timestamp string         `json:"timestamp"`
-	Details   map[string]any `json:"details,omitempty"`
+	Event       string         `json:"event"`
+	Manual      bool           `json:"manual"`
+	Timestamp   string         `json:"timestamp"`
+	DeliveryID  string         `json:"deliveryId"`
+	ProgressURL string         `json:"progressUrl,omitempty"`
+	Details     map[string]any `json:"details,omitempty"`
+}
+
+// newDeliveryID generates the unguessable token identifying one delivery
+// attempt — included in the payload and required (as a path segment) on
+// every progress report, the same "possession of the token is proof enough"
+// trust model as a signed one-off upload URL.
+func newDeliveryID() (string, error) {
+	buf := make([]byte, 16)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(buf), nil
 }
 
 // webhookTargetLabel is the friendly, short label shown in the global
@@ -58,14 +82,25 @@ func computeWebhookSignature(secret string, body []byte) string {
 // trigger from logActivity, which must never block the request that
 // caused it).
 func (a *App) deliverWebhook(hook *Webhook, event string, manual bool, details map[string]any) (err error) {
-	a.webhookDeploy.start(webhookTargetLabel(hook.URL))
+	deliveryID, err := newDeliveryID()
+	if err != nil {
+		return err
+	}
+	a.webhookDeploy.start(webhookTargetLabel(hook.URL), deliveryID)
 	defer func() { a.webhookDeploy.finish(err) }()
 
+	var progressURL string
+	if a.publicURL != "" {
+		progressURL = a.publicURL + "/api/webhooks/deliveries/" + deliveryID + "/progress"
+	}
+
 	payload := webhookPayload{
-		Event:     event,
-		Manual:    manual,
-		Timestamp: time.Now().UTC().Format(time.RFC3339),
-		Details:   details,
+		Event:       event,
+		Manual:      manual,
+		Timestamp:   time.Now().UTC().Format(time.RFC3339),
+		DeliveryID:  deliveryID,
+		ProgressURL: progressURL,
+		Details:     details,
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
