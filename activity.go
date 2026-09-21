@@ -421,6 +421,30 @@ func (a *App) recentActivityForUser(userID int64, limit int) ([]*ActivityEntry, 
 		return nil, err
 	}
 	entries = append(entries, accountEntries...)
+
+	// Owner/Admin sees activity "without restriction" — including other
+	// members' account-level events (login, logout, register...), which
+	// have no workspace of their own to be granted visibility through.
+	// ListUserActivity above already covers the viewer's own such events
+	// regardless of role, so this only adds other people's; dedup by ID
+	// below covers the overlap for a viewer who is Owner/Admin somewhere.
+	coMemberEntries, err := a.store.ListCoMemberAccountActivity(userID, limit)
+	if err != nil {
+		return nil, err
+	}
+	entries = append(entries, coMemberEntries...)
+
+	seen := make(map[int64]bool, len(entries))
+	deduped := entries[:0]
+	for _, e := range entries {
+		if seen[e.ID] {
+			continue
+		}
+		seen[e.ID] = true
+		deduped = append(deduped, e)
+	}
+	entries = deduped
+
 	sort.Slice(entries, func(i, j int) bool { return entries[i].ID > entries[j].ID })
 	if len(entries) > limit {
 		entries = entries[:limit]
@@ -574,6 +598,24 @@ func (a *App) handleWorkspaceActivity(w http.ResponseWriter, r *http.Request) {
 		log.Printf("list workspace activity error: %v", err)
 		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
 		return
+	}
+
+	// Owner/Admin sees this workspace's activity without restriction —
+	// including members' account-level events (login, logout, register...),
+	// which have no workspace_id of their own and so are otherwise excluded
+	// from ListWorkspaceActivity above entirely.
+	if hasPermission(role, PermMembersManage) {
+		memberEntries, err := a.store.ListMemberAccountActivity(ws.ID, 200)
+		if err != nil {
+			log.Printf("list member account activity error: %v", err)
+			http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
+			return
+		}
+		entries = append(entries, memberEntries...)
+		sort.Slice(entries, func(i, j int) bool { return entries[i].ID > entries[j].ID })
+		if len(entries) > 200 {
+			entries = entries[:200]
+		}
 	}
 	canRevert := hasPermission(role, PermDataUpdate)
 

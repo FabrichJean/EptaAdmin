@@ -571,6 +571,77 @@ func (s *Store) ListUserActivity(userID int64, limit int) ([]*ActivityEntry, err
 	return out, rows.Err()
 }
 
+// ListCoMemberAccountActivity returns the account-level activity (login,
+// logout, register, profile changes — entries with no workspace at all) of
+// every OTHER user who shares at least one workspace with viewerUserID in
+// which the viewer holds Owner or Admin — i.e. what "owners/admins see
+// everything, without restriction" means for events that otherwise have no
+// workspace to scope them by. A Viewer/Editor role never grants this; each
+// account's own activity is already visible to itself via ListUserActivity
+// regardless of role, so this is purely the "see it for other people too"
+// extension.
+func (s *Store) ListCoMemberAccountActivity(viewerUserID int64, limit int) ([]*ActivityEntry, error) {
+	rows, err := s.db.Query(`
+		SELECT `+activityColumns+`
+		FROM activity_log
+		`+activityJoins+`
+		WHERE activity_log.workspace_id IS NULL
+		AND activity_log.user_id IN (
+			SELECT DISTINCT wm2.user_id
+			FROM workspace_members wm1
+			JOIN workspace_members wm2 ON wm2.workspace_id = wm1.workspace_id
+			WHERE wm1.user_id = ? AND wm1.role IN (?, ?)
+		)
+		ORDER BY activity_log.id DESC
+		LIMIT ?
+	`, viewerUserID, RoleOwner, RoleAdmin, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*ActivityEntry
+	for rows.Next() {
+		e, err := scanActivity(rows.Scan)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
+// ListMemberAccountActivity returns the account-level activity (login,
+// logout, register, profile changes) of every member of one specific
+// workspace — used on that workspace's own Activité page so an Owner/Admin
+// there sees a member's login/logout alongside the workspace's own data
+// activity, not just the data activity.
+func (s *Store) ListMemberAccountActivity(workspaceID int64, limit int) ([]*ActivityEntry, error) {
+	rows, err := s.db.Query(`
+		SELECT `+activityColumns+`
+		FROM activity_log
+		`+activityJoins+`
+		WHERE activity_log.workspace_id IS NULL
+		AND activity_log.user_id IN (SELECT user_id FROM workspace_members WHERE workspace_id = ?)
+		ORDER BY activity_log.id DESC
+		LIMIT ?
+	`, workspaceID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*ActivityEntry
+	for rows.Next() {
+		e, err := scanActivity(rows.Scan)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
 // ListActivityForUserWorkspaces returns the most recent activity across
 // every workspace the given user is a member of — the feed behind the
 // global "Activité" sidebar page, spanning workspaces rather than being
