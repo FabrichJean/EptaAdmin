@@ -68,6 +68,7 @@ type ActivityEntry struct {
 	ID             int64
 	WorkspaceID    sql.NullInt64
 	DataSourceID   sql.NullInt64
+	TableID        sql.NullInt64
 	UserID         sql.NullInt64
 	Username       string
 	Action         string
@@ -138,7 +139,7 @@ func (e *ActivityEntry) Describe(lang string) string {
 	case ActionDataSourceCreate:
 		return T(lang, "activity.desc.datasource.create", actor, detailString(d, "name"))
 	case ActionImport:
-		return T(lang, "activity.desc.datasource.import", actor, detailString(d, "dataSourceName"))
+		return T(lang, "activity.desc.datasource.import", actor, detailString(d, "tableName"))
 	case ActionColumnAdd:
 		return T(lang, "activity.desc.column.add", actor, detailString(d, "key"))
 	case ActionColumnUpdate:
@@ -162,7 +163,8 @@ func (e *ActivityEntry) Describe(lang string) string {
 
 type logActivityParams struct {
 	WorkspaceID  int64 // 0 = account-level, not tied to a workspace
-	DataSourceID int64 // 0 = not applicable
+	DataSourceID int64 // 0 = not applicable — a data source folder's own creation
+	TableID      int64 // 0 = not applicable — every actual data action (columns, values, import)
 	UserID       int64
 	Action       string
 	Details      map[string]any
@@ -181,7 +183,7 @@ func (a *App) logActivity(p logActivityParams) {
 		log.Printf("activity log marshal error: %v", err)
 		return
 	}
-	if err := a.store.InsertActivity(p.WorkspaceID, p.DataSourceID, p.UserID, p.Action, string(data), reversibleActions[p.Action]); err != nil {
+	if err := a.store.InsertActivity(p.WorkspaceID, p.DataSourceID, p.TableID, p.UserID, p.Action, string(data), reversibleActions[p.Action]); err != nil {
 		log.Printf("activity log insert error: %v", err)
 	}
 }
@@ -190,12 +192,12 @@ var ErrActivityCannotRevert = errors.New("cette action ne peut pas être annulé
 var ErrActivityAlreadyReverted = errors.New("cette action a déjà été annulée")
 
 // revertActivity performs the inverse of a reversible activity entry,
-// directly against the column store / schema — never through HTTP — so it
-// can share the exact same on-disk write (SaveColumnStore) the original
+// directly against the record store / schema — never through HTTP — so it
+// can share the exact same on-disk write (SaveRecordStore) the original
 // action used. Callers are responsible for holding dataWriteMu and for
 // only calling this once per entry (checked again here defensively via
 // RevertedAt).
-func (a *App) revertActivity(entry *ActivityEntry, ds *DataSource) error {
+func (a *App) revertActivity(entry *ActivityEntry, t *Table) error {
 	if entry.RevertedAt.Valid {
 		return ErrActivityAlreadyReverted
 	}
@@ -207,120 +209,106 @@ func (a *App) revertActivity(entry *ActivityEntry, ds *DataSource) error {
 	switch entry.Action {
 	case ActionColumnAdd:
 		key := detailString(d, "key")
-		cs, err := LoadColumnStore(ds.StoragePath)
+		records, err := LoadRecordStore(t.StoragePath)
 		if err != nil {
 			return err
 		}
-		delete(cs, key)
-		if err := SaveColumnStore(ds.StoragePath, cs); err != nil {
+		records.DeleteColumn(key)
+		if err := SaveRecordStore(t.StoragePath, records); err != nil {
 			return err
 		}
-		return a.store.DeleteDataSourceColumn(ds.ID, key)
+		return a.store.DeleteTableColumn(t.ID, key)
 
 	case ActionColumnUpdate:
 		key := detailString(d, "key")
-		return a.store.UpdateDataSourceColumnDescription(ds.ID, key, detailString(d, "oldDescription"))
+		return a.store.UpdateTableColumnDescription(t.ID, key, detailString(d, "oldDescription"))
 
 	case ActionColumnDelete:
 		key := detailString(d, "key")
 		colType := detailString(d, "type")
 		description := detailString(d, "description")
 		values, _ := d["values"].([]any)
-		if _, err := a.store.AddDataSourceColumn(ds.ID, key, colType, description); err != nil && err != ErrColumnExists {
+		if _, err := a.store.AddTableColumn(t.ID, key, colType, description); err != nil && err != ErrTableColumnExists {
 			return err
 		}
-		cs, err := LoadColumnStore(ds.StoragePath)
+		records, err := LoadRecordStore(t.StoragePath)
 		if err != nil {
 			return err
 		}
-		cs[key] = values
-		return SaveColumnStore(ds.StoragePath, cs)
+		records = records.SetColumn(key, values)
+		return SaveRecordStore(t.StoragePath, records)
 
 	case ActionValueUpdate:
 		column := detailString(d, "column")
 		index := int(d["index"].(float64))
-		cs, err := LoadColumnStore(ds.StoragePath)
+		records, err := LoadRecordStore(t.StoragePath)
 		if err != nil {
 			return err
 		}
-		col := cs[column]
-		if index < 0 || index >= len(col) {
+		if err := records.UpdateField(column, index, d["oldValue"]); err != nil {
 			return ErrActivityCannotRevert
 		}
-		col[index] = d["oldValue"]
-		cs[column] = col
-		return SaveColumnStore(ds.StoragePath, cs)
+		return SaveRecordStore(t.StoragePath, records)
 
 	case ActionValueDelete:
 		column := detailString(d, "column")
 		index := int(d["index"].(float64))
-		cs, err := LoadColumnStore(ds.StoragePath)
+		records, err := LoadRecordStore(t.StoragePath)
 		if err != nil {
 			return err
 		}
-		col := cs[column]
-		if index < 0 || index > len(col) {
-			index = len(col)
+		// The record itself was never removed by a delete (only the field
+		// on it), so restoring is just setting that field back in place.
+		if err := records.UpdateField(column, index, d["value"]); err != nil {
+			return ErrActivityCannotRevert
 		}
-		col = append(col[:index], append([]any{d["value"]}, col[index:]...)...)
-		cs[column] = col
-		return SaveColumnStore(ds.StoragePath, cs)
+		return SaveRecordStore(t.StoragePath, records)
 
 	case ActionValueAppend:
 		column := detailString(d, "column")
 		index := int(d["index"].(float64))
-		cs, err := LoadColumnStore(ds.StoragePath)
+		records, err := LoadRecordStore(t.StoragePath)
 		if err != nil {
 			return err
 		}
-		col := cs[column]
-		if index < 0 || index >= len(col) {
+		if _, err := records.DeleteField(column, index); err != nil {
 			return ErrActivityCannotRevert
 		}
-		col = append(col[:index], col[index+1:]...)
-		cs[column] = col
-		return SaveColumnStore(ds.StoragePath, cs)
+		return SaveRecordStore(t.StoragePath, records)
 
 	case ActionValueMove:
-		column := detailString(d, "column")
 		from := int(d["from"].(float64))
 		to := int(d["to"].(float64))
-		cs, err := LoadColumnStore(ds.StoragePath)
+		records, err := LoadRecordStore(t.StoragePath)
 		if err != nil {
 			return err
 		}
-		col := cs[column]
-		if to < 0 || to >= len(col) {
+		// The whole record that ended up at "to" moves back to "from".
+		records, err = records.MoveRecord(to, from)
+		if err != nil {
 			return ErrActivityCannotRevert
 		}
-		v := col[to]
-		col = append(col[:to], col[to+1:]...)
-		if from > len(col) {
-			from = len(col)
-		}
-		if from < 0 {
-			from = 0
-		}
-		col = append(col[:from], append([]any{v}, col[from:]...)...)
-		cs[column] = col
-		return SaveColumnStore(ds.StoragePath, cs)
+		return SaveRecordStore(t.StoragePath, records)
 
 	case ActionImport:
-		added, _ := d["added"].(map[string]any)
-		cs, err := LoadColumnStore(ds.StoragePath)
+		// Entries logged before this field existed (when imports were
+		// tracked per-column instead of by record count) simply can't be
+		// reverted anymore — same as any other detail shape a future
+		// version might no longer recognize.
+		addedCountF, ok := d["addedCount"].(float64)
+		if !ok {
+			return ErrActivityCannotRevert
+		}
+		addedCount := int(addedCountF)
+		records, err := LoadRecordStore(t.StoragePath)
 		if err != nil {
 			return err
 		}
-		for column, valuesAny := range added {
-			values, _ := valuesAny.([]any)
-			col := cs[column]
-			n := len(values)
-			if n > len(col) {
-				n = len(col)
-			}
-			cs[column] = col[:len(col)-n]
+		if addedCount < 0 || addedCount > len(records) {
+			return ErrActivityCannotRevert
 		}
-		return SaveColumnStore(ds.StoragePath, cs)
+		records = records[:len(records)-addedCount]
+		return SaveRecordStore(t.StoragePath, records)
 
 	default:
 		return ErrActivityCannotRevert
@@ -390,30 +378,30 @@ func (a *App) handleWorkspaceActivity(w http.ResponseWriter, r *http.Request) {
 	}
 	canRevert := hasPermission(role, PermDataUpdate)
 
-	dataSources, err := a.store.ListDataSources(ws.ID)
+	tables, err := a.store.ListTablesByWorkspace(ws.ID)
 	if err != nil {
-		log.Printf("list data sources error: %v", err)
+		log.Printf("list tables error: %v", err)
 		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
 		return
 	}
-	dsNames := map[int64]string{}
-	for _, ds := range dataSources {
-		dsNames[ds.ID] = ds.Name
+	tableNames := map[int64]string{}
+	for _, t := range tables {
+		tableNames[t.ID] = t.Name
 	}
 
-	// ?ds=<slug> narrows the list to one data source's entries — filtered
+	// ?table=<slug> narrows the list to one table's entries — filtered
 	// here rather than in SQL since the list is already capped to 200 rows.
-	if filterSlug := r.URL.Query().Get("ds"); filterSlug != "" {
+	if filterSlug := r.URL.Query().Get("table"); filterSlug != "" {
 		var filterID int64 = -1
-		for _, ds := range dataSources {
-			if ds.Slug == filterSlug {
-				filterID = ds.ID
+		for _, t := range tables {
+			if t.Slug == filterSlug {
+				filterID = t.ID
 				break
 			}
 		}
 		filtered := entries[:0]
 		for _, e := range entries {
-			if e.DataSourceID.Valid && e.DataSourceID.Int64 == filterID {
+			if e.TableID.Valid && e.TableID.Int64 == filterID {
 				filtered = append(filtered, e)
 			}
 		}
@@ -431,9 +419,9 @@ func (a *App) handleWorkspaceActivity(w http.ResponseWriter, r *http.Request) {
 		"PageTitle":   T(lang, "activity.title"),
 		"Workspace":   ws,
 		"Rows":        rows,
-		"DataSources": dataSources,
-		"DSNames":     dsNames,
-		"FilterDS":    r.URL.Query().Get("ds"),
+		"Tables":      tables,
+		"TableNames":  tableNames,
+		"FilterTable": r.URL.Query().Get("table"),
 		"Breadcrumb": []Breadcrumb{
 			{Label: T(lang, "nav.workspaces"), URL: "/workspaces"},
 			{Label: ws.Name, URL: "/workspaces/" + ws.Slug},
@@ -472,7 +460,7 @@ func (a *App) handleRevertActivity(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if !entry.DataSourceID.Valid {
+	if !entry.TableID.Valid {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "activity.cannot_revert")})
 		return
 	}
@@ -480,18 +468,18 @@ func (a *App) handleRevertActivity(w http.ResponseWriter, r *http.Request) {
 	dataWriteMu.Lock()
 	defer dataWriteMu.Unlock()
 
-	ds, err := a.store.GetDataSource(entry.DataSourceID.Int64)
+	t, err := a.store.GetTable(entry.TableID.Int64)
 	if err != nil {
-		log.Printf("get data source error: %v", err)
+		log.Printf("get table error: %v", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
 		return
 	}
-	if ds == nil {
+	if t == nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "activity.cannot_revert")})
 		return
 	}
 
-	if err := a.revertActivity(entry, ds); err != nil {
+	if err := a.revertActivity(entry, t); err != nil {
 		if err == ErrActivityCannotRevert || err == ErrActivityAlreadyReverted {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "activity.cannot_revert")})
 			return
@@ -501,7 +489,7 @@ func (a *App) handleRevertActivity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := a.store.BumpDataSourceVersion(ds.ID, ds.Version); err != nil {
+	if _, err := a.store.BumpTableVersion(t.ID, t.Version); err != nil {
 		log.Printf("bump version error: %v", err)
 	}
 	if err := a.store.MarkActivityReverted(entry.ID, currentUser.ID); err != nil {
