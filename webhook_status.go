@@ -38,5 +38,10 @@ func (s *webhookDeployStatus) finish(err error) {
 func (s *webhookDeployStatus) snapshot() map[string]any {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return map[string]any{"active": s.active > 0, "event": s.event, "startedAt": s.startedAt, "error": s.lastError}
+	return map[string]any{
+		"active":    s.active > 0,
+		"event":     s.event,
+		"startedAt": s.startedAt,
+		"error":     s.lastError,
+	}
 }

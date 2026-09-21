@@ -641,7 +641,7 @@
   <div id="webhook-deploy-notice" class="hidden fixed top-3 left-1/2 -translate-x-1/2 z-[100] rounded-xl px-4 py-3 text-sm shadow-xl" style="background: var(--eb-surface); border: 1px solid var(--eb-accent); color: var(--eb-text); min-width: min(92vw, 24rem);">
     <div class="flex items-center gap-3">
       <span id="webhook-deploy-spinner" class="h-4 w-4 rounded-full border-2 border-white/20 border-t-[var(--eb-accent)] animate-spin shrink-0"></span>
-      <span id="webhook-deploy-message">Déploiement en cours : build et copie du site…</span>
+      <span id="webhook-deploy-message">{{t .Lang "webhook.deploy_running"}}</span>
     </div>
   </div>
   <div class="relative z-10 h-full">
@@ -653,6 +653,9 @@
     const message = document.getElementById("webhook-deploy-message");
     const spinner = document.getElementById("webhook-deploy-spinner");
     if (!notice || !message) return;
+    const runningText = {{printf "%q" (t .Lang "webhook.deploy_running")}};
+    const failedText = {{printf "%q" (t .Lang "webhook.deploy_failed")}};
+    let timer;
     async function refreshDeployStatus() {
       try {
         const res = await fetch("/api/webhook-status", { credentials: "same-origin" });
@@ -660,13 +663,14 @@
         const status = await res.json();
         if (status.active) {
           notice.classList.remove("hidden");
-          message.textContent = "Déploiement en cours : build et copie du site…";
+          message.textContent = runningText;
           spinner.classList.remove("hidden");
         } else if (status.error) {
           notice.classList.remove("hidden");
           notice.style.borderColor = "#f87171";
-          message.textContent = "Le déploiement a échoué.";
+          message.textContent = failedText;
           spinner.classList.add("hidden");
+          clearInterval(timer);
           setTimeout(() => notice.classList.add("hidden"), 8000);
         } else {
           notice.classList.add("hidden");
@@ -674,7 +678,7 @@
       } catch (error) {}
     }
     refreshDeployStatus();
-    setInterval(refreshDeployStatus, 2000);
+    timer = setInterval(refreshDeployStatus, 2000);
   })();
   </script>
 </body>

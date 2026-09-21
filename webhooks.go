@@ -49,6 +49,7 @@ func computeWebhookSignature(secret string, body []byte) string {
 func (a *App) deliverWebhook(hook *Webhook, event string, manual bool, details map[string]any) (err error) {
 	a.webhookDeploy.start(event)
 	defer func() { a.webhookDeploy.finish(err) }()
+
 	payload := webhookPayload{
 		Event:     event,
 		Manual:    manual,
