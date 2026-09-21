@@ -1,312 +1,101 @@
-{{define "title"}}{{.DataSource.Name}} — EptaAdmin{{end}}
+{{define "title"}}{{.Table.Name}} — EptaAdmin{{end}}
 {{define "head_extra"}}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
 <style>
   pre.eb-code, pre.eb-code code[class*="language-"] { background: transparent !important; }
   pre.eb-code { margin: 0; }
   code[class*="language-"], pre[class*="language-"] { text-shadow: none !important; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace !important; font-size: 0.8125rem !important; }
-  .value-row.dragging { opacity: 0.4; }
-  .value-drag-handle:active { cursor: grabbing; }
-  .eb-text-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .eb-grid-table { border-collapse: collapse; width: max-content; min-width: 100%; font-size: 0.8125rem; }
+  .eb-grid-table th, .eb-grid-table td { border: 1px solid var(--eb-border); padding: 0.375rem 0.75rem; text-align: left; white-space: nowrap; }
+  .eb-grid-table thead th { position: sticky; top: 0; background: var(--eb-surface); color: var(--eb-muted); font-weight: 600; z-index: 1; }
+  .eb-grid-table th.eb-grid-id-col, .eb-grid-table td.eb-grid-id-col { color: var(--eb-accent); font-style: italic; }
+  .eb-grid-table tbody tr:hover td { background: var(--eb-surface-2); }
+  .eb-grid-table td.eb-grid-cell { cursor: pointer; min-width: 6rem; max-width: 28rem; overflow: hidden; text-overflow: ellipsis; }
+  .eb-grid-table td.eb-grid-cell:has(.eb-cell-editor) { white-space: normal; max-width: none; overflow: visible; }
+  .eb-grid-table th .eb-col-del-btn, .eb-grid-table td.eb-grid-id-col .eb-row-del-btn, .eb-grid-table td.eb-grid-id-col .eb-row-code-btn { opacity: 0; transition: opacity 0.1s; }
+  .eb-grid-table th:hover .eb-col-del-btn, .eb-grid-table tbody tr:hover .eb-row-del-btn, .eb-grid-table tbody tr:hover .eb-row-code-btn { opacity: 1; }
+  .eb-cell-editor select, .eb-cell-editor input, .eb-cell-editor textarea { font-size: 0.8125rem; }
 </style>
 {{end}}
 {{define "content"}}
 <div class="h-full flex">
   {{template "sidebar" .}}
+  {{template "secondary-sidebar" .}}
 
   <div class="flex-1 min-w-0 flex flex-col">
     {{template "header" .}}
 
-    <main class="flex-1 overflow-y-auto px-4 sm:px-8 py-10 pb-24">
-     <div class="max-w-6xl mx-auto">
-      <div id="conflict-banner" class="hidden mb-4 rounded-lg text-sm px-4 py-3 flex items-center justify-between" style="background: rgba(251,146,60,0.1); border: 1px solid rgba(251,146,60,0.3); color: var(--eb-warn);">
-        <span>⚠ {{t .Lang "datasource.conflict"}}</span>
-        <button onclick="location.reload()" class="eb-btn-primary shrink-0 rounded-lg text-xs px-3 py-1.5 transition-colors">{{t .Lang "datasource.reload_button"}}</button>
-      </div>
-
-      <!-- Toolbar -->
-      <div class="flex items-center gap-3 mb-5">
-        <div class="relative flex-1">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--eb-muted);"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-          <input id="global-search-input" type="text" placeholder="{{t .Lang "datasource.search_columns_placeholder"}}"
-            class="eb-input w-full rounded-lg pl-9 pr-3 py-2.5 text-sm" />
-        </div>
-        <div class="relative">
-          <button id="filters-btn" type="button" class="eb-btn-secondary rounded-lg text-sm font-medium px-4 py-2.5 transition-colors flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-            {{t .Lang "datasource.filters_button"}}
-          </button>
-          <div id="filters-menu" class="hidden absolute right-0 mt-2 w-56 rounded-lg p-3 z-20 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
-            <p class="text-xs font-semibold uppercase tracking-wide mb-2" style="color: var(--eb-muted);">{{t .Lang "datasource.types_shown"}}</p>
-            <div class="space-y-1.5" id="filters-list">
-              <label class="flex items-center gap-2 text-sm" style="color: var(--eb-text);"><input type="checkbox" class="filter-type-cb" value="text" checked /> {{t .Lang "type.text"}}</label>
-              <label class="flex items-center gap-2 text-sm" style="color: var(--eb-text);"><input type="checkbox" class="filter-type-cb" value="long_text" checked /> {{t .Lang "type.long_text"}}</label>
-              <label class="flex items-center gap-2 text-sm" style="color: var(--eb-text);"><input type="checkbox" class="filter-type-cb" value="number" checked /> {{t .Lang "type.number"}}</label>
-              <label class="flex items-center gap-2 text-sm" style="color: var(--eb-text);"><input type="checkbox" class="filter-type-cb" value="boolean" checked /> {{t .Lang "type.boolean"}}</label>
-              <label class="flex items-center gap-2 text-sm" style="color: var(--eb-text);"><input type="checkbox" class="filter-type-cb" value="image" checked /> {{t .Lang "type.image"}}</label>
-            </div>
-          </div>
-        </div>
-        <div class="relative">
-          <button id="sort-btn" type="button" class="eb-btn-secondary rounded-lg text-sm font-medium px-4 py-2.5 transition-colors flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 16 4 4 4-4M7 20V4M21 8l-4-4-4 4M17 4v16"/></svg>
-            {{t .Lang "datasource.sort_button"}}
-          </button>
-          <div id="sort-menu" class="hidden absolute right-0 mt-2 w-48 rounded-lg py-1 z-20 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
-            <button type="button" class="sort-option w-full text-left px-3 py-2 text-sm" data-sort="none" style="color: var(--eb-text);">{{t .Lang "datasource.sort_original"}}</button>
-            <button type="button" class="sort-option w-full text-left px-3 py-2 text-sm" data-sort="asc" style="color: var(--eb-text);">A → Z</button>
-            <button type="button" class="sort-option w-full text-left px-3 py-2 text-sm" data-sort="desc" style="color: var(--eb-text);">Z → A</button>
-            <p class="px-3 pt-1.5 text-xs" style="color: var(--eb-muted); border-top: 1px solid var(--eb-border);">{{t .Lang "datasource.sort_display_only"}}</p>
-          </div>
-        </div>
-        <button id="freeform-toggle-btn" type="button" class="eb-btn-secondary rounded-lg text-sm font-medium px-4 py-2.5 transition-colors flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>
-          {{t .Lang "datasource.freeform_button"}}
-        </button>
-        <div class="relative">
-          <button id="page-menu-btn" type="button" class="eb-btn-secondary rounded-lg px-3 py-2.5 transition-colors">⋯</button>
-          <div id="page-menu" class="hidden absolute right-0 mt-2 w-44 rounded-lg py-1 z-20 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
-            <button type="button" onclick="location.reload()" class="w-full text-left px-3 py-2 text-sm" style="color: var(--eb-text);">{{t .Lang "datasource.refresh_button"}}</button>
-            <button id="open-code-modal-btn" type="button" class="w-full text-left px-3 py-2 text-sm" style="color: var(--eb-text); border-top: 1px solid var(--eb-border);">{{t .Lang "datasource.code_button"}}</button>
-            <a href="/workspaces/{{.Workspace.Slug}}/datasources/{{.DataSource.Slug}}/export?format=csv" class="block px-3 py-2 text-sm" style="color: var(--eb-text); border-top: 1px solid var(--eb-border);">{{t .Lang "datasource.export_csv"}}</a>
-            <a href="/workspaces/{{.Workspace.Slug}}/datasources/{{.DataSource.Slug}}/export?format=json" class="block px-3 py-2 text-sm" style="color: var(--eb-text);">{{t .Lang "datasource.export_json"}}</a>
-            {{if .CanCreate}}
-            <button id="ds-import-btn" type="button" class="w-full text-left px-3 py-2 text-sm" style="color: var(--eb-text); border-top: 1px solid var(--eb-border);">{{t .Lang "datasource.import_button"}}</button>
-            <input id="ds-import-input" type="file" class="hidden" accept=".json,application/json" />
-            {{end}}
-          </div>
-        </div>
-      </div>
-
-      <!-- Schema view: the data source presented as a single entity card
-           (icon, name, field list with types), the same visual language as
-           an ER-diagram table box — every column aligned as one row in the
-           same table, not scattered into separate cards. -->
-      <div id="schema-panel" class="hidden mb-6">
-        <div class="eb-card rounded-xl overflow-hidden" style="max-width: 420px; border-top: 3px solid var(--eb-accent);">
-          <div class="px-4 py-3 flex items-center justify-between gap-3" style="border-bottom: 1px solid var(--eb-border);">
-            <div class="flex items-center gap-2.5 min-w-0">
-              <div class="h-8 w-8 rounded-lg flex items-center justify-center shrink-0" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">{{template "col-icon" "database"}}</div>
-              <div class="min-w-0">
-                <p class="text-sm font-bold truncate" style="color: var(--eb-text);">{{.DataSource.Name}}</p>
-                <span class="eb-chip" style="font-size: 0.65rem;">{{t .Lang "datasource.entity_badge"}}</span>
-              </div>
-            </div>
-            <span class="text-xs shrink-0" style="color: var(--eb-muted);">{{len .Columns}} {{t .Lang "datasource.fields_word"}}</span>
-          </div>
-
-          {{range $i, $c := .Columns}}
-          {{$colorHex := columnColorHex $c.Key}}
-          <div class="schema-field-row px-4 py-2 flex items-center justify-between gap-3 text-sm{{if ge $i 6}} hidden{{end}}" style="{{if $i}}border-top: 1px solid var(--eb-border);{{end}}">
-            <div class="flex items-center gap-2.5 min-w-0">
-              <span class="h-2 w-2 rounded-full shrink-0" style="background: {{$colorHex}};"></span>
-              <span class="truncate" style="color: var(--eb-text);">{{$c.Key}}</span>
-            </div>
-            <span class="shrink-0 text-xs" style="color: var(--eb-muted); font-family: ui-monospace, 'SF Mono', Menlo, monospace;">{{if $c.Type}}{{typeLabel $.Lang $c.Type}}{{else}}—{{end}}</span>
-          </div>
-          {{end}}
-
-          {{if gt (len .Columns) 6}}
-          <button type="button" id="schema-expand-btn" class="w-full text-left px-4 py-2.5 text-xs transition-colors" style="color: var(--eb-accent); border-top: 1px solid var(--eb-border);">
-            + {{sub (len .Columns) 6}} {{t .Lang "datasource.other_fields_word"}}
-          </button>
-          {{end}}
-
-          {{if not .Columns}}
-          <div class="px-4 py-8 text-center text-sm" style="color: var(--eb-muted);">{{t .Lang "datasource.no_columns"}}</div>
-          {{end}}
-        </div>
-      </div>
-
-      <div id="columns-viewport" class="relative">
-        <div id="freeform-controls" class="hidden absolute top-2 left-2 z-20 flex flex-col gap-1.5">
-          <button type="button" id="freeform-zoom-in" class="eb-btn-secondary rounded-lg h-8 w-8 flex items-center justify-center text-base leading-none">+</button>
-          <button type="button" id="freeform-zoom-out" class="eb-btn-secondary rounded-lg h-8 w-8 flex items-center justify-center text-base leading-none">−</button>
-          <button type="button" id="freeform-zoom-reset" class="eb-btn-secondary rounded-lg h-8 w-8 flex items-center justify-center text-xs leading-none">⤢</button>
-        </div>
-      <div id="columns-canvas" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" data-position-url="/workspaces/{{.Workspace.Slug}}/datasources/{{.DataSource.Slug}}/columns/__KEY__/position">
-        {{range .Columns}}
-        {{$colorHex := columnColorHex .Key}}
-        {{$icon := columnIcon .Key}}
-        {{$pos := index $.ColumnPositions .Key}}
-        <div class="column-panel eb-card rounded-xl flex flex-col overflow-hidden" style="border-top: 3px solid {{$colorHex}};" data-column="{{.Key}}" data-managed="{{if .Managed}}true{{else}}false{{end}}"{{if $pos}} data-pos-x="{{$pos.X}}" data-pos-y="{{$pos.Y}}"{{end}}>
-          <div class="px-4 py-3 flex items-start justify-between gap-2" style="border-bottom: 1px solid var(--eb-border);">
-            <div class="flex items-start gap-3 min-w-0">
-              <div class="h-10 w-10 rounded-lg flex items-center justify-center shrink-0" style="background: {{$colorHex}}26; color: {{$colorHex}};">
-                {{template "col-icon" $icon}}
-              </div>
-              <div class="min-w-0">
-                <span class="text-sm font-bold uppercase tracking-wide truncate block" style="color: var(--eb-text);">{{.Key}}</span>
-                <p class="column-description text-xs mt-0.5 truncate" style="color: var(--eb-muted);">{{if .Description}}{{.Description}}{{else if not .Managed}}{{t $.Lang "datasource.undeclared_field"}}{{end}}</p>
-              </div>
-            </div>
-            <div class="flex items-center gap-1.5 shrink-0">
-              <span class="value-count eb-chip">{{len .Values}}</span>
-              <div class="relative">
-                <button type="button" class="column-menu-btn eb-icon-btn text-sm px-1">⋯</button>
-                <div class="column-menu hidden fixed w-48 rounded-lg py-1 z-50 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
-                  <button type="button" class="column-code-btn w-full text-left px-3 py-2 text-sm" style="color: var(--eb-text);">{{t $.Lang "datasource.code_button"}}</button>
-                  {{if and .Managed $.CanEdit}}
-                  <button type="button" class="edit-description-btn w-full text-left px-3 py-2 text-sm" style="color: var(--eb-text); border-top: 1px solid var(--eb-border);">{{t $.Lang "datasource.edit_description"}}</button>
-                  {{end}}
-                  {{if and .Managed $.CanDelete}}
-                  <button type="button" class="delete-column-btn w-full text-left px-3 py-2 text-sm" style="color: #f87171; border-top: 1px solid var(--eb-border);">{{t $.Lang "datasource.delete_column"}}</button>
-                  {{end}}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="edit-description-form hidden px-4 py-3 flex items-center gap-2" style="border-bottom: 1px solid var(--eb-border);">
-            <input type="text" class="edit-description-input eb-field-sm flex-1 rounded px-2 py-1.5 text-sm" value="{{.Description}}" placeholder="{{t $.Lang "datasource.column_description_placeholder"}}" />
-            <button type="button" class="save-description-btn eb-btn-primary rounded text-xs px-3 py-1.5">OK</button>
-            <button type="button" class="cancel-description-btn eb-btn-secondary rounded text-xs px-3 py-1.5">✕</button>
-          </div>
-
-          {{if and .Managed $.CanCreate}}
-          <div class="px-4 py-3 flex items-center gap-2" style="border-bottom: 1px solid var(--eb-border);">
-            <div class="relative flex-1">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--eb-muted);"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-              <input type="text" class="local-search-input eb-field-sm w-full rounded-lg pl-8 pr-2 py-1.5 text-sm" placeholder="{{t $.Lang "common.search"}}" />
-            </div>
-            <button type="button" class="open-append-btn rounded-full text-xs font-medium px-3 py-1.5 shrink-0 flex items-center gap-1" style="border: 1px solid {{$colorHex}}; color: {{$colorHex}};">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-              {{t $.Lang "workspace_detail.add_button"}}
-            </button>
-          </div>
-          {{end}}
-
-          <div class="append-row hidden flex items-start gap-2 px-4 py-3" style="border-bottom: 1px solid var(--eb-border);">
-            <select class="append-type eb-field-sm rounded px-1 py-1 text-xs shrink-0">
-              <option value="text">{{t $.Lang "type.text"}}</option>
-              <option value="long_text">{{t $.Lang "type.long_text"}}</option>
-              <option value="number">{{t $.Lang "type.number"}}</option>
-              <option value="boolean">{{t $.Lang "type.boolean"}}</option>
-              <option value="image">{{t $.Lang "type.image"}}</option>
-            </select>
-            <div class="append-value-container flex-1">
-              <input type="text" class="append-input eb-field-sm w-full rounded px-2 py-1 text-sm" placeholder="+ {{t $.Lang "datasource.value_word"}}" />
-            </div>
-            <button type="button" class="append-btn text-sm font-medium shrink-0" style="color: var(--eb-accent);">{{t $.Lang "workspace_detail.add_button"}}</button>
-          </div>
-
-          <div class="value-list flex-1" style="max-height: 320px; overflow-y: auto;">
-            {{$col := .}}
-            {{range $i, $v := .Values}}
-            {{$vt := valueType $v}}
-            {{$isImage := eq $vt "image"}}
-            {{$isLongText := eq $vt "long_text"}}
-            {{$isTextish := or $isLongText (eq $vt "text")}}
-            <div class="value-row flex items-center gap-3 px-4 py-2 text-sm" data-index="{{$i}}" data-search-value data-value-type="{{$vt}}" style="border-top: 1px solid var(--eb-border);">
-              {{if and $col.Managed $.CanEdit}}
-              <span class="value-drag-handle shrink-0" draggable="true" style="color: var(--eb-muted); cursor: grab; touch-action: none;" title="{{t $.Lang "datasource.drag_to_reorder"}}">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
-              </span>
-              {{end}}
-              <span class="type-badge eb-chip shrink-0">{{typeLabel $.Lang $vt}}</span>
-              {{if and $col.Managed $.CanEdit}}
-              <span class="value-text editable flex-1 min-w-0{{if $isImage}} cursor-pointer{{else if $isTextish}} cursor-pointer eb-text-clamp{{else}} cursor-text{{end}}" data-type="{{$vt}}"{{if $isTextish}} data-preview-text="true"{{end}}{{if $isImage}} data-value="{{formatValue $v}}"{{end}} title="{{if or $isImage $isTextish}}{{t $.Lang "datasource.click_to_enlarge"}}{{else}}{{t $.Lang "datasource.double_click_to_edit"}}{{end}}" style="color: var(--eb-text);">{{if $isImage}}<span class="eb-image-chip"><img src="{{formatValue $v}}" class="eb-image-chip-thumb" onerror="this.style.display='none'" /> {{t $.Lang "datasource.preview"}}</span>{{else}}{{formatValue $v}}{{end}}</span>
-              {{else}}
-              <span class="flex-1 min-w-0{{if $isTextish}} cursor-pointer eb-text-clamp{{end}}"{{if $isImage}} data-type="image" data-value="{{formatValue $v}}"{{else if $isTextish}} data-preview-text="true" title="{{t $.Lang "datasource.click_to_enlarge_only"}}"{{end}} style="color: var(--eb-muted);">{{if $isImage}}<span class="eb-image-chip"><img src="{{formatValue $v}}" class="eb-image-chip-thumb" onerror="this.style.display='none'" /> {{t $.Lang "datasource.preview"}}</span>{{else}}{{formatValue $v}}{{end}}</span>
-              {{end}}
-              <div class="relative shrink-0">
-                <button type="button" class="value-menu-btn eb-icon-btn text-sm px-1">⋮</button>
-                <div class="value-menu hidden fixed w-36 rounded-lg py-1 z-50 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
-                  <button type="button" class="value-menu-code w-full text-left px-3 py-1.5 text-sm" style="color: var(--eb-text);">{{t $.Lang "datasource.code_button"}}</button>
-                  {{if and $col.Managed $.CanEdit}}<button type="button" class="value-menu-edit w-full text-left px-3 py-1.5 text-sm" style="color: var(--eb-text); border-top: 1px solid var(--eb-border);">{{t $.Lang "common.edit"}}</button>{{end}}
-                  {{if and $col.Managed $.CanDelete}}<button type="button" class="value-menu-delete w-full text-left px-3 py-1.5 text-sm" style="color: #f87171; border-top: 1px solid var(--eb-border);">{{t $.Lang "common.delete"}}</button>{{end}}
-                </div>
-              </div>
-            </div>
-            {{end}}
-            {{if not .Values}}
-            <div class="empty-state flex flex-col items-center justify-center text-center px-6 py-10">
-              {{if and .Managed $.CanCreate}}
-              <button type="button" class="open-append-btn h-10 w-10 rounded-full flex items-center justify-center mb-3" style="border: 1px dashed var(--eb-border-strong); color: var(--eb-muted);">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-              </button>
-              {{end}}
-              <p class="text-sm font-semibold" style="color: var(--eb-text);">{{t $.Lang "datasource.no_records"}}</p>
-              <p class="text-xs mt-1 max-w-[16rem]" style="color: var(--eb-muted);">
-                {{if and .Managed $.CanCreate}}{{t $.Lang "datasource.no_records_hint_editable"}}{{else}}{{t $.Lang "datasource.no_records_hint_readonly"}}{{end}}
-              </p>
-              {{if and .Managed $.CanCreate}}
-              <button type="button" class="open-append-btn eb-btn-secondary rounded-full text-xs font-medium px-4 py-2 mt-4" style="border-color: {{$colorHex}}; color: {{$colorHex}};">+ {{t $.Lang "datasource.add_item"}}</button>
-              {{end}}
-            </div>
-            {{end}}
-          </div>
-
-          <div class="px-4 py-2.5 flex items-center justify-between text-xs" style="border-top: 1px solid var(--eb-border); color: var(--eb-muted);">
-            <span class="record-count-label">{{len .Values}} {{t $.Lang "datasource.record_word"}}{{if ne (len .Values) 1}}s{{end}}</span>
-          </div>
-        </div>
-        {{end}}
-
-        {{if .CanEdit}}
-        <div class="column-panel-empty rounded-xl flex flex-col items-center justify-center text-center px-6 py-10" style="border: 1px dashed var(--eb-border-strong);">
-          <div id="add-column-prompt" class="flex flex-col items-center">
-            <div class="h-10 w-10 rounded-lg flex items-center justify-center mb-3" style="background: var(--eb-surface-2); color: var(--eb-muted);">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 12h6M9 16h6"/><rect x="4" y="6" width="16" height="16" rx="2"/></svg>
-            </div>
-            <p class="text-sm font-semibold" style="color: var(--eb-text);">{{t .Lang "datasource.empty_column"}}</p>
-            <p class="text-xs mt-1 max-w-[16rem]" style="color: var(--eb-muted);">{{t .Lang "datasource.empty_column_hint"}}</p>
-            <button id="add-column-btn" type="button" class="eb-btn-secondary rounded-full text-xs font-medium px-4 py-2 mt-4" style="border-color: var(--eb-accent); color: var(--eb-accent);">+ {{t .Lang "datasource.add_column"}}</button>
-          </div>
-          <div id="add-column-form" class="hidden w-full space-y-2">
-            <input id="add-column-input" type="text" placeholder="{{t .Lang "datasource.column_name_placeholder"}}"
-              class="eb-input w-full rounded-lg px-3 py-2 text-sm" style="border-color: var(--eb-accent);" />
-            <input id="add-column-description" type="text" placeholder="{{t .Lang "datasource.description_optional_placeholder"}}"
-              class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
-            <div class="flex items-center gap-2">
-              <button id="add-column-confirm-btn" type="button" class="eb-btn-primary flex-1 rounded-lg text-sm px-4 py-2 transition-colors">{{t .Lang "workspace_detail.add_button"}}</button>
-              <button id="add-column-cancel-btn" type="button" class="eb-btn-secondary flex-1 rounded-lg text-sm px-4 py-2 transition-colors">{{t .Lang "common.cancel"}}</button>
-            </div>
-          </div>
-        </div>
-        {{end}}
-      </div>
-      </div>
-     </div>
-    </main>
-
-    {{if or .CanEdit .CanDelete .CanCreate}}
-    <div id="pending-bar" class="hidden shrink-0 px-4 sm:px-8 py-3 flex items-center justify-between" style="background: var(--eb-surface); border-top: 1px solid var(--eb-border);">
-      <span id="pending-count" class="text-sm" style="color: var(--eb-muted);"></span>
+    <div class="shrink-0 px-4 sm:px-8 py-3 flex items-center justify-between gap-2" style="border-bottom: 1px solid var(--eb-border);">
+      <span class="text-xs" style="color: var(--eb-muted);">{{len .Rows}} {{t .Lang "workspace_detail.member_word"}}</span>
       <div class="flex items-center gap-2">
-        <button id="discard-btn" type="button" class="eb-btn-secondary rounded-lg text-sm font-medium px-4 py-2 transition-colors">{{t .Lang "datasource.discard_button"}}</button>
-        <button id="save-btn" type="button" title="Ctrl+S / ⌘S" class="eb-btn-primary rounded-lg text-sm px-4 py-2 transition-colors"><span id="save-btn-label">{{t .Lang "common.save"}}</span> <span class="opacity-60 font-normal">⌘S</span></button>
+        {{if .CanEdit}}
+        <button id="ds-add-column-btn" type="button" class="eb-btn-secondary rounded-md text-xs px-3 py-1.5 transition-colors">+ {{t .Lang "datasource.add_column"}}</button>
+        {{end}}
+        {{if .CanImportData}}
+        <button id="ds-import-btn" type="button" class="eb-btn-secondary rounded-md text-xs px-3 py-1.5 transition-colors">{{t .Lang "datasource.import_button"}}</button>
+        <input id="ds-import-input" type="file" class="hidden" accept=".json,application/json" />
+        {{end}}
+        <div class="relative">
+          <button id="ds-export-btn" type="button" class="eb-btn-secondary rounded-md text-xs px-3 py-1.5 transition-colors">{{t .Lang "datasource.export_button"}}</button>
+          <div id="ds-export-menu" class="hidden absolute right-0 mt-1 w-44 rounded-lg py-1 z-30 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+            <button id="ds-code-btn" type="button" class="block w-full text-left px-3 py-2 text-sm" style="color: var(--eb-text); border-bottom: 1px solid var(--eb-border);">{{t .Lang "datasource.code_button"}}</button>
+            <a href="/workspaces/{{.Workspace.Slug}}/tables/{{.Table.Slug}}/export?format=csv" class="block px-3 py-2 text-sm" style="color: var(--eb-text);">{{t .Lang "datasource.export_csv"}}</a>
+            <a href="/workspaces/{{.Workspace.Slug}}/tables/{{.Table.Slug}}/export?format=json" class="block px-3 py-2 text-sm" style="color: var(--eb-text);">{{t .Lang "datasource.export_json"}}</a>
+          </div>
+        </div>
       </div>
     </div>
-    {{end}}
-  </div>
-</div>
 
-<div id="image-preview-backdrop" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0,0,0,0.75);">
-  <div class="relative" style="max-width: min(90vw, 48rem); max-height: 85vh;">
-    <button id="image-preview-close-btn" type="button" class="absolute -top-3 -right-3 h-8 w-8 rounded-full flex items-center justify-center eb-card" style="color: var(--eb-text);">✕</button>
-    <img id="image-preview-img" src="" alt="" class="rounded-lg" style="max-width: 100%; max-height: 85vh; border: 1px solid var(--eb-border);" />
-    <div class="eb-card rounded-lg mt-2 px-3 py-2 flex items-center justify-between gap-3">
-      <span id="image-preview-filename" class="text-xs truncate" style="color: var(--eb-muted);"></span>
-      <div id="image-preview-actions" class="hidden shrink-0 flex items-center gap-2">
-        <span id="image-preview-status" class="text-xs" style="color: var(--eb-muted);"></span>
-        <label class="eb-btn-secondary inline-flex items-center gap-1.5 rounded-lg text-xs font-medium px-3 py-1.5 cursor-pointer">
-          {{t .Lang "datasource.replace_image"}}
-          <input id="image-preview-replace-input" type="file" accept="image/*" class="sr-only" />
-        </label>
+    <main class="flex-1 overflow-auto">
+      {{if .Columns}}
+      <table class="eb-grid-table" id="grid-table">
+        <thead>
+          <tr>
+            <th class="eb-grid-id-col">ID</th>
+            {{range .Columns}}
+            <th data-key="{{.Key}}">
+              <span class="inline-flex items-center gap-1.5">
+                <span>{{.Key}}</span>
+                {{if $.CanDelete}}<button type="button" class="eb-col-del-btn eb-icon-btn text-xs leading-none" data-key="{{.Key}}" title="{{t $.Lang "datasource.delete_column_confirm"}}">✕</button>{{end}}
+              </span>
+            </th>
+            {{end}}
+          </tr>
+        </thead>
+        <tbody>
+          {{range $row := .Rows}}
+          <tr data-index="{{$row.Index}}">
+            <td class="eb-grid-id-col">
+              <span class="inline-flex items-center gap-1.5">
+                <span>{{$row.Index}}</span>
+                <button type="button" class="eb-row-code-btn eb-icon-btn-ok" style="line-height:0;" data-index="{{$row.Index}}" title="{{t $.Lang "datasource.code_button"}}"><svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></button>
+                {{if $.CanDelete}}<button type="button" class="eb-row-del-btn eb-icon-btn text-xs leading-none" data-index="{{$row.Index}}" title="{{t $.Lang "datasource.delete_row_confirm"}}">✕</button>{{end}}
+              </span>
+            </td>
+            {{range $c, $cell := $row.Cells}}
+            <td class="eb-grid-cell" data-column="{{(index $.Columns $c).Key}}" data-index="{{$row.Index}}" data-raw="{{jsonAttr $cell}}">{{gridCell $cell}}</td>
+            {{end}}
+          </tr>
+          {{end}}
+          {{if not .Rows}}
+          <tr><td colspan="{{add1 (len .Columns)}}" class="text-center" style="color: var(--eb-muted); font-style: italic;">{{t .Lang "workspace_detail.no_datasources"}}</td></tr>
+          {{end}}
+        </tbody>
+      </table>
+      {{if .CanCreate}}
+      <div class="p-3">
+        <button id="ds-add-row-btn" type="button" class="eb-btn-secondary rounded-md text-xs px-3 py-1.5 transition-colors">+ {{t .Lang "datasource.add_row"}}</button>
       </div>
-    </div>
-  </div>
-</div>
-
-<div id="text-preview-backdrop" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0,0,0,0.75);">
-  <div class="relative eb-card rounded-xl w-full" style="max-width: min(90vw, 40rem); max-height: 80vh; display: flex; flex-direction: column;">
-    <button id="text-preview-close-btn" type="button" class="absolute -top-3 -right-3 h-8 w-8 rounded-full flex items-center justify-center eb-card" style="color: var(--eb-text);">✕</button>
-    <textarea id="text-preview-textarea" class="flex-1 p-5 text-sm eb-field-sm" style="color: var(--eb-text); background: transparent; border: none; resize: none; min-height: 240px; font-family: inherit;" spellcheck="false"></textarea>
-    <div id="text-preview-actions" class="hidden px-5 py-3 flex items-center justify-end gap-2" style="border-top: 1px solid var(--eb-border);">
-      <button id="text-preview-cancel-btn" type="button" class="eb-btn-secondary rounded-lg text-sm px-4 py-2 transition-colors">{{t .Lang "common.cancel"}}</button>
-      <button id="text-preview-save-btn" type="button" class="eb-btn-primary rounded-lg text-sm px-4 py-2 transition-colors">{{t .Lang "common.save"}}</button>
-    </div>
+      {{end}}
+      {{else}}
+      <div class="h-full flex flex-col items-center justify-center gap-3 text-sm" style="color: var(--eb-muted);">
+        <span>{{t .Lang "datasource.empty_columns_hint"}}</span>
+        {{if .CanEdit}}
+        <button id="ds-add-column-empty-btn" type="button" class="eb-btn-secondary rounded-md text-xs px-3 py-1.5 transition-colors">+ {{t .Lang "datasource.add_column"}}</button>
+        {{end}}
+      </div>
+      {{end}}
+    </main>
   </div>
 </div>
 
@@ -331,520 +120,179 @@
 
 <script>
 (function () {
-  const BASE_VERSION = {{.DataSource.Version}};
-  const SAVE_URL = window.location.pathname.replace(/\/$/, "") + "/records";
-  const COLUMN_URL = window.location.pathname.replace(/\/$/, "") + "/columns";
-  const WORKSPACE_SLUG = window.location.pathname.split("/").filter(Boolean)[1];
-  const UPLOAD_URL = "/workspaces/" + WORKSPACE_SLUG + "/uploads";
-
-  const pendingUpdates = new Map(); // "column:index" -> {column, index, value}
-  const pendingDeletes = new Map(); // "column:index" -> {column, index}
-  const pendingAppends = [];        // [{column, value, el}]
-  let currentSortMode = "none";     // tracks the display-only sort (see below) — drag reordering needs the true, unsorted order
+  const wsSlug = {{.Workspace.Slug}};
+  const tableSlug = {{.Table.Slug}};
+  let currentVersion = {{.Table.Version}};
 
   const I18N = {
+    errorRetry: "{{t .Lang "common.error_generic_retry"}}",
+    cannotContact: "{{t .Lang "datasource.cannot_contact_server"}}",
+    conflict: "{{t .Lang "datasource.conflict"}}",
+    newColumnPrompt: "{{t .Lang "datasource.new_column_prompt"}}",
+    deleteColumnConfirm: "{{t .Lang "datasource.delete_column_confirm"}}",
+    deleteRowConfirm: "{{t .Lang "datasource.delete_row_confirm"}}",
     typeText: "{{t .Lang "type.text"}}",
     typeLongText: "{{t .Lang "type.long_text"}}",
     typeNumber: "{{t .Lang "type.number"}}",
     typeBoolean: "{{t .Lang "type.boolean"}}",
     typeImage: "{{t .Lang "type.image"}}",
-    unsavedChange: "{{t .Lang "datasource.unsaved_change"}}",
-    unsavedChanges: "{{t .Lang "datasource.unsaved_changes"}}",
-    preview: "{{t .Lang "datasource.preview"}}",
-    clickToEnlargeAndEdit: "{{t .Lang "datasource.click_to_enlarge"}}",
-    doubleClickToEdit: "{{t .Lang "datasource.double_click_to_edit"}}",
-    clickToEnlarge: "{{t .Lang "datasource.click_to_enlarge_only"}}",
-    replaceImage: "{{t .Lang "datasource.replace_image"}}",
-    chooseImage: "{{t .Lang "datasource.choose_image"}}",
-    orPasteUrl: "{{t .Lang "datasource.or_paste_url"}}",
-    uploading: "{{t .Lang "datasource.uploading"}}",
-    uploadFailed: "{{t .Lang "datasource.upload_failed"}}",
-    recordWord: "{{t .Lang "datasource.record_word"}}",
-    confirmDeleteColumn: "{{t .Lang "datasource.confirm_delete_column"}}",
-    errorGeneric: "{{t .Lang "common.error_generic"}}",
-    saving: "{{t .Lang "datasource.saving"}}",
+    typeJSON: "{{t .Lang "type.json"}}",
+    uploadImage: "{{t .Lang "datasource.upload_image_button"}}",
     save: "{{t .Lang "common.save"}}",
-    cannotContactServer: "{{t .Lang "datasource.cannot_contact_server"}}",
-    reorderResetSortFirst: "{{t .Lang "datasource.reorder_reset_sort_first"}}",
-    reorderDiscardPending: "{{t .Lang "datasource.reorder_discard_pending"}}",
+    cancel: "{{t .Lang "common.cancel"}}",
   };
-  const TYPE_LABELS = { text: I18N.typeText, long_text: I18N.typeLongText, number: I18N.typeNumber, boolean: I18N.typeBoolean, image: I18N.typeImage };
 
-  const bar = document.getElementById("pending-bar");
-  const countEl = document.getElementById("pending-count");
-  const conflictBanner = document.getElementById("conflict-banner");
-
-  function pendingTotal() {
-    return pendingUpdates.size + pendingDeletes.size + pendingAppends.length;
-  }
-  function updateBar() {
-    if (!bar) return;
-    const n = pendingTotal();
-    if (n > 0) {
-      bar.classList.remove("hidden");
-      countEl.textContent = n + " " + (n > 1 ? I18N.unsavedChanges : I18N.unsavedChange);
-    } else {
-      bar.classList.add("hidden");
-    }
-  }
-
-  // --- Generic dropdown menu helper: toggles a sibling `.xxx-menu` element
-  // open/closed, and closes any other open menu when one opens or the
-  // user clicks elsewhere. These menus live inside scrolling/clipped
-  // containers (.value-list has overflow-y, .column-panel has
-  // overflow-hidden), so they're positioned `fixed` with coordinates
-  // computed from the trigger button — `absolute` would just get cut off
-  // by those ancestors instead of floating over the whole page.
-  function positionFixedMenu(btn, menu) {
-    const rect = btn.getBoundingClientRect();
-    menu.style.top = (rect.bottom + 4) + "px";
-    const menuWidth = menu.offsetWidth || 160;
-    let left = rect.right - menuWidth;
-    left = Math.max(8, Math.min(left, window.innerWidth - menuWidth - 8));
-    menu.style.left = left + "px";
-  }
-  function bindMenu(triggerSelector, menuClass) {
-    document.querySelectorAll(triggerSelector).forEach((btn) => {
-      const menu = btn.parentElement.querySelector("." + menuClass) || btn.nextElementSibling;
-      if (!menu) return;
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const isHidden = menu.classList.contains("hidden");
-        closeAllMenus();
-        if (isHidden) {
-          menu.classList.remove("hidden");
-          positionFixedMenu(btn, menu);
-        }
-      });
+  async function postRecords(body) {
+    const res = await fetch(`/workspaces/${wsSlug}/tables/${tableSlug}/records`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(Object.assign({ baseVersion: currentVersion }, body)),
     });
-  }
-  function closeAllMenus() {
-    document.querySelectorAll(".column-menu, .value-menu, #filters-menu, #sort-menu, #page-menu").forEach((m) => m.classList.add("hidden"));
-  }
-  document.addEventListener("click", closeAllMenus);
-  document.addEventListener("scroll", closeAllMenus, true);
-  window.addEventListener("resize", closeAllMenus);
-
-  function makeImageChip(url) {
-    const chip = document.createElement("span");
-    chip.className = "eb-image-chip";
-    const thumb = document.createElement("img");
-    thumb.className = "eb-image-chip-thumb";
-    thumb.src = url;
-    thumb.addEventListener("error", () => { thumb.style.display = "none"; });
-    chip.appendChild(thumb);
-    chip.appendChild(document.createTextNode(" " + I18N.preview));
-    return chip;
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      if (res.status === 409) alert(data.error || I18N.conflict);
+      else alert(data.error || I18N.errorRetry);
+      return false;
+    }
+    currentVersion = data.version;
+    return true;
   }
 
-  // --- Image preview modal: a chip in a cell/append-row opens this instead
-  // of a tiny inline thumbnail or a new browser tab. Shows the filename and,
-  // for an editable cell, lets you upload a replacement right there instead
-  // of having to open the cramped inline edit widget first. ---
-  const imagePreviewBackdrop = document.getElementById("image-preview-backdrop");
-  const imagePreviewImg = document.getElementById("image-preview-img");
-  const imagePreviewFilename = document.getElementById("image-preview-filename");
-  const imagePreviewActions = document.getElementById("image-preview-actions");
-  const imagePreviewStatus = document.getElementById("image-preview-status");
-  const imagePreviewReplaceInput = document.getElementById("image-preview-replace-input");
-  let imagePreviewSpan = null;
-  function filenameFromURL(url) {
+  // --- Add column ---
+  async function addColumn() {
+    const name = window.prompt(I18N.newColumnPrompt);
+    if (!name || !name.trim()) return;
     try {
-      const path = url.split("?")[0].split("#")[0];
-      return decodeURIComponent(path.substring(path.lastIndexOf("/") + 1)) || url;
-    } catch (e) {
-      return url;
-    }
-  }
-  function openImagePreview(span) {
-    const url = span.dataset.value;
-    if (!imagePreviewBackdrop || !imagePreviewImg || !url) return;
-    imagePreviewSpan = span;
-    imagePreviewImg.src = url;
-    if (imagePreviewFilename) imagePreviewFilename.textContent = filenameFromURL(url);
-    if (imagePreviewStatus) imagePreviewStatus.textContent = "";
-    if (imagePreviewActions) imagePreviewActions.classList.toggle("hidden", !span.classList.contains("editable"));
-    imagePreviewBackdrop.classList.remove("hidden");
-  }
-  function closeImagePreview() {
-    if (!imagePreviewBackdrop) return;
-    imagePreviewBackdrop.classList.add("hidden");
-    imagePreviewImg.src = "";
-    imagePreviewSpan = null;
-  }
-  document.getElementById("image-preview-close-btn")?.addEventListener("click", closeImagePreview);
-  imagePreviewBackdrop?.addEventListener("click", (e) => { if (e.target === imagePreviewBackdrop) closeImagePreview(); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeImagePreview(); });
-
-  imagePreviewReplaceInput?.addEventListener("change", async () => {
-    const file = imagePreviewReplaceInput.files[0];
-    if (!file || !imagePreviewSpan) return;
-    if (imagePreviewStatus) imagePreviewStatus.textContent = I18N.uploading;
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch(UPLOAD_URL, { method: "POST", body: formData });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || I18N.uploadFailed);
-      }
-      const data = await res.json();
-      const row = imagePreviewSpan.closest(".value-row");
-      const panel = imagePreviewSpan.closest(".column-panel");
-      const column = panel.dataset.column;
-      const index = parseInt(row.dataset.index, 10);
-
-      imagePreviewSpan.dataset.value = data.url;
-      const thumb = imagePreviewSpan.querySelector(".eb-image-chip-thumb");
-      if (thumb) thumb.src = data.url;
-      imagePreviewImg.src = data.url;
-      if (imagePreviewFilename) imagePreviewFilename.textContent = filenameFromURL(data.url);
-      if (imagePreviewStatus) imagePreviewStatus.textContent = "";
-
-      const key = column + ":" + index;
-      row.classList.add("eb-row-pending");
-      pendingUpdates.set(key, { column, index, value: data.url, type: "image" });
-      updateBar();
-    } catch (err) {
-      if (imagePreviewStatus) imagePreviewStatus.textContent = err.message || I18N.uploadFailed;
-    } finally {
-      imagePreviewReplaceInput.value = "";
-    }
-  });
-
-  // A double-click on an editable image cell should start editing, not open
-  // the preview — so a single click is delayed just long enough to be
-  // cancelled if a second click (i.e. a dblclick) follows right behind it.
-  let imageChipClickTimer = null;
-  document.addEventListener("click", (e) => {
-    const chip = e.target.closest("[data-type='image']");
-    if (!chip || chip.querySelector(".value-widget")) return;
-    clearTimeout(imageChipClickTimer);
-    imageChipClickTimer = setTimeout(() => openImagePreview(chip), 220);
-  });
-  document.addEventListener("dblclick", (e) => {
-    if (e.target.closest("[data-type='image']")) clearTimeout(imageChipClickTimer);
-  });
-
-  // --- Long text preview modal: the cell itself only shows a clamped
-  // (2-line) preview via CSS. Opening it shows the full value in a
-  // textarea — editable in place when the cell itself is editable, so
-  // editing a long value doesn't have to happen inside the cramped card. ---
-  const textPreviewBackdrop = document.getElementById("text-preview-backdrop");
-  const textPreviewTextarea = document.getElementById("text-preview-textarea");
-  const textPreviewActions = document.getElementById("text-preview-actions");
-  const textPreviewSaveBtn = document.getElementById("text-preview-save-btn");
-  let textPreviewSpan = null;
-  function openTextPreview(span) {
-    if (!textPreviewBackdrop || !textPreviewTextarea) return;
-    textPreviewSpan = span;
-    const editable = span.classList.contains("editable");
-    textPreviewTextarea.value = span.textContent;
-    textPreviewTextarea.readOnly = !editable;
-    textPreviewActions.classList.toggle("hidden", !editable);
-    textPreviewBackdrop.classList.remove("hidden");
-    if (editable) textPreviewTextarea.focus();
-  }
-  function closeTextPreview() {
-    if (!textPreviewBackdrop) return;
-    textPreviewBackdrop.classList.add("hidden");
-    textPreviewTextarea.value = "";
-    textPreviewSpan = null;
-  }
-  function saveTextPreview() {
-    if (!textPreviewSpan) return;
-    const row = textPreviewSpan.closest(".value-row");
-    const panel = textPreviewSpan.closest(".column-panel");
-    const column = panel.dataset.column;
-    const index = parseInt(row.dataset.index, 10);
-    const type = textPreviewSpan.dataset.type || "text";
-    const original = textPreviewSpan.textContent;
-    const newVal = textPreviewTextarea.value;
-    textPreviewSpan.textContent = newVal;
-    const key = column + ":" + index;
-    if (newVal !== original) {
-      row.classList.add("eb-row-pending");
-      pendingUpdates.set(key, { column, index, value: newVal, type });
-    } else {
-      row.classList.remove("eb-row-pending");
-      pendingUpdates.delete(key);
-    }
-    updateBar();
-    closeTextPreview();
-  }
-  document.getElementById("text-preview-close-btn")?.addEventListener("click", closeTextPreview);
-  document.getElementById("text-preview-cancel-btn")?.addEventListener("click", closeTextPreview);
-  textPreviewSaveBtn?.addEventListener("click", saveTextPreview);
-  textPreviewBackdrop?.addEventListener("click", (e) => { if (e.target === textPreviewBackdrop) closeTextPreview(); });
-  document.addEventListener("keydown", (e) => {
-    if (!textPreviewBackdrop || textPreviewBackdrop.classList.contains("hidden")) return;
-    if (e.key === "Escape") { closeTextPreview(); return; }
-    if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !textPreviewTextarea.readOnly) {
-      e.preventDefault();
-      saveTextPreview();
-    }
-  });
-
-  // Same single-click-delayed-by-a-dblclick trick as the image preview
-  // above, so an editable long-text cell's double-click-to-edit still works.
-  let longTextClickTimer = null;
-  document.addEventListener("click", (e) => {
-    const el = e.target.closest("[data-preview-text]");
-    if (!el || el.querySelector(".value-widget")) return;
-    clearTimeout(longTextClickTimer);
-    longTextClickTimer = setTimeout(() => openTextPreview(el), 220);
-  });
-  document.addEventListener("dblclick", (e) => {
-    if (e.target.closest("[data-preview-text]")) clearTimeout(longTextClickTimer);
-  });
-
-  function typedInput(type, currentValue) {
-    if (type === "boolean") {
-      const select = document.createElement("select");
-      select.className = "eb-field-sm w-full rounded px-1.5 py-1 text-sm";
-      ["true", "false"].forEach((v) => {
-        const opt = document.createElement("option");
-        opt.value = v;
-        opt.textContent = v;
-        if (v === currentValue) opt.selected = true;
-        select.appendChild(opt);
+      const res = await fetch(`/workspaces/${wsSlug}/tables/${tableSlug}/columns`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: name.trim() }),
       });
-      return select;
-    }
-    if (type === "long_text") {
-      const textarea = document.createElement("textarea");
-      textarea.className = "eb-field-sm w-full rounded px-1.5 py-1 text-sm";
-      textarea.rows = 3;
-      textarea.value = currentValue;
-      return textarea;
-    }
-    if (type === "image") {
-      return imageWidget(currentValue);
-    }
-    const input = document.createElement("input");
-    input.type = type === "number" ? "number" : "text";
-    if (type === "number") input.step = "any";
-    input.className = "eb-field-sm w-full rounded px-1.5 py-1 text-sm";
-    input.value = currentValue;
-    return input;
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { alert(body.error || I18N.errorRetry); return; }
+      location.reload();
+    } catch (e) { alert(I18N.cannotContact); }
   }
+  document.getElementById("ds-add-column-btn")?.addEventListener("click", addColumn);
+  document.getElementById("ds-add-column-empty-btn")?.addEventListener("click", addColumn);
 
-  // An "image" value is a URL, normally produced by uploading a file. The
-  // returned node behaves like a plain input for the rest of the code
-  // (.value / .focus() work) even though it's a small card: a preview,
-  // a styled upload button, and a collapsed "use a URL instead" fallback.
-  function imageWidget(currentValue) {
-    const wrapper = document.createElement("div");
-    wrapper.className = "flex-1 min-w-0 rounded-lg p-2 flex items-center gap-3";
-    wrapper.style.background = "var(--eb-surface)";
-    wrapper.style.border = "1px solid var(--eb-border)";
-
-    const preview = document.createElement("div");
-    preview.className = "h-14 w-14 rounded-lg overflow-hidden flex items-center justify-center shrink-0";
-    preview.style.background = "var(--eb-surface-2)";
-    preview.style.border = "1px solid var(--eb-border)";
-    preview.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--eb-muted);"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>';
-    const placeholder = preview.firstElementChild;
-    const thumb = document.createElement("img");
-    thumb.className = "h-full w-full object-cover";
-    thumb.style.display = "none";
-    preview.appendChild(thumb);
-
-    function setPreview(url) {
-      if (!url) {
-        thumb.style.display = "none";
-        placeholder.style.display = "";
-        return;
-      }
-      thumb.src = url;
-    }
-    thumb.addEventListener("load", () => { thumb.style.display = ""; placeholder.style.display = "none"; });
-    thumb.addEventListener("error", () => { thumb.style.display = "none"; placeholder.style.display = ""; });
-
-    const controls = document.createElement("div");
-    controls.className = "flex-1 min-w-0";
-
-    const fileLabel = document.createElement("label");
-    fileLabel.className = "eb-btn-secondary inline-flex items-center gap-1.5 rounded-lg text-xs font-medium px-3 py-1.5 cursor-pointer";
-    fileLabel.textContent = currentValue ? I18N.replaceImage : I18N.chooseImage;
-    const fileInput = document.createElement("input");
-    fileInput.type = "file";
-    fileInput.accept = "image/*";
-    fileInput.className = "sr-only";
-    fileLabel.appendChild(fileInput);
-
-    const status = document.createElement("span");
-    status.className = "text-xs ml-2";
-    status.style.color = "var(--eb-muted)";
-
-    const fileRow = document.createElement("div");
-    fileRow.className = "flex items-center";
-    fileRow.appendChild(fileLabel);
-    fileRow.appendChild(status);
-
-    const urlToggle = document.createElement("button");
-    urlToggle.type = "button";
-    urlToggle.className = "block text-xs mt-1.5 hover:underline";
-    urlToggle.style.color = "var(--eb-muted)";
-    urlToggle.textContent = I18N.orPasteUrl;
-
-    const urlInput = document.createElement("input");
-    urlInput.type = "text";
-    urlInput.placeholder = "https://...";
-    urlInput.className = "eb-field-sm w-full rounded px-2 py-1 text-xs mt-1.5 hidden";
-    urlInput.value = currentValue || "";
-    urlInput.addEventListener("input", () => setPreview(urlInput.value));
-
-    urlToggle.addEventListener("click", () => {
-      urlInput.classList.toggle("hidden");
-      if (!urlInput.classList.contains("hidden")) urlInput.focus();
-    });
-
-    fileInput.addEventListener("change", async () => {
-      const file = fileInput.files[0];
-      if (!file) return;
-      status.textContent = I18N.uploading;
+  // --- Delete column ---
+  document.querySelectorAll(".eb-col-del-btn").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (!confirm(I18N.deleteColumnConfirm)) return;
       try {
-        const formData = new FormData();
-        formData.append("file", file);
-        const res = await fetch(UPLOAD_URL, { method: "POST", body: formData });
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || I18N.uploadFailed);
-        }
-        const data = await res.json();
-        urlInput.value = data.url;
-        setPreview(data.url);
-        fileLabel.textContent = I18N.replaceImage;
-        status.textContent = "";
-      } catch (e) {
-        status.textContent = e.message;
-      } finally {
-        fileInput.value = "";
-      }
+        const res = await fetch(`/workspaces/${wsSlug}/tables/${tableSlug}/columns/${encodeURIComponent(btn.dataset.key)}`, { method: "DELETE" });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) { alert(body.error || I18N.errorRetry); return; }
+        location.reload();
+      } catch (err) { alert(I18N.cannotContact); }
     });
+  });
 
-    controls.appendChild(fileRow);
-    controls.appendChild(urlToggle);
-    controls.appendChild(urlInput);
+  // --- Add row: one empty value per existing column, in a single record ---
+  document.getElementById("ds-add-row-btn")?.addEventListener("click", async () => {
+    const columnKeys = Array.from(document.querySelectorAll("#grid-table thead th[data-key]")).map((th) => th.dataset.key);
+    if (columnKeys.length === 0) return;
+    const ok = await postRecords({ appends: columnKeys.map((column) => ({ column, value: "", type: "text" })) });
+    if (ok) location.reload();
+  });
 
-    wrapper.appendChild(preview);
-    wrapper.appendChild(controls);
-
-    setPreview(currentValue);
-
-    Object.defineProperty(wrapper, "value", {
-      get() { return urlInput.value; },
-      set(v) { urlInput.value = v; setPreview(v); },
+  // --- Delete row: clear every column's value at that index ---
+  document.querySelectorAll(".eb-row-del-btn").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (!confirm(I18N.deleteRowConfirm)) return;
+      const index = parseInt(btn.dataset.index, 10);
+      const columnKeys = Array.from(document.querySelectorAll("#grid-table thead th[data-key]")).map((th) => th.dataset.key);
+      const ok = await postRecords({ deletes: columnKeys.map((column) => ({ column, index })) });
+      if (ok) location.reload();
     });
-    wrapper.focus = () => fileLabel.focus();
+  });
 
-    return wrapper;
+  // --- Inline cell editing ---
+  function cellToRaw(text, type) {
+    if (type === "json") return text;
+    return text;
   }
+  function openCellEditor(td) {
+    if (td.querySelector(".eb-cell-editor")) return;
+    const column = td.dataset.column;
+    const index = parseInt(td.dataset.index, 10);
+    const rawJSON = td.dataset.raw ? JSON.parse(td.dataset.raw) : null;
+    function looksLikeImage(s) {
+      if (s.includes("/uploads/") || s.startsWith("data:image/")) return true;
+      return /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i.test(s.split("?")[0]);
+    }
+    let currentType = "text";
+    if (typeof rawJSON === "boolean") currentType = "boolean";
+    else if (typeof rawJSON === "number") currentType = "number";
+    else if (rawJSON !== null && typeof rawJSON === "object") currentType = "json";
+    else if (typeof rawJSON === "string" && looksLikeImage(rawJSON)) currentType = "image";
+    else if (typeof rawJSON === "string" && rawJSON.includes("\n")) currentType = "long_text";
 
-  function typeSelect(initialType) {
+    const original = td.innerHTML;
+    const wrap = document.createElement("div");
+    wrap.className = "eb-cell-editor flex flex-col gap-1";
+
     const select = document.createElement("select");
-    select.className = "type-select eb-field-sm shrink-0 rounded px-1 py-1 text-xs";
-    [["text", I18N.typeText], ["long_text", I18N.typeLongText], ["number", I18N.typeNumber], ["boolean", I18N.typeBoolean], ["image", I18N.typeImage]].forEach(([v, label]) => {
+    select.className = "eb-field-sm rounded px-1 py-0.5 text-xs";
+    [["text", I18N.typeText], ["long_text", I18N.typeLongText], ["number", I18N.typeNumber], ["boolean", I18N.typeBoolean], ["image", I18N.typeImage], ["json", I18N.typeJSON]].forEach(([value, label]) => {
       const opt = document.createElement("option");
-      opt.value = v;
-      opt.textContent = label;
-      if (v === initialType) opt.selected = true;
+      opt.value = value; opt.textContent = label;
+      if (value === currentType) opt.selected = true;
       select.appendChild(opt);
     });
-    return select;
-  }
 
-  // Editing a value now involves two independent controls (its type and its
-  // value), so — unlike a single plain input — we can't rely on blur to
-  // know the user is done. Commit/cancel are explicit instead.
-  function startEdit(span) {
-    const row = span.closest(".value-row");
-    const badge = row.querySelector(".type-badge");
-    const panel = span.closest(".column-panel");
-    const column = panel.dataset.column;
-    const index = parseInt(row.dataset.index, 10);
-    if (row.querySelector(".edit-wrapper")) return;
-    const original = span.dataset.value !== undefined ? span.dataset.value : span.textContent;
-    const originalType = span.dataset.type || "text";
+    let valueEl; // the actual input/select/textarea holding the editable value
+    let valueContainer; // what actually gets mounted in valueRow — same as valueEl, except for "image" (input + upload button + preview)
+    function buildValueEl(type, initial) {
+      if (type === "boolean") {
+        valueEl = document.createElement("select");
+        valueEl.className = "eb-field-sm rounded px-1 py-0.5 text-xs";
+        ["true", "false"].forEach((v) => {
+          const opt = document.createElement("option");
+          opt.value = v; opt.textContent = v;
+          if (v === String(initial === true)) opt.selected = true;
+          valueEl.appendChild(opt);
+        });
+        valueContainer = valueEl;
+      } else if (type === "long_text" || type === "json") {
+        valueEl = document.createElement("textarea");
+        valueEl.rows = 3;
+        valueEl.className = "eb-field-sm rounded px-1 py-0.5 text-xs w-full";
+        valueEl.value = initial === null || initial === undefined ? "" : (type === "json" ? JSON.stringify(initial, null, 2) : String(initial));
+        valueContainer = valueEl;
+      } else if (type === "image") {
+        valueEl = document.createElement("input");
+        valueEl.type = "text";
+        valueEl.placeholder = "https://…";
+        valueEl.className = "eb-field-sm rounded px-1 py-0.5 text-xs w-full";
+        valueEl.value = initial === null || initial === undefined ? "" : String(initial);
 
-    const wrapper = document.createElement("span");
-    wrapper.className = "edit-wrapper flex-1 flex items-start gap-1";
+        const fileInput = document.createElement("input");
+        fileInput.type = "file";
+        fileInput.accept = "image/*";
+        fileInput.className = "hidden";
 
-    const tSelect = typeSelect(originalType);
-    let valueWidget = typedInput(originalType, original);
-    valueWidget.className += " value-widget";
+        const uploadBtn = document.createElement("button");
+        uploadBtn.type = "button";
+        uploadBtn.textContent = I18N.uploadImage;
+        uploadBtn.className = "eb-btn-secondary rounded px-2 py-0.5 text-xs shrink-0";
 
-    const confirmBtn = document.createElement("button");
-    confirmBtn.type = "button";
-    confirmBtn.className = "edit-confirm-btn eb-icon-btn-ok text-xs shrink-0 mt-1";
-    confirmBtn.textContent = "✓";
-    const cancelBtn = document.createElement("button");
-    cancelBtn.type = "button";
-    cancelBtn.className = "eb-icon-btn text-xs shrink-0 mt-1";
-    cancelBtn.textContent = "✕";
+        const preview = document.createElement("img");
+        preview.className = "eb-thumb shrink-0";
+        preview.style.height = "1.75rem";
+        preview.style.width = "1.75rem";
 
-    const widgetContainer = document.createElement("span");
-    widgetContainer.className = "flex-1";
-    widgetContainer.appendChild(valueWidget);
+        const filenameLabel = document.createElement("span");
+        filenameLabel.className = "text-xs truncate";
+        filenameLabel.style.color = "var(--eb-muted)";
+        filenameLabel.style.maxWidth = "10rem";
 
-    wrapper.appendChild(tSelect);
-    wrapper.appendChild(widgetContainer);
-    wrapper.appendChild(confirmBtn);
-    wrapper.appendChild(cancelBtn);
-
-    if (badge) badge.classList.add("hidden");
-    span.replaceWith(wrapper);
-    valueWidget.focus();
-    if (valueWidget.select) valueWidget.select();
-
-    tSelect.addEventListener("change", () => {
-      const carry = valueWidget.value;
-      const fresh = typedInput(tSelect.value, carry);
-      fresh.className += " value-widget";
-      widgetContainer.replaceChildren(fresh);
-      valueWidget = fresh;
-      valueWidget.focus();
-      bindCommitKeys();
-    });
-
-    let settled = false;
-    function buildValueSpan(type, value) {
-      const isTextish = type === "text" || type === "long_text";
-      const span = document.createElement("span");
-      span.className = "value-text editable flex-1 min-w-0" + (type === "image" ? " cursor-pointer" : isTextish ? " cursor-pointer eb-text-clamp" : " cursor-text");
-      span.style.color = "var(--eb-text)";
-      span.dataset.type = type;
-      if (type === "image") {
-        span.dataset.value = value;
-        span.title = I18N.clickToEnlargeAndEdit;
-        span.appendChild(makeImageChip(value));
-      } else if (isTextish) {
-        span.dataset.previewText = "true";
-        span.title = I18N.clickToEnlargeAndEdit;
-        span.textContent = value;
-      } else {
-        span.title = I18N.doubleClickToEdit;
-        span.textContent = value;
-      }
-      bindEditableSpan(span);
-      return span;
-    }
-    function commit() {
-      if (settled) return;
-      settled = true;
-      const newVal = valueWidget.value;
-      const newType = tSelect.value;
-      const newSpan = buildValueSpan(newType, newVal);
-      wrapper.replaceWith(newSpan);
-      row.dataset.valueType = newType;
-      if (badge) {
-        badge.textContent = TYPE_LABELS[newType];
-        badge.classList.remove("hidden");
-      }
-      const key = column + ":" + index;
-      if (newVal !== original || newType !== originalType) {
-        row.classList.add("eb-row-pending");
+        function imageFilename(url) {
+          if (!url || url.startsWith("data:")) return "";
+          return url.split("?")[0].split("/").pop();
         pendingUpdates.set(key, { column, index, value: newVal, type: newType });
       } else {
         row.classList.remove("eb-row-pending");
