@@ -645,6 +645,9 @@
       <span id="webhook-deploy-error-icon" class="hidden shrink-0" style="color: #f87171;">✕</span>
       <span id="webhook-deploy-message"></span>
     </div>
+    <div id="webhook-deploy-bar-track" class="hidden mt-2 h-1 rounded-full overflow-hidden" style="background: var(--eb-border);">
+      <div id="webhook-deploy-bar-fill" class="h-full rounded-full transition-all duration-300" style="width: 0%; background: var(--eb-accent);"></div>
+    </div>
   </div>
   <div class="relative z-10 h-full">
     {{template "content" .}}
@@ -656,6 +659,8 @@
     const spinner = document.getElementById("webhook-deploy-spinner");
     const successIcon = document.getElementById("webhook-deploy-success-icon");
     const errorIcon = document.getElementById("webhook-deploy-error-icon");
+    const barTrack = document.getElementById("webhook-deploy-bar-track");
+    const barFill = document.getElementById("webhook-deploy-bar-fill");
     if (!notice || !message) return;
 
     const runningTemplate = {{printf "%q" (t .Lang "webhook.deploy_running")}};
@@ -689,7 +694,12 @@
           spinner.classList.remove("hidden");
           successIcon.classList.add("hidden");
           errorIcon.classList.add("hidden");
-          message.textContent = fmt(runningTemplate, status.target || "?", elapsed + "s");
+          const hasPercent = typeof status.progressPercent === "number" && status.progressPercent >= 0;
+          if (status.progressMessage) {
+            message.textContent = hasPercent
+              ? `${status.progressMessage} (${status.progressPercent}%)`
+              : status.progressMessage;
+          } else {
           show("var(--eb-accent)");
           return;
         }
