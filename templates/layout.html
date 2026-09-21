@@ -458,6 +458,17 @@
         <button type="submit" name="language" value="en" class="px-2 py-1 transition-colors" style="{{if eq .Lang "en"}}background: var(--eb-surface-2); color: var(--eb-text);{{else}}color: var(--eb-muted);{{end}}">EN</button>
       </form>
       <div class="relative">
+        <button id="notif-bell-btn" type="button" class="relative flex items-center justify-center h-8 w-8 rounded-lg transition-colors" style="color: var(--eb-muted);" title="{{t .Lang "header.notifications"}}">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span id="notif-badge" class="hidden absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full text-[10px] leading-4 font-semibold text-center" style="background: #f87171; color: #fff;"></span>
+        </button>
+        <div id="notif-dropdown" class="hidden absolute right-0 mt-2 w-80 max-w-[90vw] rounded-lg overflow-hidden eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+          <div class="px-4 py-2 text-xs font-semibold uppercase tracking-wider" style="color: var(--eb-muted); border-bottom: 1px solid var(--eb-border);">{{t .Lang "header.notifications"}}</div>
+          <div id="notif-list" class="max-h-80 overflow-y-auto"></div>
+          <a href="/activity" class="block text-center text-xs px-4 py-2 transition-colors" style="color: var(--eb-accent); border-top: 1px solid var(--eb-border);">{{t .Lang "header.notifications_view_all"}}</a>
+        </div>
+      </div>
+      <div class="relative">
         <button id="user-menu-btn" type="button" class="flex items-center gap-2">
           <img src="{{.CurrentUser.AvatarImageURL}}" alt="" class="h-8 w-8 rounded-full shrink-0" style="background: var(--eb-accent);" />
           <div class="hidden sm:block text-left leading-tight">
@@ -518,6 +529,114 @@
     menu.classList.toggle("hidden");
   });
   document.addEventListener("click", () => menu.classList.add("hidden"));
+})();
+
+(function () {
+  const btn = document.getElementById("notif-bell-btn");
+  const dropdown = document.getElementById("notif-dropdown");
+  const list = document.getElementById("notif-list");
+  const badge = document.getElementById("notif-badge");
+  if (!btn || !dropdown || !list) return;
+
+  const emptyText = {{printf "%q" (t .Lang "header.notifications_empty")}};
+  const POLL_MS = 15000;
+
+  function renderItems(items) {
+    list.innerHTML = "";
+    if (!items.length) {
+      const empty = document.createElement("div");
+      empty.className = "px-4 py-6 text-sm text-center";
+      empty.style.color = "var(--eb-muted)";
+      empty.textContent = emptyText;
+      list.appendChild(empty);
+      return;
+    }
+    items.forEach((item, i) => {
+      const row = document.createElement("a");
+      row.href = item.url;
+      row.className = "flex items-start gap-2 px-4 py-3 transition-colors";
+      row.style.color = "var(--eb-text)";
+      if (i > 0) row.style.borderTop = "1px solid var(--eb-border)";
+      row.onmouseover = () => { row.style.background = "var(--eb-surface-2)"; };
+      row.onmouseout = () => { row.style.background = ""; };
+
+      if (item.unread) {
+        const dot = document.createElement("span");
+        dot.className = "mt-1.5 h-1.5 w-1.5 rounded-full shrink-0";
+        dot.style.background = "var(--eb-accent)";
+        row.appendChild(dot);
+      } else {
+        const spacer = document.createElement("span");
+        spacer.className = "mt-1.5 h-1.5 w-1.5 shrink-0";
+        row.appendChild(spacer);
+      }
+
+      const textCol = document.createElement("div");
+      textCol.className = "min-w-0";
+      const desc = document.createElement("p");
+      desc.className = "text-sm";
+      desc.textContent = item.description;
+      const time = document.createElement("p");
+      time.className = "text-xs mt-0.5";
+      time.style.color = "var(--eb-muted)";
+      time.textContent = item.createdAt;
+      textCol.appendChild(desc);
+      textCol.appendChild(time);
+
+      row.appendChild(textCol);
+      list.appendChild(row);
+    });
+  }
+
+  function renderBadge(count) {
+    if (!badge) return;
+    if (count > 0) {
+      badge.textContent = count > 99 ? "99+" : String(count);
+      badge.classList.remove("hidden");
+    } else {
+      badge.classList.add("hidden");
+    }
+  }
+
+  let latestItems = [];
+
+  function fetchRecent() {
+    return fetch("/api/activity/recent", { credentials: "same-origin" })
+      .then((res) => (res.ok ? res.json() : { items: [], unreadCount: 0 }))
+      .catch(() => ({ items: [], unreadCount: 0 }));
+  }
+
+  // Polls in the background regardless of whether the dropdown is open, so
+  // the bell's unread count updates the moment something happens elsewhere
+  // (another tab, another member) — not only when the person happens to
+  // open it. The unread boundary itself is tracked server-side per account
+  // (see MarkActivitySeen), not in this browser's storage, so it's the same
+  // count on every device this person is logged into.
+  function poll() {
+    fetchRecent().then((data) => {
+      latestItems = data.items || [];
+      renderBadge(data.unreadCount || 0);
+      if (!dropdown.classList.contains("hidden")) {
+        renderItems(latestItems);
+      }
+    });
+  }
+
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const opening = dropdown.classList.contains("hidden");
+    dropdown.classList.toggle("hidden");
+    if (opening) {
+      renderItems(latestItems);
+      fetch("/api/activity/mark-read", { method: "POST", credentials: "same-origin" })
+        .then(() => renderBadge(0))
+        .catch(() => {});
+    }
+  });
+  document.addEventListener("click", () => dropdown.classList.add("hidden"));
+
+  poll();
+  setInterval(poll, POLL_MS);
 })();
 
 (function () {
