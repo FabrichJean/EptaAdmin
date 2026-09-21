@@ -9,8 +9,9 @@ import (
 )
 
 type App struct {
-	store     *Store
-	templates map[string]*template.Template
+	store         *Store
+	templates     map[string]*template.Template
+	webhookDeploy webhookDeployStatus
 }
 
 // Breadcrumb is one link (or the current page, when URL is empty) in the
