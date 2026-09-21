@@ -108,7 +108,7 @@
 const express = require("express");
 const app = express();
 
-app.post("/webhooks/eptaadmin", express.raw({ type: "application/json" }), (req, res) => {
+app.post("/webhooks/eptaadmin", express.raw({ type: "application/json" }), async (req, res) => {
   const signature = req.header("X-EptaAdmin-Signature");
   const expected = crypto
     .createHmac("sha256", "${secret}")
@@ -121,16 +121,45 @@ app.post("/webhooks/eptaadmin", express.raw({ type: "application/json" }), (req,
 
   const payload = JSON.parse(req.body);
   console.log("event:", payload.event, payload.details);
+
+  // Optional: report real-time progress while you do long work, before
+  // responding — EptaAdmin shows the latest report in its UI. Ignore
+  // payload.progressUrl entirely and you still get delivered to normally.
+  async function reportProgress(message, percent) {
+    if (!payload.progressUrl) return;
+    await fetch(payload.progressUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, percent }),
+    }).catch(() => {});
+  }
+
+  await reportProgress("Building…", 10);
+  // ... your long-running work here ...
+  await reportProgress("Deploying…", 80);
+
   res.sendStatus(200);
 });
 
 app.listen(3000);`,
     python: (secret) => `import hashlib
 import hmac
+import requests
 from flask import Flask, request, abort
 
 app = Flask(__name__)
 SECRET = "${secret}"
+
+def report_progress(progress_url, message, percent=None):
+    # Optional: report real-time progress while you do long work, before
+    # responding — EptaAdmin shows the latest report in its UI. Ignore
+    # progress_url entirely and you still get delivered to normally.
+    if not progress_url:
+        return
+    try:
+        requests.post(progress_url, json={"message": message, "percent": percent}, timeout=5)
+    except requests.RequestException:
+        pass
 
 @app.post("/webhooks/eptaadmin")
 def webhook():
@@ -141,6 +170,11 @@ def webhook():
 
     payload = request.get_json()
     print("event:", payload["event"], payload.get("details"))
+
+    report_progress(payload.get("progressUrl"), "Building…", 10)
+    # ... your long-running work here ...
+    report_progress(payload.get("progressUrl"), "Deploying…", 80)
+
     return "", 200`,
     php: (secret) => `<?php
 $secret = "${secret}";
@@ -155,6 +189,13 @@ if (!hash_equals($expected, $signature)) {
 
 $payload = json_decode($body, true);
 error_log("event: " . $payload["event"]);
+
+// Optional: report real-time progress while you do long work, before
+// responding — EptaAdmin shows the latest report in its UI. Ignore
+// progressUrl entirely and you still get delivered to normally.
+function report_progress($progressUrl, $message, $percent = null) {
+    if (!$progressUrl) return;
+    $ch = curl_init($progressUrl);
 http_response_code(200);`,
     go: (secret) => `func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	body, _ := io.ReadAll(r.Body)
