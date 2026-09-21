@@ -26,6 +26,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("impossible de charger les templates: %v", err)
 	}
+	app.publicURL = strings.TrimRight(os.Getenv("EPTAADMIN_PUBLIC_URL"), "/")
 
 	mux := http.NewServeMux()
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
@@ -66,6 +67,12 @@ func main() {
 	mux.HandleFunc("DELETE /workspaces/{slug}/webhooks/{id}", app.requireAuth(app.handleDeleteWebhook))
 	mux.HandleFunc("PATCH /workspaces/{slug}/webhooks/{id}", app.requireAuth(app.handleToggleWebhook))
 	mux.HandleFunc("POST /workspaces/{slug}/webhooks/{id}/trigger", app.requireAuth(app.handleTriggerWebhook))
+	// Public callback a webhook receiver posts real-time progress updates
+	// to — see webhooks.go's progressUrl convention. No session auth: the
+	// external server calling this isn't a logged-in browser. Guarded only
+	// by the deliveryId being an unguessable random token, the same trust
+	// model as a signed one-off upload URL.
+	mux.HandleFunc("POST /api/webhooks/deliveries/{deliveryID}/progress", app.handleWebhookDeliveryProgress)
 
 	mux.HandleFunc("GET /workspaces/{slug}/activity", app.requireAuth(app.handleWorkspaceActivity))
 	mux.HandleFunc("POST /workspaces/{slug}/activity/{id}/revert", app.requireAuth(app.handleRevertActivity))
