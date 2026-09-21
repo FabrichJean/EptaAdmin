@@ -38,11 +38,21 @@ type dataSourceTreeItem struct {
 // trip per node.
 func (a *App) buildDataSourceTree(dataSources []*DataSource) ([]dataSourceTreeItem, error) {
 	tree := make([]dataSourceTreeItem, 0, len(dataSources))
+	for _, ds := range dataSources {
+		tables, err := a.store.ListTablesByDataSource(ds.ID)
+		if err != nil {
+			return nil, err
+		}
+		tree = append(tree, dataSourceTreeItem{DataSource: ds, Tables: tables})
+	}
+	return tree, nil
+}
+
 // workspaceDetailData builds the common template data for
 // workspace_detail.html, so the header context (breadcrumb, icon, badge...)
 // stays consistent across the initial render and the two form-error
 // redisplays.
-func workspaceDetailData(lang string, currentUser *User, ws *Workspace, role string, members []*WorkspaceMember, dataSources []*DataSource) map[string]any {
+func workspaceDetailData(lang string, currentUser *User, ws *Workspace, role string, members []*WorkspaceMember, dataSources []*DataSource, dataSourceTree []dataSourceTreeItem) map[string]any {
 	return map[string]any{
 		"CurrentUser":        currentUser,
 		"ActiveNav":          "workspaces",
@@ -50,9 +60,13 @@ func workspaceDetailData(lang string, currentUser *User, ws *Workspace, role str
 		"Workspace":          ws,
 		"Members":            members,
 		"DataSources":        dataSources,
+		"DataSourceTree":     dataSourceTree,
+		"ActiveTableID":      int64(0),
+		"SidebarCollapsed":   true,
 		"CanManageWSMembers": hasPermission(role, PermMembersManage),
 		"CanManageSource":    hasPermission(role, PermSettingsManage),
 		"CanImportData":      hasPermission(role, PermDataCreate),
+		"CanEditData":        hasPermission(role, PermDataUpdate),
 		"AssignableRoles":    assignableRolesWithLabels(lang, role),
 		"Breadcrumb": []Breadcrumb{
 			{Label: T(lang, "nav.workspaces"), URL: "/workspaces"},
@@ -176,8 +190,14 @@ func (a *App) handleWorkspaceDetail(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
 		return
 	}
+	dataSourceTree, err := a.buildDataSourceTree(dataSources)
+	if err != nil {
+		log.Printf("build data source tree error: %v", err)
+		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
+		return
+	}
 
-	a.render(w, r, "workspace_detail.html", workspaceDetailData(a.resolveLang(r), currentUser, ws, role, members, dataSources))
+	a.render(w, r, "workspace_detail.html", workspaceDetailData(a.resolveLang(r), currentUser, ws, role, members, dataSources, dataSourceTree))
 }
 
 // handleAddWorkspaceMember assigns one of the caller's own members (created
@@ -421,7 +441,13 @@ func (a *App) handleCreateDataSource(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
 			return
 		}
-		data := workspaceDetailData(lang, currentUser, ws, role, members, dataSources)
+		dataSourceTree, err := a.buildDataSourceTree(dataSources)
+		if err != nil {
+			log.Printf("build data source tree error: %v", err)
+			http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
+			return
+		}
+		data := workspaceDetailData(lang, currentUser, ws, role, members, dataSources, dataSourceTree)
 		data["SourceError"] = msg
 		a.render(w, r, "workspace_detail.html", data)
 	}
