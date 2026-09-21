@@ -68,70 +68,77 @@ type apiDataSource struct {
 	Slug string `json:"slug"`
 }
 
+// handleAPIListDataSources lists every table across every data source in
+// the workspace, flattened — "datasource" in this public API has always
+// meant "the thing with columns and rows", which is now a Table (a
+// DataSource is just the admin UI's folder grouping, invisible here).
 func (a *App) handleAPIListDataSources(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
 	ws, ok := a.apiLoadWorkspace(w, r, currentUser)
 	if !ok {
 		return
 	}
-	dataSources, err := a.store.ListDataSources(ws.ID)
+	tables, err := a.store.ListTablesByWorkspace(ws.ID)
 	if err != nil {
-		log.Printf("api list data sources error: %v", err)
+		log.Printf("api list tables error: %v", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": T(a.resolveLang(r), "common.error_generic")})
 		return
 	}
-	out := make([]apiDataSource, 0, len(dataSources))
-	for _, ds := range dataSources {
-		out = append(out, apiDataSource{Name: ds.Name, Slug: ds.Slug})
+	out := make([]apiDataSource, 0, len(tables))
+	for _, t := range tables {
+		out = append(out, apiDataSource{Name: t.Name, Slug: t.Slug})
 	}
 	writeJSON(w, http.StatusOK, out)
 }
 
-// apiLoadColumnStore resolves {dsSlug} within an already-loaded workspace
-// and reads its column store, writing the appropriate JSON error response
-// otherwise. Shared by every endpoint below the data-source level.
-func (a *App) apiLoadColumnStore(w http.ResponseWriter, r *http.Request, ws *Workspace) (*DataSource, ColumnStore, bool) {
+// apiLoadRecords resolves {dsSlug} to a table (by its workspace-wide
+// unique slug — see GetTableByWorkspaceSlug) within an already-loaded
+// workspace and reads its record store, writing the appropriate JSON
+// error response otherwise. Shared by every endpoint below the
+// data-source level.
+func (a *App) apiLoadRecords(w http.ResponseWriter, r *http.Request, ws *Workspace) (*Table, RecordStore, bool) {
 	lang := a.resolveLang(r)
-	ds, err := a.store.GetDataSourceBySlug(ws.ID, r.PathValue("dsSlug"))
+	t, err := a.store.GetTableByWorkspaceSlug(ws.ID, r.PathValue("dsSlug"))
 	if err != nil {
-		log.Printf("api get data source error: %v", err)
+		log.Printf("api get table error: %v", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": T(lang, "common.error_generic")})
 		return nil, nil, false
 	}
-	if ds == nil {
+	if t == nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": T(lang, "api.datasource_not_found")})
 		return nil, nil, false
 	}
-	cs, err := LoadColumnStore(ds.StoragePath)
+	records, err := LoadRecordStore(t.StoragePath)
 	if err != nil {
-		log.Printf("api load column store error: %v", err)
+		log.Printf("api load record store error: %v", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": T(lang, "api.datasource_read_error")})
 		return nil, nil, false
 	}
-	return ds, cs, true
+	return t, records, true
 }
 
-// handleAPIGetDataSource returns a data source's raw column store — each
-// column is its own independent list of values (see jsondata.go), so the
-// response is exactly that shape rather than a fabricated row/object list.
+// handleAPIGetDataSource returns a table's content projected as
+// independent, aligned columns (see RecordStore.ToColumnsMap) — the same
+// externally-facing shape the SDK has always exposed, even though the
+// server now stores real records on a Table rather than a DataSource.
 func (a *App) handleAPIGetDataSource(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
 	ws, ok := a.apiLoadWorkspace(w, r, currentUser)
 	if !ok {
 		return
 	}
-	ds, cs, ok := a.apiLoadColumnStore(w, r, ws)
+	t, records, ok := a.apiLoadRecords(w, r, ws)
 	if !ok {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"name":    ds.Name,
-		"slug":    ds.Slug,
-		"columns": a.signImageValuesInColumnStore(cs),
+		"name":    t.Name,
+		"slug":    t.Slug,
+		"columns": a.signImageValuesInColumnsMap(records.ToColumnsMap()),
 	})
 }
 
-// handleAPIGetColumn returns one column's full list of values — the
+// handleAPIGetColumn returns one field's full, aligned list of values — the
 // building block behind the SDK's single-parameter client.getValue(path),
 // for callers who already know exactly which column they want.
 func (a *App) handleAPIGetColumn(w http.ResponseWriter, r *http.Request) {
@@ -140,24 +147,23 @@ func (a *App) handleAPIGetColumn(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	_, cs, ok := a.apiLoadColumnStore(w, r, ws)
+	_, records, ok := a.apiLoadRecords(w, r, ws)
 	if !ok {
 		return
 	}
 	key := r.PathValue("key")
-	values, exists := cs[key]
-	if !exists {
+	if !records.HasField(key) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": T(a.resolveLang(r), "api.column_not_found")})
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"column": key,
-		"values": a.signImageValues(values),
+		"values": a.signImageValues(records.Column(key)),
 	})
 }
 
-// handleAPIGetColumnValue returns exactly one value from one column, by its
-// index in that column's independent list.
+// handleAPIGetColumnValue returns exactly one value from one field, by its
+// index in that field's aligned list.
 func (a *App) handleAPIGetColumnValue(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
 	lang := a.resolveLang(r)
@@ -165,16 +171,16 @@ func (a *App) handleAPIGetColumnValue(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	_, cs, ok := a.apiLoadColumnStore(w, r, ws)
+	_, records, ok := a.apiLoadRecords(w, r, ws)
 	if !ok {
 		return
 	}
 	key := r.PathValue("key")
-	values, exists := cs[key]
-	if !exists {
+	if !records.HasField(key) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": T(lang, "api.column_not_found")})
 		return
 	}
+	values := records.Column(key)
 	index, err := strconv.Atoi(r.PathValue("index"))
 	if err != nil || index < 0 || index >= len(values) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": T(lang, "api.index_out_of_range")})
