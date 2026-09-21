@@ -212,6 +212,18 @@ error_log("event: " . $payload["event"]);
 function report_progress($progressUrl, $message, $percent = null) {
     if (!$progressUrl) return;
     $ch = curl_init($progressUrl);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/json"]);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(["message" => $message, "percent" => $percent]));
+    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+    curl_exec($ch);
+    curl_close($ch);
+}
+
+report_progress($payload["progressUrl"] ?? null, "Building…", 10);
+// ... your long-running work here ...
+report_progress($payload["progressUrl"] ?? null, "Deploying…", 80);
+
 http_response_code(200);`,
     go: (secret) => `func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	body, _ := io.ReadAll(r.Body)
@@ -227,6 +239,23 @@ http_response_code(200);`,
 	var payload map[string]any
 	json.Unmarshal(body, &payload)
 	log.Println("event:", payload["event"])
+
+	// Optional: report real-time progress while you do long work, before
+	// responding — EptaAdmin shows the latest report in its UI. Ignore
+	// payload["progressUrl"] entirely and you still get delivered to normally.
+	reportProgress := func(message string, percent int) {
+		progressURL, _ := payload["progressUrl"].(string)
+		if progressURL == "" {
+			return
+		}
+		b, _ := json.Marshal(map[string]any{"message": message, "percent": percent})
+		http.Post(progressURL, "application/json", bytes.NewReader(b))
+	}
+
+	reportProgress("Building…", 10)
+	// ... your long-running work here ...
+	reportProgress("Deploying…", 80)
+
 	w.WriteHeader(http.StatusOK)
 }`,
   };
@@ -345,9 +374,20 @@ http_response_code(200);`,
       btn.disabled = true;
       let seconds = 0;
       btn.textContent = `${I18N.triggerSending}…`;
-      const tick = setInterval(() => {
+      const tick = setInterval(async () => {
         seconds++;
-        btn.textContent = `${I18N.triggerSending}… (${seconds}s)`;
+        let label = `${I18N.triggerSending}… (${seconds}s)`;
+        try {
+          const statusRes = await fetch("/api/webhook-status", { credentials: "same-origin" });
+          if (statusRes.ok) {
+            const status = await statusRes.json();
+            if (status.active && status.progressMessage) {
+              const hasPercent = typeof status.progressPercent === "number" && status.progressPercent >= 0;
+              label = hasPercent ? `${status.progressMessage} (${status.progressPercent}%)` : status.progressMessage;
+            }
+          }
+        } catch (e) {}
+        btn.textContent = label;
       }, 1000);
       try {
         const res = await fetch(`/workspaces/${btn.dataset.wsSlug}/webhooks/${btn.dataset.id}/trigger`, { method: "POST" });
