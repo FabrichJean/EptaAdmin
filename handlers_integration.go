@@ -96,6 +96,8 @@ func (a *App) handleIntegrationPage(w http.ResponseWriter, r *http.Request) {
 		"CurrentUser":                 currentUser,
 		"ActiveNav":                   "integration",
 		"PageTitle":                   T(lang, "nav.integration"),
+		"HeaderTitle":                 T(lang, "nav.integration"),
+		"HeaderDescription":           T(lang, "integration.intro"),
 		"HeaderIcon":                  "code",
 		"ExampleWorkspaceSlug":        exampleWorkspaceSlug,
 		"ExampleWorkspaceName":        exampleWorkspaceName,

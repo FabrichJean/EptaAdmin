@@ -17,35 +17,61 @@
     <main class="flex-1 overflow-y-auto px-4 sm:px-8 py-10">
      <div class="max-w-4xl mx-auto space-y-6">
 
-      <p style="color: var(--eb-muted);">{{t .Lang "integration.intro"}}</p>
-
-      <div class="eb-card rounded-xl p-6">
-        <h2 class="font-semibold mb-2" style="color: var(--eb-text);">{{t .Lang "integration.step1_title"}}</h2>
-        <p class="text-sm mb-4" style="color: var(--eb-muted);">{{t .Lang "integration.step1_body"}}</p>
-        <a href="/profile#api-keys" class="eb-btn-primary inline-block rounded-lg text-sm px-4 py-2 transition-colors">{{t .Lang "integration.step1_button"}}</a>
+      <div class="flex items-center gap-1 -mt-2" style="border-bottom: 1px solid var(--eb-border);">
+        <button type="button" class="integration-tab-btn flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors" data-tab="docs">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          {{t .Lang "integration.tab_documentation"}}
+        </button>
+        <button type="button" class="integration-tab-btn flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors" data-tab="examples">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          {{t .Lang "integration.tab_examples"}}
+        </button>
+        <button type="button" class="integration-tab-btn flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors" data-tab="reference">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          {{t .Lang "integration.tab_reference"}}
+        </button>
       </div>
 
-      <div class="eb-card rounded-xl p-6">
-        <h2 class="font-semibold mb-2" style="color: var(--eb-text);">{{t .Lang "integration.step2_title"}}</h2>
-        <p class="text-sm mb-3" style="color: var(--eb-muted);">{{t .Lang "integration.step2_body_1"}} <a href="https://www.npmjs.com/package/eptaadmin-sdk" target="_blank" rel="noopener" class="hover:underline" style="color: var(--eb-accent);">{{t .Lang "integration.npm_registry"}}</a> {{t .Lang "integration.step2_body_2"}}</p>
-        <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--eb-border);">
-          <div class="flex items-center justify-between px-4 py-2" style="background: var(--eb-surface-2); border-bottom: 1px solid var(--eb-border);">
-            <span class="text-xs font-mono" style="color: var(--eb-muted);">shell</span>
-            <button class="copy-code-btn text-xs transition-colors" type="button" style="color: var(--eb-muted);">{{t .Lang "integration.copy"}}</button>
+      <div class="integration-tab-panel space-y-6" data-tab-panel="docs">
+
+        <div class="grid sm:grid-cols-2 gap-6">
+          <div class="eb-card rounded-xl p-6">
+            <div class="flex items-center gap-3 mb-3">
+              <span class="h-8 w-8 rounded-lg flex items-center justify-center shrink-0 text-sm font-bold" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">1</span>
+              <h2 class="font-semibold" style="color: var(--eb-text);">{{t .Lang "integration.step1_title"}}</h2>
+            </div>
+            <p class="text-sm mb-4" style="color: var(--eb-muted);">{{t .Lang "integration.step1_body"}}</p>
+            <a href="/profile#api-keys" class="eb-btn-primary inline-block rounded-lg text-sm px-4 py-2 transition-colors">{{t .Lang "integration.step1_button"}}</a>
           </div>
-          <pre class="eb-code" style="border: none; border-radius: 0;"><code class="language-bash">npm install eptaadmin-sdk</code></pre>
+
+          <div class="eb-card rounded-xl p-6">
+            <div class="flex items-center gap-3 mb-3">
+              <span class="h-8 w-8 rounded-lg flex items-center justify-center shrink-0 text-sm font-bold" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">2</span>
+              <h2 class="font-semibold" style="color: var(--eb-text);">{{t .Lang "integration.step2_title"}}</h2>
+            </div>
+            <p class="text-sm mb-3" style="color: var(--eb-muted);">{{t .Lang "integration.step2_body_1"}} <a href="https://www.npmjs.com/package/eptaadmin-sdk" target="_blank" rel="noopener" class="hover:underline" style="color: var(--eb-accent);">{{t .Lang "integration.npm_registry"}}</a> {{t .Lang "integration.step2_body_2"}}</p>
+            <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--eb-border);">
+              <div class="flex items-center justify-between px-4 py-2" style="background: var(--eb-surface-2); border-bottom: 1px solid var(--eb-border);">
+                <span class="text-xs font-mono" style="color: var(--eb-muted);">shell</span>
+                <button class="copy-code-btn text-xs transition-colors" type="button" style="color: var(--eb-muted);">{{t .Lang "integration.copy"}}</button>
+              </div>
+              <pre class="eb-code" style="border: none; border-radius: 0;"><code class="language-bash">npm install eptaadmin-sdk</code></pre>
+            </div>
+            <p class="text-xs mt-3" style="color: var(--eb-muted);">{{t .Lang "integration.step2_local_hint_1"}} <code class="font-mono">"eptaadmin-sdk": "file:../path/to/EptaAdmin/sdk/js"</code> {{t .Lang "integration.step2_local_hint_2"}} <code class="font-mono">package.json</code>.</p>
+          </div>
         </div>
-        <p class="text-xs mt-3" style="color: var(--eb-muted);">{{t .Lang "integration.step2_local_hint_1"}} <code class="font-mono">"eptaadmin-sdk": "file:../path/to/EptaAdmin/sdk/js"</code> {{t .Lang "integration.step2_local_hint_2"}} <code class="font-mono">package.json</code>.</p>
-      </div>
 
-      <div class="eb-card rounded-xl p-6">
-        <h2 class="font-semibold mb-3" style="color: var(--eb-text);">{{t .Lang "integration.step3_title"}}</h2>
-        <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--eb-border);">
-          <div class="flex items-center justify-between px-4 py-2" style="background: var(--eb-surface-2); border-bottom: 1px solid var(--eb-border);">
-            <span class="text-xs font-mono" style="color: var(--eb-muted);">quickstart.js</span>
-            <button class="copy-code-btn text-xs transition-colors" type="button" style="color: var(--eb-muted);">{{t .Lang "integration.copy"}}</button>
+        <div class="eb-card rounded-xl p-6">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="h-8 w-8 rounded-lg flex items-center justify-center shrink-0 text-sm font-bold" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">3</span>
+            <h2 class="font-semibold" style="color: var(--eb-text);">{{t .Lang "integration.step3_title"}}</h2>
           </div>
-          <pre class="eb-code" style="border: none; border-radius: 0;"><code class="language-javascript">import { EptaAdminClient } from "eptaadmin-sdk";
+          <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--eb-border);">
+            <div class="flex items-center justify-between px-4 py-2" style="background: var(--eb-surface-2); border-bottom: 1px solid var(--eb-border);">
+              <span class="text-xs font-mono" style="color: var(--eb-muted);">quickstart.js</span>
+              <button class="copy-code-btn text-xs transition-colors" type="button" style="color: var(--eb-muted);">{{t .Lang "integration.copy"}}</button>
+            </div>
+            <pre class="eb-code" style="border: none; border-radius: 0;"><code class="language-javascript">import { EptaAdminClient } from "eptaadmin-sdk";
 
 const client = new EptaAdminClient({
   apiKey: process.env.EPTAADMIN_API_KEY,
@@ -58,13 +84,69 @@ const dataSources = await client.listDataSources("{{.ExampleWorkspaceSlug}}");
 
 const data = await client.getDataSource("{{.ExampleWorkspaceSlug}}", "{{.ExampleDataSourceSlug}}");
 console.log(data.columns);</code></pre>
+          </div>
         </div>
+
+        <div class="grid sm:grid-cols-3 gap-4">
+          <div class="eb-card rounded-xl p-5">
+            <div class="h-9 w-9 rounded-lg flex items-center justify-center mb-3" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            </div>
+            <h3 class="text-sm font-semibold mb-1" style="color: var(--eb-text);">{{t .Lang "integration.feature_fast_title"}}</h3>
+            <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "integration.feature_fast_body"}}</p>
+          </div>
+          <div class="eb-card rounded-xl p-5">
+            <div class="h-9 w-9 rounded-lg flex items-center justify-center mb-3" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <h3 class="text-sm font-semibold mb-1" style="color: var(--eb-text);">{{t .Lang "integration.feature_secure_title"}}</h3>
+            <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "integration.feature_secure_body"}}</p>
+          </div>
+          <div class="eb-card rounded-xl p-5">
+            <div class="h-9 w-9 rounded-lg flex items-center justify-center mb-3" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+            </div>
+            <h3 class="text-sm font-semibold mb-1" style="color: var(--eb-text);">{{t .Lang "integration.feature_flexible_title"}}</h3>
+            <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "integration.feature_flexible_body"}}</p>
+          </div>
+        </div>
+
+        <div class="eb-card rounded-xl p-6 flex flex-wrap items-center justify-between gap-6">
+          <div class="flex items-center gap-4 min-w-0">
+            <img src="/static/team/fabrich.jpeg" alt="Fabrich Vohanson" class="h-16 w-16 rounded-full object-cover shrink-0" style="background: var(--eb-surface-2);" onerror="this.src='/static/logo-icon.png'" />
+            <div class="min-w-0">
+              <p class="text-[10px] font-semibold uppercase tracking-wider" style="color: var(--eb-muted);">{{t .Lang "integration.author_label"}}</p>
+              <p class="text-sm font-semibold" style="color: var(--eb-text);">Fabrich Vohanson</p>
+              <p class="text-xs mb-2" style="color: var(--eb-muted);">Développeur principal · Epta</p>
+              <p class="text-xs max-w-md" style="color: var(--eb-muted);">Je conçois et maintiens Epta pour rendre la gestion de vos données plus simple, plus flexible et plus puissante. N'hésitez pas à me contacter si vous avez des questions ou des suggestions !</p>
+              <div class="flex items-center gap-3 mt-2">
+                <a href="https://github.com/FabrichJean" target="_blank" rel="noopener" class="eb-icon-btn text-xs" title="GitHub">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58v-2.05c-3.34.73-4.04-1.6-4.04-1.6-.55-1.4-1.34-1.77-1.34-1.77-1.09-.75.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.3 3.5 1 .11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.53.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.49 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .5z"/></svg>
+                </a>
+                <a href="https://www.linkedin.com/in/fabrich-vohanson-5aa669281" target="_blank" rel="noopener" class="eb-icon-btn text-xs" title="LinkedIn">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.38-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45z"/></svg>
+                </a>
+                <a href="https://www.fabrich.site/" target="_blank" rel="noopener" class="eb-icon-btn text-xs" title="Portfolio">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                </a>
+              </div>
+            </div>
+          </div>
+          <div class="flex flex-col items-end gap-2 shrink-0">
+            <img src="/static/logo-full.png" alt="EptaAdmin" class="h-6 w-auto opacity-80" />
+            <p class="text-xs italic max-w-xs text-right" style="color: var(--eb-muted);">« Epta est un projet qui me tient à cœur. Mon objectif est de vous offrir un outil simple, puissant et agréable à utiliser. »</p>
+            <p class="text-xs" style="color: var(--eb-muted);">— Fabrich Vohanson</p>
+          </div>
+        </div>
+
       </div>
 
-      <div class="eb-card rounded-xl p-6">
-        <h2 class="font-semibold mb-3" style="color: var(--eb-text);">{{t .Lang "integration.data_model_title"}}</h2>
-        <p class="text-sm mb-3" style="color: var(--eb-muted);">{{t .Lang "integration.data_model_body_1"}} <code class="font-mono">getDataSource()</code> {{t .Lang "integration.data_model_body_2"}}</p>
-        <pre class="eb-code"><code class="language-json">{
+      <div class="integration-tab-panel hidden space-y-6" data-tab-panel="examples">
+
+        <div class="eb-card rounded-xl p-6">
+          <h2 class="font-semibold mb-3" style="color: var(--eb-text);">{{t .Lang "integration.data_model_title"}}</h2>
+          <p class="text-sm mb-3" style="color: var(--eb-muted);">{{t .Lang "integration.data_model_body_1"}} <code class="font-mono">getDataSource()</code> {{t .Lang "integration.data_model_body_2"}}</p>
+          <pre class="eb-code"><code class="language-json">{
   "name": "Clients",
   "slug": "clients",
   "columns": {
@@ -72,94 +154,94 @@ console.log(data.columns);</code></pre>
     "email": ["jean@example.com", "marie@example.com"]
   }
 }</code></pre>
-        <p class="text-xs mt-3" style="color: var(--eb-muted);">{{t .Lang "integration.data_model_footer"}}</p>
-      </div>
+          <p class="text-xs mt-3" style="color: var(--eb-muted);">{{t .Lang "integration.data_model_footer"}}</p>
+        </div>
 
-      <div class="eb-card rounded-xl overflow-hidden">
-        <h2 class="font-semibold px-6 pt-6 pb-4" style="color: var(--eb-text);">{{t .Lang "integration.sdk_ref_title"}}</h2>
-        <p class="text-xs px-6 pb-4 -mt-2" style="color: var(--eb-muted);">{{t .Lang "integration.sdk_ref_hint"}}</p>
+        <div class="eb-card rounded-xl overflow-hidden">
+          <h2 class="font-semibold px-6 pt-6 pb-4" style="color: var(--eb-text);">{{t .Lang "integration.sdk_ref_title"}}</h2>
+          <p class="text-xs px-6 pb-4 -mt-2" style="color: var(--eb-muted);">{{t .Lang "integration.sdk_ref_hint"}}</p>
 
-        <div>
-          <div class="sdk-ref-row" style="border-top: 1px solid var(--eb-border);">
-            <button type="button" class="sdk-ref-toggle w-full flex items-center justify-between gap-4 px-6 py-4 text-left transition-colors" onmouseover="this.style.background='var(--eb-surface-2)'" onmouseout="this.style.background=''">
-              <div class="min-w-0">
-                <p class="text-sm font-mono" style="color: var(--eb-text);">listWorkspaces()</p>
-                <p class="text-sm mt-0.5" style="color: var(--eb-muted);">{{t .Lang "integration.method_list_workspaces"}}</p>
-              </div>
-              <svg class="sdk-ref-chevron h-4 w-4 shrink-0 transition-transform" style="color: var(--eb-muted);" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-            </button>
-            <div class="sdk-ref-panel hidden px-6 pb-5">
-              <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--eb-border);">
-                <div class="flex items-center justify-between px-4 py-2" style="background: var(--eb-surface-2); border-bottom: 1px solid var(--eb-border);">
-                  <span class="text-xs font-mono" style="color: var(--eb-muted);">{{t .Lang "integration.example_label"}}</span>
-                  <button class="copy-code-btn text-xs transition-colors" type="button" style="color: var(--eb-muted);">{{t .Lang "integration.copy"}}</button>
+          <div>
+            <div class="sdk-ref-row" style="border-top: 1px solid var(--eb-border);">
+              <button type="button" class="sdk-ref-toggle w-full flex items-center justify-between gap-4 px-6 py-4 text-left transition-colors" onmouseover="this.style.background='var(--eb-surface-2)'" onmouseout="this.style.background=''">
+                <div class="min-w-0">
+                  <p class="text-sm font-mono" style="color: var(--eb-text);">listWorkspaces()</p>
+                  <p class="text-sm mt-0.5" style="color: var(--eb-muted);">{{t .Lang "integration.method_list_workspaces"}}</p>
                 </div>
-                <pre class="eb-code" style="border: none; border-radius: 0;"><code class="language-javascript">const workspaces = await client.listWorkspaces();
+                <svg class="sdk-ref-chevron h-4 w-4 shrink-0 transition-transform" style="color: var(--eb-muted);" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <div class="sdk-ref-panel hidden px-6 pb-5">
+                <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--eb-border);">
+                  <div class="flex items-center justify-between px-4 py-2" style="background: var(--eb-surface-2); border-bottom: 1px solid var(--eb-border);">
+                    <span class="text-xs font-mono" style="color: var(--eb-muted);">{{t .Lang "integration.example_label"}}</span>
+                    <button class="copy-code-btn text-xs transition-colors" type="button" style="color: var(--eb-muted);">{{t .Lang "integration.copy"}}</button>
+                  </div>
+                  <pre class="eb-code" style="border: none; border-radius: 0;"><code class="language-javascript">const workspaces = await client.listWorkspaces();
 console.log(workspaces);
 // [{ name: "{{.ExampleWorkspaceName}}", slug: "{{.ExampleWorkspaceSlug}}", role: "{{.ExampleWorkspaceRole}}" }]</code></pre>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div class="sdk-ref-row" style="border-top: 1px solid var(--eb-border);">
-            <button type="button" class="sdk-ref-toggle w-full flex items-center justify-between gap-4 px-6 py-4 text-left transition-colors" onmouseover="this.style.background='var(--eb-surface-2)'" onmouseout="this.style.background=''">
-              <div class="min-w-0">
-                <p class="text-sm font-mono" style="color: var(--eb-text);">listDataSources(wsSlug)</p>
-                <p class="text-sm mt-0.5" style="color: var(--eb-muted);">{{t .Lang "integration.method_list_datasources"}}</p>
-              </div>
-              <svg class="sdk-ref-chevron h-4 w-4 shrink-0 transition-transform" style="color: var(--eb-muted);" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-            </button>
-            <div class="sdk-ref-panel hidden px-6 pb-5">
-              <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--eb-border);">
-                <div class="flex items-center justify-between px-4 py-2" style="background: var(--eb-surface-2); border-bottom: 1px solid var(--eb-border);">
-                  <span class="text-xs font-mono" style="color: var(--eb-muted);">{{t .Lang "integration.example_label"}}</span>
-                  <button class="copy-code-btn text-xs transition-colors" type="button" style="color: var(--eb-muted);">{{t .Lang "integration.copy"}}</button>
+            <div class="sdk-ref-row" style="border-top: 1px solid var(--eb-border);">
+              <button type="button" class="sdk-ref-toggle w-full flex items-center justify-between gap-4 px-6 py-4 text-left transition-colors" onmouseover="this.style.background='var(--eb-surface-2)'" onmouseout="this.style.background=''">
+                <div class="min-w-0">
+                  <p class="text-sm font-mono" style="color: var(--eb-text);">listDataSources(wsSlug)</p>
+                  <p class="text-sm mt-0.5" style="color: var(--eb-muted);">{{t .Lang "integration.method_list_datasources"}}</p>
                 </div>
-                <pre class="eb-code" style="border: none; border-radius: 0;"><code class="language-javascript">const dataSources = await client.listDataSources("{{.ExampleWorkspaceSlug}}");
+                <svg class="sdk-ref-chevron h-4 w-4 shrink-0 transition-transform" style="color: var(--eb-muted);" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <div class="sdk-ref-panel hidden px-6 pb-5">
+                <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--eb-border);">
+                  <div class="flex items-center justify-between px-4 py-2" style="background: var(--eb-surface-2); border-bottom: 1px solid var(--eb-border);">
+                    <span class="text-xs font-mono" style="color: var(--eb-muted);">{{t .Lang "integration.example_label"}}</span>
+                    <button class="copy-code-btn text-xs transition-colors" type="button" style="color: var(--eb-muted);">{{t .Lang "integration.copy"}}</button>
+                  </div>
+                  <pre class="eb-code" style="border: none; border-radius: 0;"><code class="language-javascript">const dataSources = await client.listDataSources("{{.ExampleWorkspaceSlug}}");
 console.log(dataSources);
 // [{ name: "{{.ExampleDataSourceName}}", slug: "{{.ExampleDataSourceSlug}}" }]</code></pre>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div class="sdk-ref-row" style="border-top: 1px solid var(--eb-border);">
-            <button type="button" class="sdk-ref-toggle w-full flex items-center justify-between gap-4 px-6 py-4 text-left transition-colors" onmouseover="this.style.background='var(--eb-surface-2)'" onmouseout="this.style.background=''">
-              <div class="min-w-0">
-                <p class="text-sm font-mono" style="color: var(--eb-text);">getDataSource(wsSlug, dsSlug)</p>
-                <p class="text-sm mt-0.5" style="color: var(--eb-muted);">{{t .Lang "integration.method_get_datasource"}}</p>
-              </div>
-              <svg class="sdk-ref-chevron h-4 w-4 shrink-0 transition-transform" style="color: var(--eb-muted);" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-            </button>
-            <div class="sdk-ref-panel hidden px-6 pb-5">
-              <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--eb-border);">
-                <div class="flex items-center justify-between px-4 py-2" style="background: var(--eb-surface-2); border-bottom: 1px solid var(--eb-border);">
-                  <span class="text-xs font-mono" style="color: var(--eb-muted);">{{t .Lang "integration.example_label"}}</span>
-                  <button class="copy-code-btn text-xs transition-colors" type="button" style="color: var(--eb-muted);">{{t .Lang "integration.copy"}}</button>
+            <div class="sdk-ref-row" style="border-top: 1px solid var(--eb-border);">
+              <button type="button" class="sdk-ref-toggle w-full flex items-center justify-between gap-4 px-6 py-4 text-left transition-colors" onmouseover="this.style.background='var(--eb-surface-2)'" onmouseout="this.style.background=''">
+                <div class="min-w-0">
+                  <p class="text-sm font-mono" style="color: var(--eb-text);">getDataSource(wsSlug, dsSlug)</p>
+                  <p class="text-sm mt-0.5" style="color: var(--eb-muted);">{{t .Lang "integration.method_get_datasource"}}</p>
                 </div>
-                <pre class="eb-code" style="border: none; border-radius: 0;"><code class="language-javascript">const data = await client.getDataSource("{{.ExampleWorkspaceSlug}}", "{{.ExampleDataSourceSlug}}");
+                <svg class="sdk-ref-chevron h-4 w-4 shrink-0 transition-transform" style="color: var(--eb-muted);" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <div class="sdk-ref-panel hidden px-6 pb-5">
+                <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--eb-border);">
+                  <div class="flex items-center justify-between px-4 py-2" style="background: var(--eb-surface-2); border-bottom: 1px solid var(--eb-border);">
+                    <span class="text-xs font-mono" style="color: var(--eb-muted);">{{t .Lang "integration.example_label"}}</span>
+                    <button class="copy-code-btn text-xs transition-colors" type="button" style="color: var(--eb-muted);">{{t .Lang "integration.copy"}}</button>
+                  </div>
+                  <pre class="eb-code" style="border: none; border-radius: 0;"><code class="language-javascript">const data = await client.getDataSource("{{.ExampleWorkspaceSlug}}", "{{.ExampleDataSourceSlug}}");
 console.log(data.columns);
 /*
 {{.ExampleColumnsJSON}}
 */</code></pre>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div class="sdk-ref-row" style="border-top: 1px solid var(--eb-border); border-bottom: 1px solid var(--eb-border);">
-            <button type="button" class="sdk-ref-toggle w-full flex items-center justify-between gap-4 px-6 py-4 text-left transition-colors" onmouseover="this.style.background='var(--eb-surface-2)'" onmouseout="this.style.background=''">
-              <div class="min-w-0">
-                <p class="text-sm font-mono" style="color: var(--eb-text);">getValue(path)</p>
-                <p class="text-sm mt-0.5" style="color: var(--eb-muted);">{{t .Lang "integration.method_get_value"}}</p>
-              </div>
-              <svg class="sdk-ref-chevron h-4 w-4 shrink-0 transition-transform" style="color: var(--eb-muted);" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-            </button>
-            <div class="sdk-ref-panel hidden px-6 pb-5">
-              <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--eb-border);">
-                <div class="flex items-center justify-between px-4 py-2" style="background: var(--eb-surface-2); border-bottom: 1px solid var(--eb-border);">
-                  <span class="text-xs font-mono" style="color: var(--eb-muted);">{{t .Lang "integration.example_label"}}</span>
-                  <button class="copy-code-btn text-xs transition-colors" type="button" style="color: var(--eb-muted);">{{t .Lang "integration.copy"}}</button>
+            <div class="sdk-ref-row" style="border-top: 1px solid var(--eb-border); border-bottom: 1px solid var(--eb-border);">
+              <button type="button" class="sdk-ref-toggle w-full flex items-center justify-between gap-4 px-6 py-4 text-left transition-colors" onmouseover="this.style.background='var(--eb-surface-2)'" onmouseout="this.style.background=''">
+                <div class="min-w-0">
+                  <p class="text-sm font-mono" style="color: var(--eb-text);">getValue(path)</p>
+                  <p class="text-sm mt-0.5" style="color: var(--eb-muted);">{{t .Lang "integration.method_get_value"}}</p>
                 </div>
-                <pre class="eb-code" style="border: none; border-radius: 0;"><code class="language-javascript">// "wsSlug/dsSlug/column" -> {{t .Lang "integration.comment_whole_column"}}
+                <svg class="sdk-ref-chevron h-4 w-4 shrink-0 transition-transform" style="color: var(--eb-muted);" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <div class="sdk-ref-panel hidden px-6 pb-5">
+                <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--eb-border);">
+                  <div class="flex items-center justify-between px-4 py-2" style="background: var(--eb-surface-2); border-bottom: 1px solid var(--eb-border);">
+                    <span class="text-xs font-mono" style="color: var(--eb-muted);">{{t .Lang "integration.example_label"}}</span>
+                    <button class="copy-code-btn text-xs transition-colors" type="button" style="color: var(--eb-muted);">{{t .Lang "integration.copy"}}</button>
+                  </div>
+                  <pre class="eb-code" style="border: none; border-radius: 0;"><code class="language-javascript">// "wsSlug/dsSlug/column" -> {{t .Lang "integration.comment_whole_column"}}
 const values = await client.getValue("{{.ExampleWorkspaceSlug}}/{{.ExampleDataSourceSlug}}/{{.ExampleColumnKey}}");
 console.log(values);
 // {{.ExampleColumnValuesJSON}}
@@ -168,56 +250,21 @@ console.log(values);
 const oneValue = await client.getValue("{{.ExampleWorkspaceSlug}}/{{.ExampleDataSourceSlug}}/{{.ExampleColumnKey}}/0");
 console.log(oneValue);
 // {{.ExampleColumnFirstValueJSON}}</code></pre>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div class="eb-card rounded-xl p-6">
-        <h2 class="font-semibold mb-1" style="color: var(--eb-text);">{{t .Lang "integration.rest_title"}}</h2>
-        <p class="text-sm mb-4" style="color: var(--eb-muted);">{{t .Lang "integration.rest_body"}}</p>
-        <div class="space-y-2 mb-4 text-sm font-mono">
-          <div class="flex items-center gap-3">
-            <span class="eb-badge" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">GET</span>
-            <span style="color: var(--eb-text);">/api/v1/workspaces</span>
-          </div>
-          <div class="flex items-center gap-3">
-            <span class="eb-badge" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">GET</span>
-            <span style="color: var(--eb-text);">/api/v1/workspaces/{slug}/datasources</span>
-          </div>
-          <div class="flex items-center gap-3">
-            <span class="eb-badge" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">GET</span>
-            <span style="color: var(--eb-text);">/api/v1/workspaces/{slug}/datasources/{dsSlug}</span>
-          </div>
-          <div class="flex items-center gap-3">
-            <span class="eb-badge" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">GET</span>
-            <span style="color: var(--eb-text);">/api/v1/workspaces/{slug}/datasources/{dsSlug}/columns/{key}</span>
-          </div>
-          <div class="flex items-center gap-3">
-            <span class="eb-badge" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">GET</span>
-            <span style="color: var(--eb-text);">/api/v1/workspaces/{slug}/datasources/{dsSlug}/columns/{key}/{index}</span>
-          </div>
-        </div>
-        <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--eb-border);">
-          <div class="flex items-center justify-between px-4 py-2" style="background: var(--eb-surface-2); border-bottom: 1px solid var(--eb-border);">
-            <span class="text-xs font-mono" style="color: var(--eb-muted);">curl</span>
-            <button class="copy-code-btn text-xs transition-colors" type="button" style="color: var(--eb-muted);">{{t .Lang "integration.copy"}}</button>
-          </div>
-          <pre class="eb-code" style="border: none; border-radius: 0;"><code class="language-bash">curl -H "Authorization: Bearer $EPTAADMIN_API_KEY" \
-  https://votre-instance.example.com/api/v1/workspaces/{{.ExampleWorkspaceSlug}}/datasources/{{.ExampleDataSourceSlug}}</code></pre>
-        </div>
-      </div>
-
-      <div class="eb-card rounded-xl p-6">
-        <h2 class="font-semibold mb-3" style="color: var(--eb-text);">{{t .Lang "integration.errors_title"}}</h2>
-        <p class="text-sm mb-3" style="color: var(--eb-muted);">{{t .Lang "integration.errors_body_1"}} <code class="font-mono">error</code> {{t .Lang "integration.errors_body_2"}}</p>
-        <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--eb-border);">
-          <div class="flex items-center justify-between px-4 py-2" style="background: var(--eb-surface-2); border-bottom: 1px solid var(--eb-border);">
-            <span class="text-xs font-mono" style="color: var(--eb-muted);">errors.js</span>
-            <button class="copy-code-btn text-xs transition-colors" type="button" style="color: var(--eb-muted);">{{t .Lang "integration.copy"}}</button>
-          </div>
-          <pre class="eb-code" style="border: none; border-radius: 0;"><code class="language-javascript">import { EptaAdminClient, EptaAdminError } from "eptaadmin-sdk";
+        <div class="eb-card rounded-xl p-6">
+          <h2 class="font-semibold mb-3" style="color: var(--eb-text);">{{t .Lang "integration.errors_title"}}</h2>
+          <p class="text-sm mb-3" style="color: var(--eb-muted);">{{t .Lang "integration.errors_body_1"}} <code class="font-mono">error</code> {{t .Lang "integration.errors_body_2"}}</p>
+          <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--eb-border);">
+            <div class="flex items-center justify-between px-4 py-2" style="background: var(--eb-surface-2); border-bottom: 1px solid var(--eb-border);">
+              <span class="text-xs font-mono" style="color: var(--eb-muted);">errors.js</span>
+              <button class="copy-code-btn text-xs transition-colors" type="button" style="color: var(--eb-muted);">{{t .Lang "integration.copy"}}</button>
+            </div>
+            <pre class="eb-code" style="border: none; border-radius: 0;"><code class="language-javascript">import { EptaAdminClient, EptaAdminError } from "eptaadmin-sdk";
 
 try {
   await client.getDataSource("{{.ExampleWorkspaceSlug}}", "does-not-exist");
@@ -226,11 +273,76 @@ try {
     console.error(err.status, err.message); // 404 "{{t .Lang "api.datasource_not_found"}}"
   }
 }</code></pre>
+          </div>
         </div>
+
+      </div>
+
+      <div class="integration-tab-panel hidden space-y-6" data-tab-panel="reference">
+
+        <div class="eb-card rounded-xl p-6">
+          <h2 class="font-semibold mb-1" style="color: var(--eb-text);">{{t .Lang "integration.rest_title"}}</h2>
+          <p class="text-sm mb-4" style="color: var(--eb-muted);">{{t .Lang "integration.rest_body"}}</p>
+          <div class="space-y-2 mb-4 text-sm font-mono">
+            <div class="flex items-center gap-3">
+              <span class="eb-badge" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">GET</span>
+              <span style="color: var(--eb-text);">/api/v1/workspaces</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="eb-badge" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">GET</span>
+              <span style="color: var(--eb-text);">/api/v1/workspaces/{slug}/datasources</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="eb-badge" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">GET</span>
+              <span style="color: var(--eb-text);">/api/v1/workspaces/{slug}/datasources/{dsSlug}</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="eb-badge" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">GET</span>
+              <span style="color: var(--eb-text);">/api/v1/workspaces/{slug}/datasources/{dsSlug}/columns/{key}</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="eb-badge" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">GET</span>
+              <span style="color: var(--eb-text);">/api/v1/workspaces/{slug}/datasources/{dsSlug}/columns/{key}/{index}</span>
+            </div>
+          </div>
+          <div class="rounded-xl overflow-hidden" style="border: 1px solid var(--eb-border);">
+            <div class="flex items-center justify-between px-4 py-2" style="background: var(--eb-surface-2); border-bottom: 1px solid var(--eb-border);">
+              <span class="text-xs font-mono" style="color: var(--eb-muted);">curl</span>
+              <button class="copy-code-btn text-xs transition-colors" type="button" style="color: var(--eb-muted);">{{t .Lang "integration.copy"}}</button>
+            </div>
+            <pre class="eb-code" style="border: none; border-radius: 0;"><code class="language-bash">curl -H "Authorization: Bearer $EPTAADMIN_API_KEY" \
+  https://votre-instance.example.com/api/v1/workspaces/{{.ExampleWorkspaceSlug}}/datasources/{{.ExampleDataSourceSlug}}</code></pre>
+          </div>
+        </div>
+
       </div>
 
      </div>
     </main>
+
+    <script>
+    (function () {
+      const tabBtns = document.querySelectorAll(".integration-tab-btn");
+      const panels = document.querySelectorAll(".integration-tab-panel");
+
+      function activate(tab) {
+        tabBtns.forEach((btn) => {
+          const active = btn.dataset.tab === tab;
+          btn.style.color = active ? "var(--eb-accent)" : "var(--eb-muted)";
+          btn.style.borderBottom = active ? "2px solid var(--eb-accent)" : "2px solid transparent";
+        });
+        panels.forEach((panel) => {
+          panel.classList.toggle("hidden", panel.dataset.tabPanel !== tab);
+        });
+      }
+
+      tabBtns.forEach((btn) => {
+        btn.addEventListener("click", () => activate(btn.dataset.tab));
+      });
+
+      activate("docs");
+    })();
+    </script>
 
     <script>
     (function () {
