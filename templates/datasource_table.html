@@ -293,848 +293,205 @@
         function imageFilename(url) {
           if (!url || url.startsWith("data:")) return "";
           return url.split("?")[0].split("/").pop();
-        pendingUpdates.set(key, { column, index, value: newVal, type: newType });
-      } else {
-        row.classList.remove("eb-row-pending");
-        pendingUpdates.delete(key);
-      }
-      updateBar();
-    }
-    function cancelEdit() {
-      if (settled) return;
-      settled = true;
-      const s = buildValueSpan(originalType, original);
-      wrapper.replaceWith(s);
-      if (badge) badge.classList.remove("hidden");
-    }
-    confirmBtn.addEventListener("click", commit);
-    cancelBtn.addEventListener("click", cancelEdit);
-    function bindCommitKeys() {
-      valueWidget.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") { e.preventDefault(); cancelEdit(); return; }
-        if (e.key !== "Enter") return;
-        if (valueWidget.tagName === "TEXTAREA" && !(e.ctrlKey || e.metaKey)) return;
-        e.preventDefault();
-        commit();
-      });
-    }
-    bindCommitKeys();
-  }
-
-  function bindEditableSpan(span) {
-    span.addEventListener("dblclick", () => startEdit(span));
-  }
-  document.querySelectorAll(".value-text.editable").forEach(bindEditableSpan);
-
-  function toggleDelete(row) {
-    const panel = row.closest(".column-panel");
-    const column = panel.dataset.column;
-    const index = parseInt(row.dataset.index, 10);
-    const key = column + ":" + index;
-    if (pendingDeletes.has(key)) {
-      pendingDeletes.delete(key);
-      row.classList.remove("eb-row-deleting");
-    } else {
-      pendingDeletes.set(key, { column, index });
-      row.classList.add("eb-row-deleting");
-    }
-    updateBar();
-  }
-
-  // --- Value ⋮ menu: Modifier / Supprimer ---
-  bindMenu(".value-menu-btn", "value-menu");
-  document.querySelectorAll(".value-menu-edit").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const row = btn.closest(".value-row");
-      const span = row.querySelector(".value-text.editable");
-      closeAllMenus();
-      if (span) startEdit(span);
-    });
-  });
-  document.querySelectorAll(".value-menu-delete").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const row = btn.closest(".value-row");
-      closeAllMenus();
-      toggleDelete(row);
-    });
-  });
-
-  // --- Drag-and-drop value reordering ---
-  // Saves immediately (its own request, like column add/delete below)
-  // rather than joining the pending-edits system: a move changes every
-  // later index in the column, which would silently invalidate any other
-  // pending update/delete already staged against those indices.
-  document.querySelectorAll(".value-drag-handle").forEach((handle) => {
-    handle.addEventListener("dragstart", (e) => {
-      if (currentSortMode !== "none") {
-        e.preventDefault();
-        alert(I18N.reorderResetSortFirst);
-        return;
-      }
-      const row = handle.closest(".value-row");
-      e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", row.dataset.index);
-      row.classList.add("dragging");
-    });
-    handle.addEventListener("dragend", () => {
-      handle.closest(".value-row")?.classList.remove("dragging");
-    });
-  });
-  document.querySelectorAll(".value-list").forEach((list) => {
-    list.addEventListener("dragover", (e) => {
-      const draggingRow = list.querySelector(".value-row.dragging");
-      if (!draggingRow) return;
-      e.preventDefault();
-      const others = [...list.querySelectorAll(".value-row:not(.dragging)")];
-      const afterRow = others.find((row) => {
-        const rect = row.getBoundingClientRect();
-        return e.clientY < rect.top + rect.height / 2;
-      });
-      if (afterRow) {
-        list.insertBefore(draggingRow, afterRow);
-      } else if (others.length > 0) {
-        others[others.length - 1].after(draggingRow);
-      }
-    });
-    list.addEventListener("drop", async (e) => {
-      e.preventDefault();
-      const draggingRow = list.querySelector(".value-row.dragging");
-      if (!draggingRow) return;
-      draggingRow.classList.remove("dragging");
-
-      const panel = list.closest(".column-panel");
-      const column = panel.dataset.column;
-      const fromIndex = parseInt(draggingRow.dataset.index, 10);
-      const toIndex = [...list.querySelectorAll(".value-row")].indexOf(draggingRow);
-      if (fromIndex === toIndex) return;
-
-      if (pendingTotal() > 0 && !confirm(I18N.reorderDiscardPending)) {
-        location.reload();
-        return;
-      }
-
-      try {
-        const res = await fetch(SAVE_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ baseVersion: BASE_VERSION, updates: [], deletes: [], appends: [], moves: [{ column, from: fromIndex, to: toIndex }] }),
-        });
-        if (res.ok) {
-          location.reload();
-          return;
         }
-        if (res.status === 409) {
-          conflictBanner.classList.remove("hidden");
-          return;
+        function refreshPreview() {
+          const has = !!valueEl.value;
+          preview.style.display = has ? "" : "none";
+          if (has) preview.src = valueEl.value;
+          filenameLabel.textContent = imageFilename(valueEl.value);
         }
-        const data = await res.json().catch(() => ({}));
-        alert(data.error || I18N.errorGeneric);
-        location.reload();
-      } catch (err) {
-        alert(I18N.cannotContactServer);
-        location.reload();
-      }
-    });
-  });
+        refreshPreview();
+        valueEl.addEventListener("input", refreshPreview);
 
-  // --- Column ⋯ menu: Modifier la description / Supprimer la colonne ---
-  bindMenu(".column-menu-btn", "column-menu");
-  document.querySelectorAll(".edit-description-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const panel = btn.closest(".column-panel");
-      closeAllMenus();
-      panel.querySelector(".edit-description-form").classList.remove("hidden");
-      panel.querySelector(".edit-description-input").focus();
-    });
-  });
-  document.querySelectorAll(".cancel-description-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      btn.closest(".edit-description-form").classList.add("hidden");
-    });
-  });
-  document.querySelectorAll(".save-description-btn").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const panel = btn.closest(".column-panel");
-      const column = panel.dataset.column;
-      const input = panel.querySelector(".edit-description-input");
-      btn.disabled = true;
-      try {
-        const res = await fetch(COLUMN_URL + "/" + encodeURIComponent(column), {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ description: input.value }),
-        });
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || I18N.errorGeneric);
-        }
-        panel.querySelector(".column-description").textContent = input.value || "";
-        panel.querySelector(".edit-description-form").classList.add("hidden");
-      } catch (e) {
-        alert(e.message);
-      } finally {
-        btn.disabled = false;
-      }
-    });
-  });
-  document.querySelectorAll(".delete-column-btn").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const panel = btn.closest(".column-panel");
-      const column = panel.dataset.column;
-      closeAllMenus();
-      if (!confirm(I18N.confirmDeleteColumn.replace("{col}", column))) return;
-      try {
-        const res = await fetch(COLUMN_URL + "/" + encodeURIComponent(column), { method: "DELETE" });
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || I18N.errorGeneric);
-        }
-        location.reload();
-      } catch (e) {
-        alert(e.message);
-      }
-    });
-  });
-
-  // --- Append a value to a column (client-side staged, sent on Save) ---
-  document.querySelectorAll(".column-panel").forEach((panel) => {
-    const appendBtn = panel.querySelector(".append-btn");
-    const appendTypeSelect = panel.querySelector(".append-type");
-    const appendValueContainer = panel.querySelector(".append-value-container");
-    const appendRow = panel.querySelector(".append-row");
-    if (!appendBtn || !appendTypeSelect || !appendValueContainer) return;
-    const valueList = panel.querySelector(".value-list");
-    const column = panel.dataset.column;
-
-    panel.querySelectorAll(".open-append-btn").forEach((openBtn) => {
-      openBtn.addEventListener("click", () => {
-        appendRow.classList.remove("hidden");
-        appendValueContainer.querySelector(".append-input, .append-input ~ input, input, textarea, select")?.focus();
-      });
-    });
-
-    let appendInput = appendValueContainer.querySelector(".append-input");
-
-    function bindAppendKeys() {
-      appendInput.addEventListener("keydown", (e) => {
-        if (e.key !== "Enter") return;
-        // Textarea: plain Enter inserts a newline; Ctrl/Cmd+Enter appends.
-        if (appendInput.tagName === "TEXTAREA" && !(e.ctrlKey || e.metaKey)) return;
-        e.preventDefault();
-        commitAppend();
-      });
-    }
-    bindAppendKeys();
-
-    appendTypeSelect.addEventListener("change", () => {
-      const carry = appendInput.value;
-      const fresh = typedInput(appendTypeSelect.value, carry);
-      fresh.className += " append-input";
-      appendValueContainer.replaceChildren(fresh);
-      appendInput = fresh;
-      appendInput.focus();
-      bindAppendKeys();
-    });
-
-    function updateCountLabels(delta) {
-      const countBadge = panel.querySelector(".value-count");
-      const countLabel = panel.querySelector(".record-count-label");
-      const n = parseInt(countBadge.textContent, 10) + delta;
-      countBadge.textContent = n;
-      countLabel.textContent = n + " " + I18N.recordWord + (n !== 1 ? "s" : "");
-    }
-
-    function commitAppend() {
-      const value = appendInput.value;
-      const type = appendTypeSelect.value;
-      if (value === "") return;
-      const emptyState = valueList.querySelector(".empty-state");
-      if (emptyState) emptyState.remove();
-
-      const row = document.createElement("div");
-      row.className = "value-row eb-row-new flex items-center gap-3 px-4 py-2 text-sm";
-      row.style.borderTop = "1px solid var(--eb-border)";
-      row.dataset.searchValue = "";
-      row.dataset.valueType = type;
-      const badge = document.createElement("span");
-      badge.className = "type-badge eb-chip shrink-0";
-      badge.textContent = TYPE_LABELS[type];
-      const isTextishAppend = type === "text" || type === "long_text";
-      const span = document.createElement("span");
-      span.className = "flex-1 min-w-0" + (type === "image" ? " cursor-pointer" : isTextishAppend ? " cursor-pointer eb-text-clamp" : "");
-      span.style.color = "var(--eb-text)";
-      if (type === "image") {
-        span.dataset.type = "image";
-        span.dataset.value = value;
-        span.title = I18N.clickToEnlarge;
-        span.appendChild(makeImageChip(value));
-      } else {
-        if (isTextishAppend) {
-          span.dataset.previewText = "true";
-          span.title = I18N.clickToEnlarge;
-        }
-        span.textContent = value;
-      }
-      const removeBtn = document.createElement("button");
-      removeBtn.type = "button";
-      removeBtn.className = "eb-icon-btn text-xs shrink-0";
-      removeBtn.textContent = "✕";
-      row.appendChild(badge);
-      row.appendChild(span);
-      row.appendChild(removeBtn);
-      valueList.appendChild(row);
-      updateCountLabels(1);
-
-      const entry = { column, value, type, el: row };
-      pendingAppends.push(entry);
-      removeBtn.addEventListener("click", () => {
-        const idx = pendingAppends.indexOf(entry);
-        if (idx !== -1) pendingAppends.splice(idx, 1);
-        row.remove();
-        updateCountLabels(-1);
-        updateBar();
-      });
-
-      appendInput.value = "";
-      appendInput.focus();
-      updateBar();
-    }
-
-    appendBtn.addEventListener("click", commitAppend);
-  });
-
-  // --- Add column ---
-  const addColumnBtn = document.getElementById("add-column-btn");
-  const addColumnPrompt = document.getElementById("add-column-prompt");
-  const addColumnForm = document.getElementById("add-column-form");
-  const addColumnInput = document.getElementById("add-column-input");
-  const addColumnDescription = document.getElementById("add-column-description");
-  const addColumnConfirmBtn = document.getElementById("add-column-confirm-btn");
-  const addColumnCancelBtn = document.getElementById("add-column-cancel-btn");
-
-  if (addColumnBtn) {
-    addColumnBtn.addEventListener("click", () => {
-      addColumnPrompt.classList.add("hidden");
-      addColumnForm.classList.remove("hidden");
-      addColumnInput.value = "";
-      addColumnDescription.value = "";
-      addColumnInput.focus();
-    });
-  }
-  if (addColumnCancelBtn) {
-    addColumnCancelBtn.addEventListener("click", () => {
-      addColumnForm.classList.add("hidden");
-      addColumnPrompt.classList.remove("hidden");
-    });
-  }
-  async function commitNewColumn() {
-    const name = addColumnInput.value.trim();
-    if (!name) return;
-    addColumnConfirmBtn.disabled = true;
-    try {
-      const res = await fetch(COLUMN_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: name, description: addColumnDescription.value.trim() }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || I18N.errorGeneric);
-      }
-      location.reload();
-    } catch (e) {
-      alert(e.message);
-      addColumnConfirmBtn.disabled = false;
-    }
-  }
-  if (addColumnConfirmBtn) {
-    addColumnConfirmBtn.addEventListener("click", commitNewColumn);
-  }
-  [addColumnInput, addColumnDescription].forEach((el) => {
-    if (!el) return;
-    el.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { e.preventDefault(); commitNewColumn(); }
-      else if (e.key === "Escape") { e.preventDefault(); addColumnForm.classList.add("hidden"); }
-    });
-  });
-
-  const discardBtn = document.getElementById("discard-btn");
-  if (discardBtn) {
-    discardBtn.addEventListener("click", () => location.reload());
-  }
-
-  const saveBtn = document.getElementById("save-btn");
-  const saveBtnLabel = document.getElementById("save-btn-label");
-  if (saveBtn) {
-    saveBtn.addEventListener("click", async () => {
-      const updates = Array.from(pendingUpdates.values());
-      const deletes = Array.from(pendingDeletes.values());
-      const appends = pendingAppends.map((a) => ({ column: a.column, value: a.value, type: a.type }));
-
-      if (updates.length + deletes.length + appends.length === 0) return;
-
-      saveBtn.disabled = true;
-      saveBtnLabel.textContent = I18N.saving;
-      try {
-        const res = await fetch(SAVE_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ baseVersion: BASE_VERSION, updates, deletes, appends }),
-        });
-        if (res.ok) {
-          location.reload();
-          return;
-        }
-        if (res.status === 409) {
-          conflictBanner.classList.remove("hidden");
-          return;
-        }
-        const data = await res.json().catch(() => ({}));
-        alert(data.error || I18N.errorGeneric);
-      } catch (e) {
-        alert(I18N.cannotContactServer);
-      } finally {
-        saveBtn.disabled = false;
-        saveBtnLabel.textContent = I18N.save;
-      }
-    });
-  }
-
-  // Ctrl+S / Cmd+S saves, instead of triggering the browser's save-page dialog.
-  document.addEventListener("keydown", (e) => {
-    const isSaveCombo = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s";
-    if (!isSaveCombo) return;
-    e.preventDefault();
-    if (!saveBtn || saveBtn.disabled) return;
-    // Editing a value is a two-control (type + value) affair with an
-    // explicit confirm button rather than commit-on-blur — so force any
-    // in-progress edit through that same confirm button before saving.
-    document.querySelectorAll(".edit-confirm-btn").forEach((btn) => btn.click());
-    saveBtn.click();
-  });
-
-  // --- Global search (across every column) + per-column local search ---
-  function applyRowVisibility(row) {
-    const q = (row.__globalQuery || "") || "";
-    const lq = (row.__localQuery || "") || "";
-    const typeOk = !row.__typeFiltered;
-    const matchesGlobal = !q || row.textContent.toLowerCase().includes(q);
-    const matchesLocal = !lq || row.textContent.toLowerCase().includes(lq);
-    row.style.display = (matchesGlobal && matchesLocal && typeOk) ? "" : "none";
-    updateColumnPanelVisibility(row.closest(".column-panel"));
-  }
-
-  // A column with at least one value but none of them currently matching
-  // (search/filter) is hidden entirely, rather than left showing as an
-  // empty card — a genuinely empty column (no rows at all) is untouched,
-  // since that's its normal "no records yet" empty-state, not a filter result.
-  function updateColumnPanelVisibility(panel) {
-    if (!panel) return;
-    const rows = panel.querySelectorAll(".value-row[data-search-value]");
-    if (rows.length === 0) {
-      panel.style.display = "";
-      return;
-    }
-    const anyVisible = Array.from(rows).some((r) => r.style.display !== "none");
-    panel.style.display = anyVisible ? "" : "none";
-  }
-
-  const globalSearchInput = document.getElementById("global-search-input");
-  if (globalSearchInput) {
-    globalSearchInput.addEventListener("input", () => {
-      const q = globalSearchInput.value.trim().toLowerCase();
-      document.querySelectorAll(".value-row[data-search-value]").forEach((row) => {
-        row.__globalQuery = q;
-        applyRowVisibility(row);
-      });
-    });
-  }
-
-  document.querySelectorAll(".column-panel").forEach((panel) => {
-    const localInput = panel.querySelector(".local-search-input");
-    if (!localInput) return;
-    localInput.addEventListener("input", () => {
-      const q = localInput.value.trim().toLowerCase();
-      panel.querySelectorAll(".value-row[data-search-value]").forEach((row) => {
-        row.__localQuery = q;
-        applyRowVisibility(row);
-      });
-    });
-  });
-
-  // --- Filters (by value type) ---
-  const filtersBtn = document.getElementById("filters-btn");
-  const filtersMenu = document.getElementById("filters-menu");
-  if (filtersBtn && filtersMenu) {
-    filtersBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const isHidden = filtersMenu.classList.contains("hidden");
-      closeAllMenus();
-      if (isHidden) filtersMenu.classList.remove("hidden");
-    });
-    filtersMenu.addEventListener("click", (e) => e.stopPropagation());
-    document.querySelectorAll(".filter-type-cb").forEach((cb) => {
-      cb.addEventListener("change", () => {
-        const active = new Set(
-          Array.from(document.querySelectorAll(".filter-type-cb:checked")).map((c) => c.value)
-        );
-        document.querySelectorAll(".value-row[data-search-value]").forEach((row) => {
-          row.__typeFiltered = !active.has(row.dataset.valueType);
-          applyRowVisibility(row);
-        });
-      });
-    });
-  }
-
-  // --- Sort (display-only, per column) ---
-  const sortBtn = document.getElementById("sort-btn");
-  const sortMenu = document.getElementById("sort-menu");
-  if (sortBtn && sortMenu) {
-    sortBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const isHidden = sortMenu.classList.contains("hidden");
-      closeAllMenus();
-      if (isHidden) sortMenu.classList.remove("hidden");
-    });
-    sortMenu.addEventListener("click", (e) => e.stopPropagation());
-    document.querySelectorAll(".sort-option").forEach((opt) => {
-      opt.addEventListener("click", () => {
-        const mode = opt.dataset.sort;
-        currentSortMode = mode;
-        document.querySelectorAll(".column-panel").forEach((panel) => {
-          const list = panel.querySelector(".value-list");
-          const rows = Array.from(list.querySelectorAll(".value-row[data-search-value]"));
-          if (rows.length === 0) return;
-          if (mode === "none") {
-            rows.sort((a, b) => (a.__originalIndex ?? 0) - (b.__originalIndex ?? 0));
-          } else {
-            rows.forEach((r) => { if (r.__originalIndex === undefined) r.__originalIndex = parseInt(r.dataset.index, 10); });
-            rows.sort((a, b) => {
-              const av = a.querySelector(".value-text, span:nth-child(2)")?.textContent.toLowerCase() || "";
-              const bv = b.querySelector(".value-text, span:nth-child(2)")?.textContent.toLowerCase() || "";
-              return mode === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
-            });
+        uploadBtn.addEventListener("click", () => fileInput.click());
+        fileInput.addEventListener("change", async () => {
+          const file = fileInput.files[0];
+          if (!file) return;
+          const original = uploadBtn.textContent;
+          uploadBtn.textContent = "…";
+          uploadBtn.disabled = true;
+          try {
+            const formData = new FormData();
+            formData.append("file", file);
+            const res = await fetch(`/workspaces/${wsSlug}/uploads`, { method: "POST", body: formData });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              alert(body.error || I18N.errorRetry);
+              return;
+            }
+            valueEl.value = body.url;
+            refreshPreview();
+          } catch (e) {
+            alert(I18N.cannotContact);
+          } finally {
+            uploadBtn.textContent = original;
+            uploadBtn.disabled = false;
+            fileInput.value = "";
           }
-          rows.forEach((r) => list.appendChild(r));
         });
-        closeAllMenus();
-      });
-    });
-  }
 
-  // --- Schema view toggle ---
-  const schemaToggleBtn = document.getElementById("schema-toggle-btn");
-  const schemaPanel = document.getElementById("schema-panel");
-  if (schemaToggleBtn && schemaPanel) {
-    schemaToggleBtn.addEventListener("click", () => {
-      schemaPanel.classList.toggle("hidden");
-    });
-  }
-  const schemaExpandBtn = document.getElementById("schema-expand-btn");
-  if (schemaExpandBtn) {
-    schemaExpandBtn.addEventListener("click", () => {
-      document.querySelectorAll(".schema-field-row.hidden").forEach((row) => row.classList.remove("hidden"));
-      schemaExpandBtn.remove();
-    });
-  }
-
-  // --- Freeform layout: each column card becomes a freely draggable "sticky
-  // note" on a pannable/zoomable canvas, like a whiteboard diagram tool —
-  // no relationship lines, since columns here are independent. Toggling
-  // off just clears the inline styles this adds, letting the underlying
-  // CSS grid classes (never removed) take back over. ---
-  (function () {
-    const toggleBtn = document.getElementById("freeform-toggle-btn");
-    const viewport = document.getElementById("columns-viewport");
-    const canvas = document.getElementById("columns-canvas");
-    const controls = document.getElementById("freeform-controls");
-    if (!toggleBtn || !viewport || !canvas || !controls) return;
-
-    // Positions are shared, server-side (see column_canvas_positions):
-    // whatever a workspace member drags a card to is saved via the URL
-    // template below (the literal "__KEY__" is swapped for the real,
-    // URL-encoded column key) and shown identically to every other member.
-    const positionURLTemplate = canvas.dataset.positionUrl;
-    let active = false;
-    let scale = 1, panX = 0, panY = 0;
-    let draggingCard = null, dragStartX, dragStartY, dragOrigLeft, dragOrigTop;
-    let panning = false, panStartX, panStartY, panOrigX, panOrigY;
-
-    function cardKey(card) {
-      return card.dataset.column || "";
-    }
-    function savePosition(key, left, top) {
-      if (!key || !positionURLTemplate) return; // the "+ add column" card has no key to save
-      const url = positionURLTemplate.replace("__KEY__", encodeURIComponent(key));
-      fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ x: Math.round(left), y: Math.round(top) }),
-      }).catch(() => {});
-    }
-    function applyTransform() {
-      canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
-    }
-
-    function enableFreeform() {
-      const cards = Array.from(canvas.querySelectorAll(".column-panel, .column-panel-empty"));
-      // Freeze each card's current CSS-grid-computed position before
-      // switching to absolute, so the default layout (first time, nothing
-      // saved yet) looks exactly like the grid it's replacing.
-      const naturalRects = cards.map((c) => ({ left: c.offsetLeft, top: c.offsetTop, width: c.offsetWidth }));
-      let maxRight = 0, maxBottom = 0;
-      cards.forEach((card, i) => {
-        const hasSaved = card.dataset.posX !== undefined && card.dataset.posY !== undefined;
-        const left = hasSaved ? parseInt(card.dataset.posX, 10) : naturalRects[i].left;
-        const top = hasSaved ? parseInt(card.dataset.posY, 10) : naturalRects[i].top;
-        card.style.position = "absolute";
-        card.style.left = left + "px";
-        card.style.top = top + "px";
-        card.style.width = naturalRects[i].width + "px";
-        card.style.margin = "0";
-        maxRight = Math.max(maxRight, left + naturalRects[i].width + 80);
-        maxBottom = Math.max(maxBottom, top + 560);
-      });
-      canvas.style.position = "relative";
-      canvas.style.width = Math.max(maxRight, 1600) + "px";
-      canvas.style.height = Math.max(maxBottom, 900) + "px";
-      canvas.style.transformOrigin = "0 0";
-
-      viewport.style.height = "75vh";
-      viewport.style.overflow = "hidden";
-      viewport.style.borderRadius = "0.75rem";
-      viewport.style.border = "1px solid var(--eb-border)";
-      viewport.style.backgroundImage = "radial-gradient(circle, var(--eb-border) 1px, transparent 1px)";
-      viewport.style.backgroundSize = "22px 22px";
-      viewport.style.cursor = "grab";
-      controls.classList.remove("hidden");
-
-      scale = 1; panX = 0; panY = 0;
-      applyTransform();
-    }
-
-    function disableFreeform() {
-      canvas.querySelectorAll(".column-panel, .column-panel-empty").forEach((card) => {
-        card.style.position = "";
-        card.style.left = "";
-        card.style.top = "";
-        card.style.width = "";
-        card.style.margin = "";
-        card.style.zIndex = "";
-      });
-      canvas.style.position = "";
-      canvas.style.width = "";
-      canvas.style.height = "";
-      canvas.style.transform = "";
-      canvas.style.transformOrigin = "";
-      viewport.style.height = "";
-      viewport.style.overflow = "";
-      viewport.style.borderRadius = "";
-      viewport.style.border = "";
-      viewport.style.backgroundImage = "";
-      viewport.style.backgroundSize = "";
-      viewport.style.cursor = "";
-      controls.classList.add("hidden");
-    }
-
-    toggleBtn.addEventListener("click", () => {
-      active = !active;
-      toggleBtn.classList.toggle("eb-btn-primary", active);
-      if (active) enableFreeform(); else disableFreeform();
-    });
-
-    document.getElementById("freeform-zoom-in")?.addEventListener("click", () => { scale = Math.min(scale * 1.2, 2.5); applyTransform(); });
-    document.getElementById("freeform-zoom-out")?.addEventListener("click", () => { scale = Math.max(scale / 1.2, 0.3); applyTransform(); });
-    document.getElementById("freeform-zoom-reset")?.addEventListener("click", () => { scale = 1; panX = 0; panY = 0; applyTransform(); });
-
-    viewport.addEventListener("wheel", (e) => {
-      if (!active) return;
-      e.preventDefault();
-      const delta = e.deltaY < 0 ? 1.1 : 0.9;
-      scale = Math.min(Math.max(scale * delta, 0.3), 2.5);
-      applyTransform();
-    }, { passive: false });
-
-    // Panning: drag the canvas's empty background (not a card).
-    viewport.addEventListener("mousedown", (e) => {
-      if (!active || e.target.closest(".column-panel, .column-panel-empty")) return;
-      panning = true;
-      panStartX = e.clientX; panStartY = e.clientY;
-      panOrigX = panX; panOrigY = panY;
-      viewport.style.cursor = "grabbing";
-    });
-
-    // Dragging a card: anywhere on it except its interactive areas (value
-    // list, buttons, inputs, menus) so editing/scrolling values still works.
-    canvas.addEventListener("mousedown", (e) => {
-      if (!active) return;
-      const card = e.target.closest(".column-panel, .column-panel-empty");
-      if (!card) return;
-      if (e.target.closest("button, input, select, a, textarea, .value-list, .append-row, .edit-description-form")) return;
-      draggingCard = card;
-      dragStartX = e.clientX; dragStartY = e.clientY;
-      dragOrigLeft = parseFloat(card.style.left) || 0;
-      dragOrigTop = parseFloat(card.style.top) || 0;
-      card.style.zIndex = "10";
-      e.preventDefault();
-    });
-
-    window.addEventListener("mousemove", (e) => {
-      if (draggingCard) {
-        const dx = (e.clientX - dragStartX) / scale;
-        const dy = (e.clientY - dragStartY) / scale;
-        draggingCard.style.left = (dragOrigLeft + dx) + "px";
-        draggingCard.style.top = (dragOrigTop + dy) + "px";
-        return;
+        valueContainer = document.createElement("div");
+        valueContainer.className = "flex items-center gap-1.5";
+        valueContainer.appendChild(preview);
+        valueContainer.appendChild(filenameLabel);
+        valueContainer.appendChild(valueEl);
+        valueContainer.appendChild(uploadBtn);
+        valueContainer.appendChild(fileInput);
+      } else {
+        valueEl = document.createElement("input");
+        valueEl.type = type === "number" ? "number" : "text";
+        valueEl.className = "eb-field-sm rounded px-1 py-0.5 text-xs w-full";
+        valueEl.value = initial === null || initial === undefined ? "" : String(initial);
+        valueContainer = valueEl;
       }
-      if (panning) {
-        panX = panOrigX + (e.clientX - panStartX);
-        panY = panOrigY + (e.clientY - panStartY);
-        applyTransform();
-      }
+    }
+    buildValueEl(currentType, rawJSON);
+
+    select.addEventListener("change", () => {
+      const prevValue = valueEl.value;
+      buildValueEl(select.value, select.value === currentType ? rawJSON : prevValue);
+      valueRow.replaceChild(valueContainer, valueRow.firstChild);
+      valueEl.focus();
     });
 
-    window.addEventListener("mouseup", () => {
-      if (draggingCard) {
-        savePosition(cardKey(draggingCard), parseFloat(draggingCard.style.left), parseFloat(draggingCard.style.top));
-        draggingCard.style.zIndex = "";
-        draggingCard = null;
-      }
-      if (panning) {
-        panning = false;
-        viewport.style.cursor = "grab";
-      }
-    });
-  })();
+    const valueRow = document.createElement("div");
+    valueRow.appendChild(valueContainer);
 
-  // --- Page-level "..." menu ---
-  const pageMenuBtn = document.getElementById("page-menu-btn");
-  const pageMenu = document.getElementById("page-menu");
-  if (pageMenuBtn && pageMenu) {
-    pageMenuBtn.addEventListener("click", (e) => {
+    const btnRow = document.createElement("div");
+    btnRow.className = "flex items-center gap-1.5 mt-0.5";
+    const saveBtn = document.createElement("button");
+    saveBtn.type = "button";
+    saveBtn.textContent = I18N.save;
+    saveBtn.className = "eb-btn-primary rounded px-2 py-0.5 text-xs";
+    const cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.textContent = I18N.cancel;
+    cancelBtn.className = "eb-btn-secondary rounded px-2 py-0.5 text-xs";
+    btnRow.appendChild(saveBtn);
+    btnRow.appendChild(cancelBtn);
+
+    wrap.appendChild(select);
+    wrap.appendChild(valueRow);
+    wrap.appendChild(btnRow);
+    td.innerHTML = "";
+    td.appendChild(wrap);
+    valueEl.focus?.();
+
+    function close() { td.innerHTML = original; }
+    cancelBtn.addEventListener("click", (e) => { e.stopPropagation(); close(); });
+    saveBtn.addEventListener("click", async (e) => {
       e.stopPropagation();
-      const isHidden = pageMenu.classList.contains("hidden");
-      closeAllMenus();
-      if (isHidden) pageMenu.classList.remove("hidden");
+      const type = select.value;
+      const raw = cellToRaw(valueEl.value, type);
+      const ok = await postRecords({ updates: [{ column, index, value: raw, type }] });
+      if (ok) location.reload();
+    });
+    td.addEventListener("keydown", function onKey(e) {
+      if (e.key === "Escape") { close(); td.removeEventListener("keydown", onKey); }
     });
   }
+  document.querySelectorAll("#grid-table td.eb-grid-cell").forEach((td) => {
+    td.addEventListener("click", (e) => {
+      if (e.target.closest(".eb-cell-editor")) return;
+      openCellEditor(td);
+    });
+  });
 
-  // --- Deep link from the global search results (workspaces.html): scroll
-  // to the specific cell and flash-highlight it so its presence is obvious.
+  // --- Highlight a cell/row reached from global search (?highlightColumn=&highlightIndex=) ---
   (function highlightFromSearch() {
     const params = new URLSearchParams(window.location.search);
-    const col = params.get("highlightColumn");
-    const idx = params.get("highlightIndex");
-    if (col === null || idx === null) return;
-
-    const panel = document.querySelector('.column-panel[data-column="' + CSS.escape(col) + '"]');
-    const row = panel && panel.querySelector('.value-row[data-index="' + CSS.escape(idx) + '"]');
-    if (row) {
-      row.scrollIntoView({ behavior: "smooth", block: "center" });
-      row.classList.add("eb-row-highlight");
-      setTimeout(() => row.classList.remove("eb-row-highlight"), 2500);
-    }
-    const url = new URL(window.location.href);
-    url.searchParams.delete("highlightColumn");
-    url.searchParams.delete("highlightIndex");
-    window.history.replaceState({}, "", url);
+    const column = params.get("highlightColumn");
+    const index = params.get("highlightIndex");
+    if (column === null || index === null) return;
+    const row = document.querySelector(`#grid-table tbody tr[data-index="${CSS.escape(index)}"]`);
+    if (row) row.classList.add("eb-row-highlight");
+    const cell = document.querySelector(`#grid-table tbody td[data-column="${CSS.escape(column)}"][data-index="${CSS.escape(index)}"]`);
+    (cell || row)?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
   })();
 
-  // --- Import (⋯ menu) ---
-  const dsImportBtn = document.getElementById("ds-import-btn");
-  const dsImportInput = document.getElementById("ds-import-input");
-  if (dsImportBtn && dsImportInput) {
-    dsImportBtn.addEventListener("click", () => {
-      document.getElementById("page-menu")?.classList.add("hidden");
-      dsImportInput.click();
-    });
-    dsImportInput.addEventListener("change", async () => {
-      const file = dsImportInput.files[0];
+  // --- Import ---
+  const importBtn = document.getElementById("ds-import-btn");
+  const importInput = document.getElementById("ds-import-input");
+  if (importBtn && importInput) {
+    importBtn.addEventListener("click", () => importInput.click());
+    importInput.addEventListener("change", async () => {
+      const file = importInput.files[0];
       if (!file) return;
       if (!confirm("{{t .Lang "datasource.import_confirm"}}")) {
-        dsImportInput.value = "";
+        importInput.value = "";
         return;
       }
       const formData = new FormData();
       formData.append("file", file);
       try {
-        const res = await fetch(window.location.pathname.replace(/\/$/, "") + "/import", {
-          method: "POST",
-          body: formData,
-        });
+        const res = await fetch(`/workspaces/${wsSlug}/tables/${tableSlug}/import`, { method: "POST", body: formData });
         const body = await res.json().catch(() => ({}));
         if (!res.ok) {
           alert(body.error || "{{t .Lang "common.error_generic_retry"}}");
-          dsImportInput.value = "";
+          importInput.value = "";
           return;
         }
         location.reload();
       } catch (e) {
         alert("{{t .Lang "datasource.cannot_contact_server"}}");
-        dsImportInput.value = "";
+        importInput.value = "";
       }
     });
   }
 
-  // --- "Code" modal (⋯ menu, column menu, value menu) ---
-  const DATASOURCE_SLUG = window.location.pathname.split("/").filter(Boolean)[3];
-  const openCodeModalBtn = document.getElementById("open-code-modal-btn");
+  // --- Export menu ---
+  const exportBtn = document.getElementById("ds-export-btn");
+  const exportMenu = document.getElementById("ds-export-menu");
+  if (exportBtn && exportMenu) {
+    exportBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      exportMenu.classList.toggle("hidden");
+    });
+    document.addEventListener("click", () => exportMenu.classList.add("hidden"));
+  }
+
+  // --- Code modal ---
   const codeBackdrop = document.getElementById("code-modal-backdrop");
   const codeCloseBtn = document.getElementById("close-code-modal-btn");
   const codeSnippetEl = document.getElementById("code-modal-snippet");
   const codeCopyBtn = document.getElementById("code-modal-copy-btn");
-  function sdkSnippet(callLine, resultVar) {
-    return [
+  const codeBtn = document.getElementById("ds-code-btn");
+  function openCodeModal(rowIndex) {
+    const lines = [
       'import { EptaAdminClient } from "eptaadmin-sdk";',
       "",
       "const client = new EptaAdminClient({",
       "  apiKey: process.env.EPTAADMIN_API_KEY,",
       "});",
       "",
-      callLine,
-      "console.log(" + resultVar + ");",
-    ].join("\n");
-  }
-  function datasourceSnippet() {
-    return sdkSnippet('const data = await client.getDataSource("' + WORKSPACE_SLUG + '", "' + DATASOURCE_SLUG + '");', "data.columns");
-  }
-  function columnSnippet(column) {
-    return sdkSnippet('const values = await client.getValue("' + WORKSPACE_SLUG + "/" + DATASOURCE_SLUG + "/" + column + '");', "values");
-  }
-  function valueSnippet(column, index) {
-    return sdkSnippet('const value = await client.getValue("' + WORKSPACE_SLUG + "/" + DATASOURCE_SLUG + "/" + column + "/" + index + '");', "value");
-  }
-  function openCodeModal(snippet) {
-    codeSnippetEl.textContent = snippet;
+    ];
+    if (rowIndex === undefined) {
+      lines.push(
+        'const data = await client.getDataSource("' + wsSlug + '", "' + tableSlug + '");',
+        "console.log(data.columns);"
+      );
+    } else {
+      const columnKeys = Array.from(document.querySelectorAll("#grid-table thead th[data-key]")).map((th) => th.dataset.key);
+      lines.push(`// Row #${rowIndex}`);
+      columnKeys.forEach((key) => {
+        const varName = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key) ? key : "value";
+        lines.push(`const ${varName} = await client.getValue("${wsSlug}/${tableSlug}/${key}/${rowIndex}");`);
+      });
+    }
+    codeSnippetEl.textContent = lines.join("\n");
     if (window.Prism) Prism.highlightElement(codeSnippetEl);
     codeBackdrop.classList.remove("hidden");
   }
   function closeCodeModal() { codeBackdrop.classList.add("hidden"); }
-  if (openCodeModalBtn) {
-    openCodeModalBtn.addEventListener("click", () => {
-      document.getElementById("page-menu")?.classList.add("hidden");
-      openCodeModal(datasourceSnippet());
-    });
-  }
-  document.querySelectorAll(".column-code-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const panel = btn.closest(".column-panel");
-      btn.closest(".column-menu")?.classList.add("hidden");
-      openCodeModal(columnSnippet(panel.dataset.column));
-    });
-  });
-  document.querySelectorAll(".value-menu-code").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const row = btn.closest(".value-row");
-      const panel = btn.closest(".column-panel");
-      btn.closest(".value-menu")?.classList.add("hidden");
-      openCodeModal(valueSnippet(panel.dataset.column, row.dataset.index));
+  if (codeBtn) codeBtn.addEventListener("click", (e) => { e.stopPropagation(); exportMenu.classList.add("hidden"); openCodeModal(); });
+  document.querySelectorAll(".eb-row-code-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openCodeModal(parseInt(btn.dataset.index, 10));
     });
   });
   if (codeCloseBtn) codeCloseBtn.addEventListener("click", closeCodeModal);
-  if (codeBackdrop) {
-    codeBackdrop.addEventListener("click", (e) => { if (e.target === codeBackdrop) closeCodeModal(); });
-  }
+  if (codeBackdrop) codeBackdrop.addEventListener("click", (e) => { if (e.target === codeBackdrop) closeCodeModal(); });
   if (codeCopyBtn) {
     codeCopyBtn.addEventListener("click", () => {
       navigator.clipboard.writeText(codeSnippetEl.textContent).then(() => {
