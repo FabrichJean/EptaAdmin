@@ -700,9 +700,20 @@
               ? `${status.progressMessage} (${status.progressPercent}%)`
               : status.progressMessage;
           } else {
+            message.textContent = fmt(runningTemplate, status.target || "?", elapsed + "s");
+          }
+          if (barTrack && barFill) {
+            if (hasPercent) {
+              barTrack.classList.remove("hidden");
+              barFill.style.width = status.progressPercent + "%";
+            } else {
+              barTrack.classList.add("hidden");
+            }
+          }
           show("var(--eb-accent)");
           return;
         }
+        if (barTrack) barTrack.classList.add("hidden");
 
         // Only react to a batch that just finished — avoids resurrecting a
         // stale result from long before this page was even loaded.
