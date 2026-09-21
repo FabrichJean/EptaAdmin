@@ -186,6 +186,11 @@ func (a *App) handleToggleWebhook(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
 		return
 	}
+	toggleAction := ActionWebhookDisable
+	if req.Enabled {
+		toggleAction = ActionWebhookEnable
+	}
+	a.logActivity(logActivityParams{WorkspaceID: ws.ID, UserID: currentUser.ID, Action: toggleAction, Details: map[string]any{"url": hook.URL}})
 
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }

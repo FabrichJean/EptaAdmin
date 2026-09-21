@@ -155,9 +155,19 @@ func (a *App) fireWebhooks(workspaceID int64, event string, details map[string]a
 		}
 		hook := h
 		go func() {
-			if err := a.deliverWebhook(hook, event, false, details); err != nil {
-				log.Printf("webhook delivery error (workspace %d, url %s): %v", hook.WorkspaceID, hook.URL, err)
+			deliverErr := a.deliverWebhook(hook, event, false, details)
+			if deliverErr != nil {
+				log.Printf("webhook delivery error (workspace %d, url %s): %v", hook.WorkspaceID, hook.URL, deliverErr)
 			}
+			errText := ""
+			if deliverErr != nil {
+				errText = deliverErr.Error()
+			}
+			a.logActivity(logActivityParams{
+				WorkspaceID: workspaceID,
+				Action:      ActionWebhookAutoTrigger,
+				Details:     map[string]any{"url": hook.URL, "triggeringAction": event, "success": deliverErr == nil, "error": errText},
+			})
 		}()
 	}
 }
