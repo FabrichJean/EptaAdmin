@@ -194,6 +194,7 @@ func (s *Store) migrate() error {
 		`ALTER TABLE users ADD COLUMN language TEXT NOT NULL DEFAULT 'fr'`,
 		`ALTER TABLE users ADD COLUMN created_by INTEGER REFERENCES users(id)`,
 		`ALTER TABLE activity_log ADD COLUMN table_id INTEGER REFERENCES tables(id) ON DELETE CASCADE`,
+		`ALTER TABLE users ADD COLUMN last_seen_activity_id INTEGER NOT NULL DEFAULT 0`,
 	} {
 		if _, err := s.db.Exec(alter); err != nil {
 			if !strings.Contains(err.Error(), "duplicate column name") {
@@ -368,6 +369,24 @@ func (s *Store) CountUsers() (int, error) {
 	var n int
 	err := s.db.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&n)
 	return n, err
+}
+
+// GetUserLastSeenActivityID returns how far into the activity feed this
+// user has already looked — the header notification bell's read/unread
+// boundary, stored per-account (not per-browser) so it's the same on every
+// device they're logged into.
+func (s *Store) GetUserLastSeenActivityID(userID int64) (int64, error) {
+	var id int64
+	err := s.db.QueryRow(`SELECT last_seen_activity_id FROM users WHERE id = ?`, userID).Scan(&id)
+	return id, err
+}
+
+// MarkActivitySeen advances the user's read boundary to id — never
+// backwards, so a stale/slow request can't un-read something newer that a
+// more recent request already marked read.
+func (s *Store) MarkActivitySeen(userID, id int64) error {
+	_, err := s.db.Exec(`UPDATE users SET last_seen_activity_id = ? WHERE id = ? AND last_seen_activity_id < ?`, id, userID, id)
+	return err
 }
 
 func scanUser(row *sql.Row) (*User, error) {

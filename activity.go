@@ -52,7 +52,10 @@ const (
 
 	ActionWebhookCreate        = "webhook.create"
 	ActionWebhookDelete        = "webhook.delete"
+	ActionWebhookEnable        = "webhook.enable"
+	ActionWebhookDisable       = "webhook.disable"
 	ActionWebhookManualTrigger = "webhook.manual_trigger"
+	ActionWebhookAutoTrigger   = "webhook.auto_trigger"
 )
 
 // reversibleActions is the confirmed scope: real undo for actions on data
@@ -178,8 +181,18 @@ func (e *ActivityEntry) Describe(lang string) string {
 		return T(lang, "activity.desc.webhook.create", actor, detailString(d, "url"))
 	case ActionWebhookDelete:
 		return T(lang, "activity.desc.webhook.delete", actor, detailString(d, "url"))
+	case ActionWebhookEnable:
+		return T(lang, "activity.desc.webhook.enable", actor, detailString(d, "url"))
+	case ActionWebhookDisable:
+		return T(lang, "activity.desc.webhook.disable", actor, detailString(d, "url"))
 	case ActionWebhookManualTrigger:
 		return T(lang, "activity.desc.webhook.manual_trigger", actor, detailString(d, "url"))
+	case ActionWebhookAutoTrigger:
+		url := detailString(d, "url")
+		if success, _ := d["success"].(bool); success {
+			return T(lang, "activity.desc.webhook.auto_trigger_success", url)
+		}
+		return T(lang, "activity.desc.webhook.auto_trigger_failed", url, detailString(d, "error"))
 	default:
 		return actor + " — " + e.Action
 	}
@@ -359,6 +372,62 @@ type ActivityRow struct {
 	CanRevert bool
 }
 
+// activityPageSize is how many entries the Activité page shows per page —
+// both the global and per-workspace feeds are paginated over their already
+// newest-first-sorted, capped fetch rather than ever rendering it all at
+// once.
+const activityPageSize = 8
+
+// paginateActivity slices rows down to one page, clamping an out-of-range
+// page number back into range, and reports the paging metadata the template
+// needs to render Prev/Next controls.
+func paginateActivity(rows []ActivityRow, r *http.Request) (page []ActivityRow, current, total int) {
+	total = (len(rows) + activityPageSize - 1) / activityPageSize
+	if total == 0 {
+		total = 1
+	}
+	current, _ = strconv.Atoi(r.URL.Query().Get("page"))
+	if current < 1 {
+		current = 1
+	}
+	if current > total {
+		current = total
+	}
+	start := (current - 1) * activityPageSize
+	end := start + activityPageSize
+	if start > len(rows) {
+		start = len(rows)
+	}
+	if end > len(rows) {
+		end = len(rows)
+	}
+	return rows[start:end], current, total
+}
+
+// recentActivityForUser returns the newest-first timeline of everything
+// this user can see: every workspace-scoped entry across every workspace
+// they're a member of, merged with their own account-level entries (login,
+// logout, register, profile changes...), which have no workspace at all and
+// so would otherwise never show up in a workspace-scoped query. Shared by
+// the global Activité page and the header notification dropdown so both
+// stay in exact agreement about "what's recent."
+func (a *App) recentActivityForUser(userID int64, limit int) ([]*ActivityEntry, error) {
+	entries, err := a.store.ListActivityForUserWorkspaces(userID, limit)
+	if err != nil {
+		return nil, err
+	}
+	accountEntries, err := a.store.ListUserActivity(userID, limit)
+	if err != nil {
+		return nil, err
+	}
+	entries = append(entries, accountEntries...)
+	sort.Slice(entries, func(i, j int) bool { return entries[i].ID > entries[j].ID })
+	if len(entries) > limit {
+		entries = entries[:limit]
+	}
+	return entries, nil
+}
+
 func (a *App) handleGlobalActivity(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
 	lang := a.resolveLang(r)
@@ -374,28 +443,11 @@ func (a *App) handleGlobalActivity(w http.ResponseWriter, r *http.Request) {
 		roleByWorkspace[ws.ID] = ws.Role
 	}
 
-	entries, err := a.store.ListActivityForUserWorkspaces(currentUser.ID, 300)
+	entries, err := a.recentActivityForUser(currentUser.ID, 300)
 	if err != nil {
 		log.Printf("list global activity error: %v", err)
 		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
 		return
-	}
-
-	// Account-level activity (login, logout, register, profile changes...)
-	// has no workspace at all, so it's never returned by
-	// ListActivityForUserWorkspaces above — merge it in here so the global
-	// feed is a real single timeline instead of silently missing every
-	// login/logout.
-	accountEntries, err := a.store.ListUserActivity(currentUser.ID, 300)
-	if err != nil {
-		log.Printf("list user activity error: %v", err)
-		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
-		return
-	}
-	entries = append(entries, accountEntries...)
-	sort.Slice(entries, func(i, j int) bool { return entries[i].ID > entries[j].ID })
-	if len(entries) > 300 {
-		entries = entries[:300]
 	}
 
 	rows := make([]ActivityRow, 0, len(entries))
@@ -403,16 +455,110 @@ func (a *App) handleGlobalActivity(w http.ResponseWriter, r *http.Request) {
 		canRevert := e.WorkspaceID.Valid && hasPermission(roleByWorkspace[e.WorkspaceID.Int64], PermDataUpdate)
 		rows = append(rows, ActivityRow{ActivityEntry: e, CanRevert: canRevert})
 	}
+	pageRows, page, totalPages := paginateActivity(rows, r)
 
 	a.render(w, r, "activity.html", map[string]any{
 		"CurrentUser": currentUser,
 		"ActiveNav":   "activity",
 		"PageTitle":   T(lang, "activity.title"),
-		"Rows":        rows,
+		"Rows":        pageRows,
 		"Global":      true,
+		"Page":        page,
+		"TotalPages":  totalPages,
 		"HeaderTitle": T(lang, "activity.title"),
 		"HeaderIcon":  "code",
 	})
+}
+
+// recentActivityItem is the header notification dropdown's shape — just
+// enough to show and link to each entry, not the full ActivityEntry (no
+// undo button there, so Reversible/RevertedAt etc. would be dead weight).
+type recentActivityItem struct {
+	ID          int64  `json:"id"`
+	Description string `json:"description"`
+	CreatedAt   string `json:"createdAt"`
+	URL         string `json:"url"`
+	Unread      bool   `json:"unread"`
+}
+
+// handleRecentActivity is the header bell's dropdown data — the same
+// merged, newest-first timeline as the global Activité page, just capped
+// to 5 and shaped for a compact list instead of a full page.
+// recentActivityWindow bounds how far back the unread count looks — an
+// account inactive long enough to rack up more unread entries than this
+// just sees the count clamp at this number instead of growing forever.
+const recentActivityWindow = 300
+
+func (a *App) handleRecentActivity(w http.ResponseWriter, r *http.Request) {
+	currentUser := userFromContext(r)
+	lang := a.resolveLang(r)
+
+	entries, err := a.recentActivityForUser(currentUser.ID, recentActivityWindow)
+	if err != nil {
+		log.Printf("list recent activity error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		return
+	}
+	lastSeenID, err := a.store.GetUserLastSeenActivityID(currentUser.ID)
+	if err != nil {
+		log.Printf("get last seen activity error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		return
+	}
+
+	unreadCount := 0
+	for _, e := range entries {
+		if e.ID > lastSeenID {
+			unreadCount++
+		}
+	}
+	if len(entries) > 5 {
+		entries = entries[:5]
+	}
+
+	items := make([]recentActivityItem, 0, len(entries))
+	for _, e := range entries {
+		url := "/activity"
+		if e.WorkspaceSlug != "" {
+			url = "/workspaces/" + e.WorkspaceSlug + "/activity"
+		}
+		items = append(items, recentActivityItem{
+			ID:          e.ID,
+			Description: e.Describe(lang),
+			CreatedAt:   e.CreatedAt.Local().Format("02/01/2006 15:04"),
+			URL:         url,
+			Unread:      e.ID > lastSeenID,
+		})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"items":       items,
+		"unreadCount": unreadCount,
+	})
+}
+
+// handleMarkActivitySeen advances the current user's read boundary to the
+// newest entry they can currently see — called when the notification
+// dropdown is opened. Deliberately doesn't trust a client-supplied id:
+// re-deriving "the newest one" server-side means a stale or replayed call
+// can't mark something unread that a more recent one already covered
+// (MarkActivitySeen is itself a monotonic advance-only update too).
+func (a *App) handleMarkActivitySeen(w http.ResponseWriter, r *http.Request) {
+	currentUser := userFromContext(r)
+
+	entries, err := a.recentActivityForUser(currentUser.ID, 1)
+	if err != nil {
+		log.Printf("list recent activity error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		return
+	}
+	if len(entries) > 0 {
+		if err := a.store.MarkActivitySeen(currentUser.ID, entries[0].ID); err != nil {
+			log.Printf("mark activity seen error: %v", err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+			return
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 func (a *App) handleWorkspaceActivity(w http.ResponseWriter, r *http.Request) {
@@ -465,16 +611,19 @@ func (a *App) handleWorkspaceActivity(w http.ResponseWriter, r *http.Request) {
 	for _, e := range entries {
 		rows = append(rows, ActivityRow{ActivityEntry: e, CanRevert: canRevert})
 	}
+	pageRows, page, totalPages := paginateActivity(rows, r)
 
 	a.render(w, r, "activity.html", map[string]any{
 		"CurrentUser": currentUser,
 		"ActiveNav":   "workspaces",
 		"PageTitle":   T(lang, "activity.title"),
 		"Workspace":   ws,
-		"Rows":        rows,
+		"Rows":        pageRows,
 		"Tables":      tables,
 		"TableNames":  tableNames,
 		"FilterTable": r.URL.Query().Get("table"),
+		"Page":        page,
+		"TotalPages":  totalPages,
 		"Breadcrumb": []Breadcrumb{
 			{Label: T(lang, "nav.workspaces"), URL: "/workspaces"},
 			{Label: ws.Name, URL: "/workspaces/" + ws.Slug},
