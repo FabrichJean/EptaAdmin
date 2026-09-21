@@ -87,7 +87,7 @@ func main() {
 	mux.HandleFunc("POST /workspaces/{slug}/uploads", app.requireAuth(app.handleUploadImage))
 	mux.HandleFunc("GET /workspaces/{slug}/uploads/{filename}", app.requireAuth(app.handleServeUpload))
 
-	addr := ":8080"
+	addr := ":3334"
 	if port := os.Getenv("PORT"); port != "" {
 		addr = ":" + port
 	}
