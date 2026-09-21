@@ -7,7 +7,53 @@
   <div class="flex-1 min-w-0 flex flex-col">
     {{template "header" .}}
 
-    <main class="flex-1 overflow-y-auto"></main>
+    <main class="flex-1 overflow-y-auto px-4 sm:px-8 py-10">
+      <div class="max-w-5xl mx-auto space-y-6">
+        <section class="eb-card rounded-xl overflow-hidden">
+          <div class="px-5 py-4 flex items-center justify-between gap-3" style="border-bottom: 1px solid var(--eb-border);">
+            <div>
+              <h2 class="text-sm font-semibold" style="color: var(--eb-text);">{{t .Lang "workspace_detail.members_modal_title"}}</h2>
+              <p class="text-xs mt-1" style="color: var(--eb-muted);">{{len .Members}} {{t .Lang "workspace_detail.member_word"}}</p>
+            </div>
+            <a href="/workspaces/{{.Workspace.Slug}}/members" class="eb-btn-secondary rounded-lg text-xs px-3 py-2">{{t .Lang "workspace_detail.manage_link"}}</a>
+          </div>
+          {{range $i, $m := .Members}}
+          <div class="px-5 py-3 flex items-center justify-between gap-3" style="{{if $i}}border-top: 1px solid var(--eb-border);{{end}}">
+            <div class="flex items-center gap-3 min-w-0">
+              <img src="{{$m.AvatarImageURL}}" alt="" class="h-8 w-8 rounded-full shrink-0" style="background: var(--eb-surface-2);" />
+              <span class="text-sm font-medium truncate" style="color: var(--eb-text);">{{$m.Username}}</span>
+            </div>
+            <span class="eb-badge eb-badge-{{$m.Role}} shrink-0">{{$m.RoleLabel $.Lang}}</span>
+          </div>
+          {{else}}
+          <div class="px-5 py-8 text-center text-sm" style="color: var(--eb-muted);">{{t .Lang "workspace_detail.no_members"}}</div>
+          {{end}}
+        </section>
+
+        {{if .CanManageWSMembers}}
+        <section class="eb-card rounded-xl p-5">
+          <h3 class="text-xs font-semibold uppercase tracking-wide mb-4" style="color: var(--eb-muted);">{{t .Lang "workspace_detail.assign_member_title"}}</h3>
+          {{if .AssignableMembers}}
+          <form method="POST" action="/workspaces/{{.Workspace.Slug}}/members" class="grid md:grid-cols-[1fr_1fr_auto] gap-3 items-end">
+            <label class="text-xs font-medium" style="color: var(--eb-muted);">{{t .Lang "workspace_detail.select_member"}}
+              <select name="user_id" required class="eb-input w-full rounded-lg px-3 py-2 text-sm mt-1">
+                {{range .AssignableMembers}}<option value="{{.ID}}">{{.Username}}</option>{{end}}
+              </select>
+            </label>
+            <label class="text-xs font-medium" style="color: var(--eb-muted);">{{t .Lang "members.role_label"}}
+              <select name="role" required class="eb-input w-full rounded-lg px-3 py-2 text-sm mt-1">
+                {{range .AssignableRoles}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
+              </select>
+            </label>
+            <button type="submit" class="eb-btn-primary rounded-lg text-sm px-4 py-2">{{t .Lang "workspace_detail.add_button"}}</button>
+          </form>
+          {{else}}
+          <p class="text-sm" style="color: var(--eb-muted);">{{t .Lang "workspace_detail.no_assignable_members"}} <a href="/members" class="hover:underline" style="color: var(--eb-accent);">{{t .Lang "members.page_title"}}</a></p>
+          {{end}}
+        </section>
+        {{end}}
+      </div>
+    </main>
   </div>
 </div>
 {{end}}

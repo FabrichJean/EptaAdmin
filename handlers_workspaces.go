@@ -198,7 +198,28 @@ func (a *App) handleWorkspaceDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.render(w, r, "workspace_detail.html", workspaceDetailData(a.resolveLang(r), currentUser, ws, role, members, dataSources, dataSourceTree))
+	data := workspaceDetailData(a.resolveLang(r), currentUser, ws, role, members, dataSources, dataSourceTree)
+	data["AssignableMembers"] = a.assignableMembersForWorkspace(currentUser, members)
+	a.render(w, r, "workspace_detail.html", data)
+}
+
+func (a *App) assignableMembersForWorkspace(currentUser *User, members []*WorkspaceMember) []*User {
+	roster, err := a.store.ListMembersCreatedBy(currentUser.ID)
+	if err != nil {
+		log.Printf("list assignable members error: %v", err)
+		return nil
+	}
+	alreadyIn := map[int64]bool{}
+	for _, member := range members {
+		alreadyIn[member.UserID] = true
+	}
+	assignable := make([]*User, 0, len(roster))
+	for _, user := range roster {
+		if !alreadyIn[user.ID] {
+			assignable = append(assignable, user)
+		}
+	}
+	return assignable
 }
 
 // handleAddWorkspaceMember assigns one of the caller's own members (created
@@ -449,6 +470,7 @@ func (a *App) handleCreateDataSource(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		data := workspaceDetailData(lang, currentUser, ws, role, members, dataSources, dataSourceTree)
+		data["AssignableMembers"] = a.assignableMembersForWorkspace(currentUser, data["Members"].([]*WorkspaceMember))
 		data["SourceError"] = msg
 		a.render(w, r, "workspace_detail.html", data)
 	}
