@@ -12,6 +12,12 @@ type App struct {
 	store         *Store
 	templates     map[string]*template.Template
 	webhookDeploy webhookDeployStatus
+	// publicURL is this instance's own externally-reachable base URL (e.g.
+	// "https://admin.example.com"), used only to build the progressUrl sent
+	// to webhook receivers (see webhooks.go) — never required, since a
+	// receiver that ignores it still gets delivered to normally. Empty
+	// means "unknown", in which case progressUrl is simply omitted.
+	publicURL string
 }
 
 // Breadcrumb is one link (or the current page, when URL is empty) in the
