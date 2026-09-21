@@ -23,11 +23,14 @@ type Breadcrumb struct {
 var templateFuncs = template.FuncMap{
 	"formatValue":    FormatValue,
 	"valueType":      ValueType,
+	"gridCell":       GridCellHTML,
+	"jsonAttr":       JSONAttr,
 	"typeLabel":      ColumnTypeLabel,
 	"columnIcon":     ColumnIconName,
 	"columnColorHex": ColumnColorHex,
 	"t":              T,
 	"sub":            func(a, b int) int { return a - b },
+	"add1":           func(a int) int { return a + 1 },
 	"formatTime":     func(t time.Time) string { return t.Local().Format("02/01/2006 15:04") },
 }
 
