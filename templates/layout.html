@@ -352,30 +352,15 @@
     </h1>
     {{end}}
 
-    <!-- <div class="hidden md:flex flex-1 justify-center px-2 min-w-0">
-      <div class="relative w-full" style="max-width: 10rem;">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--eb-muted);"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-        <input id="global-search-input" type="text" placeholder="{{t .Lang "header.search_placeholder"}}" autocomplete="off"
-          class="eb-input w-full rounded-lg pl-9 pr-12 py-1.5 text-sm" />
-        <kbd id="global-search-kbd" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-medium rounded px-1.5 py-0.5" style="color: var(--eb-muted); border: 1px solid var(--eb-border);">⌘K</kbd>
-        <div id="global-search-results-panel" class="hidden absolute left-0 right-0 top-full mt-2 rounded-xl overflow-hidden eb-card z-30 text-left" style="box-shadow: 0 12px 32px rgba(0,0,0,0.5);">
-          <div id="global-search-results-list" class="max-h-80 overflow-y-auto"></div>
-        </div>
-      </div>
-    </div> -->
+    <div class="hidden md:flex flex-1 justify-center px-6 min-w-0">
+      <button id="global-search-trigger" type="button" class="eb-input flex items-center gap-2 rounded-lg pl-3 pr-2 py-1.5 text-sm w-full text-left" style="max-width: 22rem; color: var(--eb-muted);">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <span class="flex-1 truncate">{{t .Lang "header.search_placeholder"}}</span>
+        <kbd id="global-search-kbd" class="shrink-0 text-[10px] font-medium rounded px-1.5 py-0.5" style="border: 1px solid var(--eb-border);">⌘K</kbd>
+      </button>
+    </div>
 
     <div class="flex items-center gap-3 shrink-0 ml-auto">
-      <div class="hidden md:flex flex-1 justify-center px-2 min-w-0">
-        <div class="relative w-full" style="max-width: 10rem;">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--eb-muted);"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-          <input id="global-search-input" type="text" placeholder="{{t .Lang "header.search_placeholder"}}" autocomplete="off"
-            class="eb-input w-full rounded-lg pl-9 pr-12 py-1.5 text-sm" />
-          <kbd id="global-search-kbd" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-medium rounded px-1.5 py-0.5" style="color: var(--eb-muted); border: 1px solid var(--eb-border);">⌘K</kbd>
-          <div id="global-search-results-panel" class="hidden absolute left-0 right-0 top-full mt-2 rounded-xl overflow-hidden eb-card z-30 text-left" style="box-shadow: 0 12px 32px rgba(0,0,0,0.5);">
-            <div id="global-search-results-list" class="max-h-80 overflow-y-auto"></div>
-          </div>
-        </div>
-      </div>
       <form method="POST" action="/profile/language" class="hidden sm:flex items-center text-xs font-medium rounded-lg overflow-hidden shrink-0" style="border: 1px solid var(--eb-border);">
         <button type="submit" name="language" value="fr" class="px-2 py-1 transition-colors" style="{{if eq .Lang "fr"}}background: var(--eb-surface-2); color: var(--eb-text);{{else}}color: var(--eb-muted);{{end}}">FR</button>
         <button type="submit" name="language" value="en" class="px-2 py-1 transition-colors" style="{{if eq .Lang "en"}}background: var(--eb-surface-2); color: var(--eb-text);{{else}}color: var(--eb-muted);{{end}}">EN</button>
@@ -418,6 +403,19 @@
   </div>
   {{end}}
 </header>
+
+<div id="global-search-backdrop" class="hidden fixed inset-0 z-50 flex items-start justify-center p-4" style="background: rgba(0,0,0,0.6); padding-top: 10vh;">
+  <div class="eb-card rounded-xl w-full max-w-lg flex flex-col overflow-hidden" style="max-height: 70vh;">
+    <div class="flex items-center gap-2 px-4 py-3 shrink-0" style="border-bottom: 1px solid var(--eb-border);">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--eb-muted);"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="global-search-input" type="text" placeholder="{{t .Lang "header.search_placeholder"}}" autocomplete="off"
+        class="flex-1 bg-transparent border-0 outline-none text-sm" style="color: var(--eb-text);" />
+      <button id="global-search-close-btn" type="button" class="eb-icon-btn text-lg leading-none shrink-0">✕</button>
+    </div>
+    <div id="global-search-results-list" class="overflow-y-auto"></div>
+  </div>
+</div>
+
 <script>
 (function () {
   const btn = document.getElementById("user-menu-btn");
@@ -431,11 +429,13 @@
 })();
 
 (function () {
-  const input = document.getElementById("global-search-input");
+  const trigger = document.getElementById("global-search-trigger");
   const kbd = document.getElementById("global-search-kbd");
-  const panel = document.getElementById("global-search-results-panel");
+  const backdrop = document.getElementById("global-search-backdrop");
+  const closeBtn = document.getElementById("global-search-close-btn");
+  const input = document.getElementById("global-search-input");
   const list = document.getElementById("global-search-results-list");
-  if (!input || !panel || !list) return;
+  if (!backdrop || !input || !list) return;
 
   const I18N_NO_RESULTS_PREFIX = "{{t .Lang "workspaces.search_no_results_prefix"}}";
   const I18N_NO_RESULTS_SUFFIX = "{{t .Lang "workspaces.search_no_results_suffix"}}";
@@ -443,9 +443,14 @@
   let debounce = null;
   let seq = 0;
 
-  function hidePanel() {
-    panel.classList.add("hidden");
+  function openModal() {
+    backdrop.classList.remove("hidden");
+    input.value = "";
     list.innerHTML = "";
+    input.focus();
+  }
+  function closeModal() {
+    backdrop.classList.add("hidden");
   }
 
   function renderResults(items, query) {
@@ -456,7 +461,6 @@
       empty.style.color = "var(--eb-muted)";
       empty.textContent = I18N_NO_RESULTS_PREFIX + query + I18N_NO_RESULTS_SUFFIX;
       list.appendChild(empty);
-      panel.classList.remove("hidden");
       return;
     }
     items.forEach((item, i) => {
@@ -489,7 +493,6 @@
       row.appendChild(badge);
       list.appendChild(row);
     });
-    panel.classList.remove("hidden");
   }
 
   function runSearch(q) {
@@ -500,7 +503,7 @@
         if (mySeq !== seq) return; // a newer query superseded this one
         renderResults(items || [], q);
       })
-      .catch(() => { if (mySeq === seq) hidePanel(); });
+      .catch(() => { if (mySeq === seq) list.innerHTML = ""; });
   }
 
   input.addEventListener("input", () => {
@@ -508,29 +511,27 @@
     clearTimeout(debounce);
     if (q.length < 1) {
       seq++;
-      hidePanel();
+      list.innerHTML = "";
       return;
     }
     debounce = setTimeout(() => runSearch(q), 250);
   });
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") { hidePanel(); input.blur(); }
-  });
-  document.addEventListener("click", (e) => {
-    if (!panel.contains(e.target) && e.target !== input) hidePanel();
+
+  if (trigger) trigger.addEventListener("click", openModal);
+  if (closeBtn) closeBtn.addEventListener("click", closeModal);
+  backdrop.addEventListener("click", (e) => { if (e.target === backdrop) closeModal(); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !backdrop.classList.contains("hidden")) closeModal();
   });
 
-  // ⌘K / Ctrl+K focuses the search box from anywhere on the page.
+  // ⌘K / Ctrl+K opens the search modal from anywhere on the page.
   document.addEventListener("keydown", (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
       e.preventDefault();
-      input.focus();
-      input.select();
+      openModal();
     }
   });
   if (kbd) kbd.textContent = navigator.platform.toUpperCase().includes("MAC") ? "⌘K" : "Ctrl+K";
-  input.addEventListener("focus", () => { if (kbd) kbd.classList.add("hidden"); });
-  input.addEventListener("blur", () => { if (kbd) kbd.classList.remove("hidden"); });
 })();
 </script>
 {{end}}
