@@ -106,23 +106,33 @@ func (s *Store) migrate() error {
 		UNIQUE (workspace_id, name)
 	);
 
-	CREATE TABLE IF NOT EXISTS data_source_columns (
+	-- A data source is just a folder grouping real tables (see the
+	-- secondary sidebar's tree: data source > table). Each table owns its
+	-- own schema (table_columns) and its own on-disk record store — a data
+	-- source itself never holds rows or columns directly.
+	CREATE TABLE IF NOT EXISTS tables (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		data_source_id INTEGER NOT NULL REFERENCES data_sources(id) ON DELETE CASCADE,
+		name TEXT NOT NULL,
+		slug TEXT NOT NULL DEFAULT '',
+		type TEXT NOT NULL DEFAULT 'json',
+		storage_path TEXT NOT NULL,
+		version INTEGER NOT NULL DEFAULT 1,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		UNIQUE (data_source_id, name)
+	);
+	CREATE INDEX IF NOT EXISTS idx_tables_data_source ON tables(data_source_id);
+
+	CREATE TABLE IF NOT EXISTS table_columns (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		table_id INTEGER NOT NULL REFERENCES tables(id) ON DELETE CASCADE,
 		key TEXT NOT NULL,
 		type TEXT NOT NULL DEFAULT 'text',
 		position INTEGER NOT NULL,
 		description TEXT NOT NULL DEFAULT '',
 		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		UNIQUE (data_source_id, key)
-	);
-
-	CREATE TABLE IF NOT EXISTS column_canvas_positions (
-		data_source_id INTEGER NOT NULL REFERENCES data_sources(id) ON DELETE CASCADE,
-		column_key TEXT NOT NULL,
-		pos_x INTEGER NOT NULL,
-		pos_y INTEGER NOT NULL,
-		PRIMARY KEY (data_source_id, column_key)
+		UNIQUE (table_id, key)
 	);
 
 	CREATE TABLE IF NOT EXISTS app_secrets (
@@ -163,11 +173,11 @@ func (s *Store) migrate() error {
 	// add them defensively (SQLite has no "ADD COLUMN IF NOT EXISTS").
 	for _, alter := range []string{
 		`ALTER TABLE data_sources ADD COLUMN slug TEXT NOT NULL DEFAULT ''`,
-		`ALTER TABLE data_source_columns ADD COLUMN description TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE users ADD COLUMN avatar_seed TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE users ADD COLUMN avatar_upload TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE users ADD COLUMN language TEXT NOT NULL DEFAULT 'fr'`,
 		`ALTER TABLE users ADD COLUMN created_by INTEGER REFERENCES users(id)`,
+		`ALTER TABLE activity_log ADD COLUMN table_id INTEGER REFERENCES tables(id) ON DELETE CASCADE`,
 	} {
 		if _, err := s.db.Exec(alter); err != nil {
 			if !strings.Contains(err.Error(), "duplicate column name") {
@@ -417,26 +427,31 @@ func (s *Store) GetOrCreateSecret(key string) (string, error) {
 	return value, nil
 }
 
-// InsertActivity records one audit-log entry. workspaceID/dataSourceID of
-// 0 are stored as NULL (account-level actions like login aren't tied to
-// either).
-func (s *Store) InsertActivity(workspaceID, dataSourceID, userID int64, action, details string, reversible bool) error {
-	var wsID, dsID any
+// InsertActivity records one audit-log entry. workspaceID/dataSourceID/
+// tableID of 0 are stored as NULL (account-level actions like login aren't
+// tied to any of them; a data source folder's own creation has no table
+// yet; every other data action has a table but no reason to also name its
+// parent folder).
+func (s *Store) InsertActivity(workspaceID, dataSourceID, tableID, userID int64, action, details string, reversible bool) error {
+	var wsID, dsID, tID any
 	if workspaceID != 0 {
 		wsID = workspaceID
 	}
 	if dataSourceID != 0 {
 		dsID = dataSourceID
 	}
+	if tableID != 0 {
+		tID = tableID
+	}
 	_, err := s.db.Exec(
-		`INSERT INTO activity_log (workspace_id, data_source_id, user_id, action, details, reversible) VALUES (?, ?, ?, ?, ?, ?)`,
-		wsID, dsID, userID, action, details, reversible,
+		`INSERT INTO activity_log (workspace_id, data_source_id, table_id, user_id, action, details, reversible) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		wsID, dsID, tID, userID, action, details, reversible,
 	)
 	return err
 }
 
 const activityColumns = `
-	activity_log.id, activity_log.workspace_id, activity_log.data_source_id, activity_log.user_id,
+	activity_log.id, activity_log.workspace_id, activity_log.data_source_id, activity_log.table_id, activity_log.user_id,
 	activity_log.action, activity_log.details, activity_log.reversible,
 	activity_log.reverted_at, activity_log.reverted_by,
 	activity_log.created_at,
@@ -453,7 +468,7 @@ const activityJoins = `
 func scanActivity(scan func(dest ...any) error) (*ActivityEntry, error) {
 	e := &ActivityEntry{}
 	err := scan(
-		&e.ID, &e.WorkspaceID, &e.DataSourceID, &e.UserID,
+		&e.ID, &e.WorkspaceID, &e.DataSourceID, &e.TableID, &e.UserID,
 		&e.Action, &e.Details, &e.Reversible,
 		&e.RevertedAt, &e.RevertedBy,
 		&e.CreatedAt,
