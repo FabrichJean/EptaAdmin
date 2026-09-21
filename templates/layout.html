@@ -81,57 +81,62 @@
 {{end}}
 
 {{define "sidebar"}}
-<aside class="w-64 shrink-0 flex flex-col h-full relative z-10" style="background: var(--eb-surface); border-right: 1px solid var(--eb-border);">
-  <div class="px-5 py-5 flex items-center" style="border-bottom: 1px solid var(--eb-border);">
+{{$collapsed := .SidebarCollapsed}}
+<aside class="{{if $collapsed}}w-16{{else}}w-64{{end}} shrink-0 flex flex-col h-full relative z-10 transition-all" style="background: var(--eb-surface); border-right: 1px solid var(--eb-border);">
+  <div class="px-5 py-5 flex items-center {{if $collapsed}}justify-center px-0{{end}}" style="border-bottom: 1px solid var(--eb-border);">
+    {{if $collapsed}}
+    <img src="/static/logo-icon.png" alt="EptaAdmin" class="h-7 w-7" />
+    {{else}}
     <img src="/static/logo-full.png" alt="EptaAdmin" class="h-7 w-auto" />
+    {{end}}
   </div>
 
   <nav class="flex-1 px-3 py-4 space-y-1">
-    <a href="/"
-      class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
+    <a href="/" title="{{t .Lang "nav.dashboard"}}"
+      class="flex items-center {{if $collapsed}}justify-center px-0{{else}}gap-2.5 px-3{{end}} rounded-lg py-2 text-sm font-medium transition-colors"
       style="{{if eq .ActiveNav "dashboard"}}background: rgba(52,211,153,0.12); color: var(--eb-accent);{{else}}color: var(--eb-muted);{{end}}"
       onmouseover="if(!this.dataset.active)this.style.background='var(--eb-surface-2)'" onmouseout="if(!this.dataset.active)this.style.background=''"
       {{if eq .ActiveNav "dashboard"}}data-active="true"{{end}}>
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
-      {{t .Lang "nav.dashboard"}}
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+      {{if not $collapsed}}{{t .Lang "nav.dashboard"}}{{end}}
     </a>
-    <a href="/workspaces"
-      class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
+    <a href="/workspaces" title="{{t .Lang "nav.workspaces"}}"
+      class="flex items-center {{if $collapsed}}justify-center px-0{{else}}gap-2.5 px-3{{end}} rounded-lg py-2 text-sm font-medium transition-colors"
       style="{{if eq .ActiveNav "workspaces"}}background: rgba(52,211,153,0.12); color: var(--eb-accent);{{else}}color: var(--eb-muted);{{end}}"
       onmouseover="if(!this.dataset.active)this.style.background='var(--eb-surface-2)'" onmouseout="if(!this.dataset.active)this.style.background=''"
       {{if eq .ActiveNav "workspaces"}}data-active="true"{{end}}>
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
-      {{t .Lang "nav.workspaces"}}
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+      {{if not $collapsed}}{{t .Lang "nav.workspaces"}}{{end}}
     </a>
     {{if .CanAccessMembers}}
-    <a href="/members"
-      class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
+    <a href="/members" title="{{t .Lang "nav.members"}}"
+      class="flex items-center {{if $collapsed}}justify-center px-0{{else}}gap-2.5 px-3{{end}} rounded-lg py-2 text-sm font-medium transition-colors"
       style="{{if eq .ActiveNav "members"}}background: rgba(52,211,153,0.12); color: var(--eb-accent);{{else}}color: var(--eb-muted);{{end}}"
       onmouseover="if(!this.dataset.active)this.style.background='var(--eb-surface-2)'" onmouseout="if(!this.dataset.active)this.style.background=''"
       {{if eq .ActiveNav "members"}}data-active="true"{{end}}>
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      {{t .Lang "nav.members"}}
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      {{if not $collapsed}}{{t .Lang "nav.members"}}{{end}}
     </a>
     {{end}}
-    <a href="/activity"
-      class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
+    <a href="/activity" title="{{t .Lang "activity.link"}}"
+      class="flex items-center {{if $collapsed}}justify-center px-0{{else}}gap-2.5 px-3{{end}} rounded-lg py-2 text-sm font-medium transition-colors"
       style="{{if eq .ActiveNav "activity"}}background: rgba(52,211,153,0.12); color: var(--eb-accent);{{else}}color: var(--eb-muted);{{end}}"
       onmouseover="if(!this.dataset.active)this.style.background='var(--eb-surface-2)'" onmouseout="if(!this.dataset.active)this.style.background=''"
       {{if eq .ActiveNav "activity"}}data-active="true"{{end}}>
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
-      {{t .Lang "activity.link"}}
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+      {{if not $collapsed}}{{t .Lang "activity.link"}}{{end}}
     </a>
-    <a href="/integration"
-      class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
+    <a href="/integration" title="{{t .Lang "nav.integration"}}"
+      class="flex items-center {{if $collapsed}}justify-center px-0{{else}}gap-2.5 px-3{{end}} rounded-lg py-2 text-sm font-medium transition-colors"
       style="{{if eq .ActiveNav "integration"}}background: rgba(52,211,153,0.12); color: var(--eb-accent);{{else}}color: var(--eb-muted);{{end}}"
       onmouseover="if(!this.dataset.active)this.style.background='var(--eb-surface-2)'" onmouseout="if(!this.dataset.active)this.style.background=''"
       {{if eq .ActiveNav "integration"}}data-active="true"{{end}}>
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-      {{t .Lang "nav.integration"}}
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+      {{if not $collapsed}}{{t .Lang "nav.integration"}}{{end}}
     </a>
   </nav>
 
-  {{if .WorkspaceStorageUsedLabel}}
+  {{if and .WorkspaceStorageUsedLabel (not $collapsed)}}
   <div class="px-4 py-3" style="border-top: 1px solid var(--eb-border);">
     <div class="flex items-center justify-between text-xs mb-1.5" style="color: var(--eb-muted);">
       <span>{{t .Lang "sidebar.storage_label"}}</span>
@@ -143,16 +148,127 @@
   </div>
   {{end}}
 
-  <div class="p-4 flex items-center gap-3" style="border-top: 1px solid var(--eb-border);">
+  <div class="p-4 flex items-center {{if $collapsed}}justify-center{{else}}gap-3{{end}}" style="border-top: 1px solid var(--eb-border);" title="{{.CurrentUser.Username}}">
     <img src="{{.CurrentUser.AvatarImageURL}}" alt="" class="h-8 w-8 shrink-0 rounded-full" style="background: var(--eb-surface-2);" />
+    {{if not $collapsed}}
     <div class="min-w-0">
       <p class="text-sm font-medium truncate" style="color: var(--eb-text);">{{.CurrentUser.Username}}</p>
       {{if .CurrentUserRoleLabel}}<p class="text-xs truncate" style="color: var(--eb-muted);">{{.CurrentUserRoleLabel}}</p>{{end}}
     </div>
+    {{end}}
   </div>
 </aside>
 {{end}}
 
+{{define "secondary-sidebar"}}
+<aside class="w-72 shrink-0 flex flex-col h-full relative z-10 overflow-hidden" style="background: var(--eb-surface); border-right: 1px solid var(--eb-border);">
+  <div class="px-4 py-4 flex items-center justify-between gap-2" style="border-bottom: 1px solid var(--eb-border);">
+    <span class="text-sm font-semibold truncate" style="color: var(--eb-text);">{{.Workspace.Name}}</span>
+    {{if .CanManageSource}}
+    <button id="tree-add-source-btn" type="button" class="eb-icon-btn-ok shrink-0 h-6 w-6 flex items-center justify-center rounded-md text-lg leading-none" title="{{t .Lang "sidebar2.add_datasource"}}">+</button>
+    {{end}}
+  </div>
+
+  {{if .CanManageSource}}
+  <div id="tree-add-source-form" class="hidden px-4 py-3 space-y-2" style="border-bottom: 1px solid var(--eb-border); background: var(--eb-surface-2);">
+    {{if .SourceError}}
+    <div class="rounded-lg text-xs px-3 py-2" style="background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: #fca5a5;">{{.SourceError}}</div>
+    {{end}}
+    <form method="POST" action="/workspaces/{{.Workspace.Slug}}/datasources" class="space-y-2">
+      <input name="name" type="text" required placeholder="{{t .Lang "sidebar2.name_placeholder"}}" class="eb-input w-full rounded-lg px-3 py-1.5 text-sm" />
+      <button type="submit" class="eb-btn-primary w-full rounded-lg text-xs py-1.5 transition-colors">{{t .Lang "common.save"}}</button>
+    </form>
+  </div>
+  {{end}}
+
+  <nav class="flex-1 overflow-y-auto py-2">
+    {{range $item := .DataSourceTree}}
+    <div class="tree-ds-node">
+      <div class="group flex items-center gap-1 pr-2">
+        <button type="button" class="tree-ds-toggle shrink-0 h-7 w-5 flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" class="tree-caret h-3 w-3 shrink-0 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--eb-muted);"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+        <span class="flex-1 min-w-0 flex items-center gap-1.5 py-1.5 text-sm font-medium" style="color: var(--eb-text);">
+          <span style="color: var(--eb-accent);">{{template "col-icon" "database"}}</span>
+          <span class="truncate">{{$item.DataSource.Name}}</span>
+        </span>
+        {{if $.CanEditData}}
+        <button type="button" class="tree-add-table-btn shrink-0 h-5 w-5 hidden group-hover:flex items-center justify-center rounded text-sm leading-none eb-icon-btn-ok"
+          data-ws-slug="{{$.Workspace.Slug}}" data-ds-slug="{{$item.DataSource.Slug}}" title="{{t $.Lang "sidebar2.add_table"}}">+</button>
+        {{end}}
+      </div>
+      <div class="tree-ds-children pl-7">
+        {{range $table := $item.Tables}}
+        {{$active := eq $.ActiveTableID $table.ID}}
+        <a href="/workspaces/{{$.Workspace.Slug}}/tables/{{$table.Slug}}" class="flex items-center gap-1.5 px-3 py-1 text-sm truncate transition-colors" style="color: {{if $active}}var(--eb-accent){{else}}var(--eb-muted){{end}}; {{if $active}}background: rgba(52,211,153,0.12);{{end}}"
+          onmouseover="if(!{{$active}})this.style.background='var(--eb-surface-2)'" onmouseout="if(!{{$active}})this.style.background=''">
+          <span class="shrink-0" style="color: {{if $active}}var(--eb-accent){{else}}var(--eb-muted){{end}};">{{template "col-icon" "table"}}</span>
+          <span class="truncate">{{$table.Name}}</span>
+        </a>
+        {{end}}
+        {{if not $item.Tables}}
+        <div class="tree-no-tables px-3 py-1 text-xs italic" style="color: var(--eb-muted);">{{t $.Lang "sidebar2.no_tables"}}</div>
+        {{end}}
+      </div>
+    </div>
+    {{end}}
+    {{if not .DataSourceTree}}
+    <div class="px-4 py-6 text-center text-xs" style="color: var(--eb-muted);">{{t .Lang "sidebar2.no_datasources"}}</div>
+    {{end}}
+  </nav>
+</aside>
+<script>
+(function () {
+  const addBtn = document.getElementById("tree-add-source-btn");
+  const addForm = document.getElementById("tree-add-source-form");
+  if (addBtn && addForm) {
+    addBtn.addEventListener("click", () => {
+      addForm.classList.toggle("hidden");
+      if (!addForm.classList.contains("hidden")) addForm.querySelector("input")?.focus();
+    });
+  }
+  document.querySelectorAll(".tree-ds-toggle").forEach((btn) => {
+    const children = btn.closest(".tree-ds-node")?.querySelector(".tree-ds-children");
+    const caret = btn.querySelector(".tree-caret");
+    if (!children) return;
+    btn.addEventListener("click", () => {
+      children.classList.toggle("hidden");
+      if (caret) caret.style.transform = children.classList.contains("hidden") ? "" : "rotate(90deg)";
+    });
+  });
+
+  // --- Add a table to a data source directly from the tree ---
+  document.querySelectorAll(".tree-add-table-btn").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const name = window.prompt("{{t .Lang "sidebar2.new_table_prompt"}}");
+      if (!name || !name.trim()) return;
+      try {
+        const res = await fetch(`/workspaces/${btn.dataset.wsSlug}/datasources/${btn.dataset.dsSlug}/tables`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: name.trim() }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          alert(body.error || "{{t .Lang "common.error_generic_retry"}}");
+          return;
+        }
+        const node = btn.closest(".tree-ds-node");
+        const children = node?.querySelector(".tree-ds-children");
+        if (children) {
+          children.querySelector(".tree-no-tables")?.remove();
+          const link = document.createElement("a");
+          link.href = `/workspaces/${btn.dataset.wsSlug}/tables/${body.slug}`;
+          link.className = "flex items-center gap-1.5 px-3 py-1 text-sm truncate transition-colors";
+          link.style.color = "var(--eb-muted)";
+          link.addEventListener("mouseover", () => { link.style.background = "var(--eb-surface-2)"; });
+          link.addEventListener("mouseout", () => { link.style.background = ""; });
+          link.innerHTML = '<span class="shrink-0" style="color: var(--eb-muted);"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg></span><span class="truncate"></span>';
+          link.querySelector("span.truncate").textContent = body.name;
+          children.appendChild(link);
+          children.classList.remove("hidden");
+          const caret = node.querySelector(".tree-caret");
 {{define "col-icon"}}
 {{if eq . "location"}}<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
 {{else if eq . "person"}}<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
