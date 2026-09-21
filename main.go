@@ -67,8 +67,9 @@ func main() {
 	mux.HandleFunc("GET /workspaces/{slug}/settings", app.requireAuth(app.handleSettingsPage))
 	mux.HandleFunc("POST /workspaces/{slug}/webhooks", app.requireAuth(app.handleCreateWebhook))
 	mux.HandleFunc("DELETE /workspaces/{slug}/webhooks/{id}", app.requireAuth(app.handleDeleteWebhook))
-	mux.HandleFunc("PATCH /workspaces/{slug}/webhooks/{id}", app.requireAuth(app.handleToggleWebhook))
+	mux.HandleFunc("PATCH /workspaces/{slug}/webhooks/{id}", app.requireAuth(app.handleUpdateWebhook))
 	mux.HandleFunc("POST /workspaces/{slug}/webhooks/{id}/trigger", app.requireAuth(app.handleTriggerWebhook))
+	mux.HandleFunc("POST /workspaces/{slug}/webhooks/{id}/regenerate-secret", app.requireAuth(app.handleRegenerateWebhookSecret))
 	// Public callback a webhook receiver posts real-time progress updates
 	// to — see webhooks.go's progressUrl convention. No session auth: the
 	// external server calling this isn't a logged-in browser. Guarded only

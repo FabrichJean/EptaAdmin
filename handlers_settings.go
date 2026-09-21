@@ -158,7 +158,13 @@ func (a *App) handleDeleteWebhook(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
-func (a *App) handleToggleWebhook(w http.ResponseWriter, r *http.Request) {
+// handleUpdateWebhook is a partial update (PATCH semantics): either field
+// may be sent alone or together — a plain enable/disable toggle sends only
+// "enabled", the URL-edit pencil sends only "url". Each field that's
+// actually present gets its own activity entry, so the log reads as
+// distinct actions ("enabled", "changed the URL") rather than one vague
+// "updated" blob.
+func (a *App) handleUpdateWebhook(w http.ResponseWriter, r *http.Request) {
 	currentUser := userFromContext(r)
 	lang := a.resolveLang(r)
 	ws, role, ok := a.loadWorkspaceMembership(w, r, currentUser)
@@ -175,24 +181,94 @@ func (a *App) handleToggleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Enabled bool `json:"enabled"`
+		Enabled *bool   `json:"enabled"`
+		URL     *string `json:"url"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "common.invalid_request")})
 		return
 	}
-	if err := a.store.SetWebhookEnabled(hook.ID, req.Enabled); err != nil {
-		log.Printf("set webhook enabled error: %v", err)
+
+	if req.Enabled != nil {
+		if err := a.store.SetWebhookEnabled(hook.ID, *req.Enabled); err != nil {
+			log.Printf("set webhook enabled error: %v", err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+			return
+		}
+		toggleAction := ActionWebhookDisable
+		if *req.Enabled {
+			toggleAction = ActionWebhookEnable
+		}
+		a.logActivity(logActivityParams{WorkspaceID: ws.ID, UserID: currentUser.ID, Action: toggleAction, Details: map[string]any{"url": hook.URL}})
+	}
+
+	if req.URL != nil {
+		newURL := strings.TrimSpace(*req.URL)
+		if !strings.HasPrefix(newURL, "https://") && !strings.HasPrefix(newURL, "http://") {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "settings.webhook_url_invalid")})
+			return
+		}
+		oldURL := hook.URL
+		if err := a.store.UpdateWebhookURL(hook.ID, newURL); err != nil {
+			log.Printf("update webhook url error: %v", err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+			return
+		}
+		a.logActivity(logActivityParams{WorkspaceID: ws.ID, UserID: currentUser.ID, Action: ActionWebhookURLUpdate, Details: map[string]any{"oldUrl": oldURL, "newUrl": newURL}})
+	}
+
+	updated, err := a.store.GetWebhook(hook.ID)
+	if err != nil {
+		log.Printf("get webhook error: %v", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
 		return
 	}
-	toggleAction := ActionWebhookDisable
-	if req.Enabled {
-		toggleAction = ActionWebhookEnable
-	}
-	a.logActivity(logActivityParams{WorkspaceID: ws.ID, UserID: currentUser.ID, Action: toggleAction, Details: map[string]any{"url": hook.URL}})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":        true,
+		"url":       updated.URL,
+		"enabled":   updated.Enabled,
+		"updatedAt": updated.UpdatedAt.Local().Format("02/01/2006 15:04"),
+	})
+}
 
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+// handleRegenerateWebhookSecret replaces a webhook's signing secret and
+// returns the new one — the "..." menu action for when a secret may have
+// leaked. Like at creation, this is the only response that will ever carry
+// the plaintext secret again.
+func (a *App) handleRegenerateWebhookSecret(w http.ResponseWriter, r *http.Request) {
+	currentUser := userFromContext(r)
+	lang := a.resolveLang(r)
+	ws, role, ok := a.loadWorkspaceMembership(w, r, currentUser)
+	if !ok {
+		return
+	}
+	if !hasPermission(role, PermSettingsManage) {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": T(lang, "common.access_denied")})
+		return
+	}
+	hook, ok := a.loadWebhookInWorkspace(w, r, ws)
+	if !ok {
+		return
+	}
+
+	secret, err := a.store.RegenerateWebhookSecret(hook.ID)
+	if err != nil {
+		log.Printf("regenerate webhook secret error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		return
+	}
+	a.logActivity(logActivityParams{WorkspaceID: ws.ID, UserID: currentUser.ID, Action: ActionWebhookSecretRegenerate, Details: map[string]any{"url": hook.URL}})
+
+	updated, err := a.store.GetWebhook(hook.ID)
+	if err != nil {
+		log.Printf("get webhook error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{
+		"secret":    secret,
+		"updatedAt": updated.UpdatedAt.Local().Format("02/01/2006 15:04"),
+	})
 }
 
 // handleTriggerWebhook delivers a manual "Envoyer" click synchronously
@@ -223,9 +299,12 @@ func (a *App) handleTriggerWebhook(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]any{"ok": deliverErr == nil}
 	if updated, err := a.store.GetWebhook(hook.ID); err != nil {
 		log.Printf("get webhook after trigger error: %v", err)
-	} else if updated != nil && updated.LastTriggeredAt.Valid {
-		resp["lastTriggeredAt"] = updated.LastTriggeredAt.Time.Local().Format("02/01/2006 15:04")
-		resp["lastStatus"] = updated.LastStatus
+	} else if updated != nil {
+		resp["updatedAt"] = updated.UpdatedAt.Local().Format("02/01/2006 15:04")
+		if updated.LastTriggeredAt.Valid {
+			resp["lastTriggeredAt"] = updated.LastTriggeredAt.Time.Local().Format("02/01/2006 15:04")
+			resp["lastStatus"] = updated.LastStatus
+		}
 	}
 
 	if deliverErr != nil {

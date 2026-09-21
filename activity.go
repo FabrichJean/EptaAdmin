@@ -50,12 +50,14 @@ const (
 
 	ActionImageUpload = "upload.image"
 
-	ActionWebhookCreate        = "webhook.create"
-	ActionWebhookDelete        = "webhook.delete"
-	ActionWebhookEnable        = "webhook.enable"
-	ActionWebhookDisable       = "webhook.disable"
-	ActionWebhookManualTrigger = "webhook.manual_trigger"
-	ActionWebhookAutoTrigger   = "webhook.auto_trigger"
+	ActionWebhookCreate           = "webhook.create"
+	ActionWebhookDelete           = "webhook.delete"
+	ActionWebhookEnable           = "webhook.enable"
+	ActionWebhookDisable          = "webhook.disable"
+	ActionWebhookManualTrigger    = "webhook.manual_trigger"
+	ActionWebhookAutoTrigger      = "webhook.auto_trigger"
+	ActionWebhookURLUpdate        = "webhook.url_update"
+	ActionWebhookSecretRegenerate = "webhook.secret_regenerate"
 )
 
 // reversibleActions is the confirmed scope: real undo for actions on data
@@ -193,6 +195,10 @@ func (e *ActivityEntry) Describe(lang string) string {
 			return T(lang, "activity.desc.webhook.auto_trigger_success", url)
 		}
 		return T(lang, "activity.desc.webhook.auto_trigger_failed", url, detailString(d, "error"))
+	case ActionWebhookURLUpdate:
+		return T(lang, "activity.desc.webhook.url_update", actor, detailString(d, "oldUrl"), detailString(d, "newUrl"))
+	case ActionWebhookSecretRegenerate:
+		return T(lang, "activity.desc.webhook.secret_regenerate", actor, detailString(d, "url"))
 	default:
 		return actor + " — " + e.Action
 	}

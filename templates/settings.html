@@ -7,71 +7,136 @@
     {{template "header" .}}
 
     <main class="flex-1 overflow-y-auto px-4 sm:px-8 py-10">
-     <div class="max-w-3xl mx-auto">
+     <div class="max-w-3xl mx-auto space-y-5">
 
-      <section class="eb-card rounded-xl overflow-hidden">
-        <div class="px-5 py-4 flex items-center justify-between gap-2" style="border-bottom: 1px solid var(--eb-border);">
-          <div class="min-w-0">
-            <h2 class="text-sm font-semibold" style="color: var(--eb-text);">{{t .Lang "settings.webhooks_title"}}</h2>
-            <p class="text-xs mt-0.5" style="color: var(--eb-muted);">{{t .Lang "settings.webhooks_subtitle"}}</p>
-          </div>
-          <button id="toggle-add-webhook-btn" type="button" class="eb-btn-secondary shrink-0 rounded-full text-xs font-medium px-3 py-1.5 transition-colors" style="border-color: var(--eb-accent); color: var(--eb-accent);">+ {{t .Lang "settings.add_webhook_button"}}</button>
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <h2 class="text-sm font-semibold" style="color: var(--eb-text);">{{t .Lang "settings.webhooks_title"}}</h2>
+          <p class="text-xs mt-0.5" style="color: var(--eb-muted);">{{t .Lang "settings.webhooks_subtitle"}}</p>
         </div>
+        <button id="toggle-add-webhook-btn" type="button" class="eb-btn-primary shrink-0 rounded-full text-xs font-semibold px-4 py-2 transition-colors">+ {{t .Lang "settings.add_webhook_button"}}</button>
+      </div>
 
-        <div id="add-webhook-form" class="hidden px-5 py-4 space-y-3" style="border-bottom: 1px solid var(--eb-border); background: var(--eb-surface-2);">
-          <div id="add-webhook-error" class="hidden rounded-lg text-sm px-3 py-2" style="background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: #fca5a5;"></div>
-          <div>
-            <label class="block text-xs font-medium mb-1" style="color: var(--eb-muted);" for="webhook-url">{{t .Lang "settings.webhook_url_label"}}</label>
-            <input id="webhook-url" type="text" placeholder="https://example.com/hooks/eptaadmin"
-              class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
-          </div>
-          <button id="submit-webhook-btn" type="button" class="eb-btn-primary w-full rounded-lg text-sm py-2 transition-colors">{{t .Lang "common.save"}}</button>
+      <div id="add-webhook-form" class="hidden eb-card rounded-xl p-4 space-y-3">
+        <div id="add-webhook-error" class="hidden rounded-lg text-sm px-3 py-2" style="background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: #fca5a5;"></div>
+        <div>
+          <label class="block text-xs font-medium mb-1" style="color: var(--eb-muted);" for="webhook-url">{{t .Lang "settings.webhook_url_label"}}</label>
+          <input id="webhook-url" type="text" placeholder="https://example.com/hooks/eptaadmin"
+            class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
         </div>
+        <button id="submit-webhook-btn" type="button" class="eb-btn-primary w-full rounded-lg text-sm py-2 transition-colors">{{t .Lang "common.save"}}</button>
+      </div>
 
-        <div id="webhook-list">
-          {{range .Webhooks}}
-          <div class="webhook-row px-5 py-4" style="border-bottom: 1px solid var(--eb-border);" data-id="{{.ID}}">
-            <div class="flex items-center justify-between gap-3">
+      <div id="webhook-list" class="space-y-3">
+        {{range .Webhooks}}
+        <div class="webhook-row eb-card rounded-xl p-5" data-id="{{.ID}}">
+          <div class="flex items-start justify-between gap-4 flex-wrap">
+            <div class="flex items-start gap-3 min-w-0">
+              <div class="h-10 w-10 rounded-lg flex items-center justify-center shrink-0" style="background: var(--eb-surface-2); color: var(--eb-muted);">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              </div>
               <div class="min-w-0">
-                <p class="text-sm font-medium truncate" style="color: var(--eb-text);">{{.URL}}</p>
-                <p class="webhook-last-triggered text-xs mt-0.5" style="color: var(--eb-muted);">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <p class="webhook-url-display text-sm font-semibold truncate" style="color: var(--eb-text);">{{.URL}}</p>
+                  <span class="webhook-status-badge eb-badge text-xs" style="background: {{if .Enabled}}rgba(52,211,153,0.15){{else}}rgba(156,163,175,0.15){{end}}; color: {{if .Enabled}}var(--eb-accent){{else}}var(--eb-muted){{end}};">{{if .Enabled}}{{t $.Lang "settings.webhook_enabled"}}{{else}}{{t $.Lang "settings.webhook_disabled"}}{{end}}</span>
+                </div>
+
+                <div class="webhook-url-edit-form hidden items-center gap-2 mt-1.5">
+                  <input type="text" class="webhook-url-input eb-input rounded-lg px-2 py-1 text-xs flex-1 min-w-0" value="{{.URL}}" />
+                  <button type="button" class="webhook-url-save-btn eb-icon-btn text-xs shrink-0" title="{{t $.Lang "settings.webhook_url_save"}}">✓</button>
+                  <button type="button" class="webhook-url-cancel-btn eb-icon-btn text-xs shrink-0" title="{{t $.Lang "common.cancel"}}">✕</button>
+                </div>
+
+                <p class="webhook-last-triggered text-xs mt-1" style="color: var(--eb-muted);">
                   {{if .LastTriggeredAt.Valid}}{{t $.Lang "settings.webhook_last_triggered" (formatTime .LastTriggeredAt.Time) .LastStatus}}{{else}}{{t $.Lang "settings.webhook_never"}}{{end}}
                 </p>
-              </div>
-              <div class="flex items-center gap-2 shrink-0">
-                <label class="flex items-center gap-1.5 text-xs" style="color: var(--eb-muted);">
-                  <input type="checkbox" class="webhook-enabled-toggle" data-id="{{.ID}}" {{if .Enabled}}checked{{end}} />
-                  {{if .Enabled}}{{t $.Lang "settings.webhook_enabled"}}{{else}}{{t $.Lang "settings.webhook_disabled"}}{{end}}
-                </label>
-                <button type="button" class="webhook-trigger-btn eb-btn-secondary rounded-md text-xs px-2 py-1 transition-colors" data-id="{{.ID}}">{{t $.Lang "settings.webhook_send_button"}}</button>
-                <button type="button" class="webhook-delete-btn eb-icon-btn text-xs leading-none" data-id="{{.ID}}" title="{{t $.Lang "settings.webhook_delete_confirm"}}">✕</button>
+
+                <details class="webhook-config-details mt-2">
+                  <summary class="webhook-config-summary text-xs cursor-pointer inline-flex items-center gap-1 select-none" style="color: var(--eb-accent);">
+                    <svg class="webhook-config-chevron h-3 w-3 transition-transform" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+                    {{t $.Lang "settings.webhook_view_config"}}
+                  </summary>
+                  <div class="mt-3 space-y-3 max-w-lg">
+                    <div>
+                      <p class="text-xs mb-1" style="color: var(--eb-muted);">{{t $.Lang "settings.webhook_secret_label"}}</p>
+                      <p class="text-xs mb-1" style="color: var(--eb-muted);">{{t $.Lang "settings.webhook_secret_hint"}}</p>
+                      <code class="webhook-secret-value block text-xs font-mono rounded px-2 py-1" style="background: var(--eb-bg); color: var(--eb-text); border: 1px solid var(--eb-border);">{{.Secret}}</code>
+                    </div>
+                    <div>
+                      <div class="flex items-center gap-1 flex-wrap">
+                        <button type="button" class="webhook-snippet-tab text-xs px-2 py-1 rounded-md transition-colors" data-lang="node" style="color: var(--eb-muted);">Node.js</button>
+                        <button type="button" class="webhook-snippet-tab text-xs px-2 py-1 rounded-md transition-colors" data-lang="python" style="color: var(--eb-muted);">Python</button>
+                        <button type="button" class="webhook-snippet-tab text-xs px-2 py-1 rounded-md transition-colors" data-lang="php" style="color: var(--eb-muted);">PHP</button>
+                        <button type="button" class="webhook-snippet-tab text-xs px-2 py-1 rounded-md transition-colors" data-lang="go" style="color: var(--eb-muted);">Go</button>
+                        <button type="button" class="webhook-snippet-copy-btn text-xs px-2 py-1 rounded-md ml-auto" style="color: var(--eb-muted);">{{t $.Lang "common.copy"}}</button>
+                      </div>
+                      <pre class="mt-2 text-xs font-mono rounded-lg overflow-x-auto" style="border: 1px solid var(--eb-border);"><code class="webhook-snippet-code"></code></pre>
+                    </div>
+                  </div>
+                </details>
               </div>
             </div>
-            <details class="mt-2">
-              <summary class="text-xs cursor-pointer" style="color: var(--eb-muted);">{{t $.Lang "settings.webhook_secret_label"}}</summary>
-              <p class="text-xs mt-1" style="color: var(--eb-muted);">{{t $.Lang "settings.webhook_secret_hint"}}</p>
-              <code class="webhook-secret-value block mt-1 text-xs font-mono rounded px-2 py-1" style="background: var(--eb-bg); color: var(--eb-text); border: 1px solid var(--eb-border);">{{.Secret}}</code>
-            </details>
-            <details class="webhook-snippet-details mt-2">
-              <summary class="text-xs cursor-pointer" style="color: var(--eb-muted);">{{t $.Lang "settings.webhook_snippet_toggle"}}</summary>
-              <div class="mt-2">
-                <div class="flex items-center gap-1 flex-wrap">
-                  <button type="button" class="webhook-snippet-tab text-xs px-2 py-1 rounded-md transition-colors" data-lang="node" style="color: var(--eb-muted);">Node.js</button>
-                  <button type="button" class="webhook-snippet-tab text-xs px-2 py-1 rounded-md transition-colors" data-lang="python" style="color: var(--eb-muted);">Python</button>
-                  <button type="button" class="webhook-snippet-tab text-xs px-2 py-1 rounded-md transition-colors" data-lang="php" style="color: var(--eb-muted);">PHP</button>
-                  <button type="button" class="webhook-snippet-tab text-xs px-2 py-1 rounded-md transition-colors" data-lang="go" style="color: var(--eb-muted);">Go</button>
-                  <button type="button" class="webhook-snippet-copy-btn text-xs px-2 py-1 rounded-md ml-auto" style="color: var(--eb-muted);">{{t $.Lang "common.copy"}}</button>
+
+            <div class="flex items-center gap-5 shrink-0">
+              <div class="hidden lg:flex flex-col gap-1 text-xs" style="color: var(--eb-muted);">
+                <div class="flex items-center gap-1.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  <span>{{t $.Lang "settings.webhook_created_label"}} {{formatTime .CreatedAt}}</span>
                 </div>
-                <pre class="mt-2 text-xs font-mono rounded-lg overflow-x-auto" style="border: 1px solid var(--eb-border);"><code class="webhook-snippet-code"></code></pre>
+                <div class="flex items-center gap-1.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                  <span>{{t $.Lang "settings.webhook_updated_label"}} <span class="webhook-updated-value">{{formatTime .UpdatedAt}}</span></span>
+                </div>
               </div>
-            </details>
+
+              <div class="flex items-center gap-2">
+                <label class="webhook-toggle-switch" title="{{if .Enabled}}{{t $.Lang "settings.webhook_enabled"}}{{else}}{{t $.Lang "settings.webhook_disabled"}}{{end}}">
+                  <input type="checkbox" class="webhook-enabled-toggle" data-id="{{.ID}}" {{if .Enabled}}checked{{end}} />
+                  <span class="webhook-toggle-track"><span class="webhook-toggle-knob"></span></span>
+                </label>
+                <button type="button" class="webhook-trigger-btn eb-btn-secondary rounded-md text-xs px-3 py-1.5 transition-colors inline-flex items-center gap-1" data-id="{{.ID}}">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                  {{t $.Lang "settings.webhook_send_button"}}
+                </button>
+                <button type="button" class="webhook-edit-btn eb-icon-btn text-xs" data-id="{{.ID}}" title="{{t $.Lang "settings.webhook_edit_url_title"}}">✎</button>
+                <div class="webhook-menu-wrap relative">
+                  <button type="button" class="webhook-menu-btn eb-icon-btn text-xs" title="{{t $.Lang "settings.webhook_more_menu_title"}}">⋯</button>
+                  <div class="webhook-menu hidden absolute right-0 mt-1 w-52 rounded-lg py-1 eb-card z-10" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+                    <button type="button" class="webhook-regenerate-btn block w-full text-left px-3 py-2 text-xs transition-colors" data-id="{{.ID}}" style="color: var(--eb-text);">{{t $.Lang "settings.webhook_regenerate_secret"}}</button>
+                    <button type="button" class="webhook-delete-btn block w-full text-left px-3 py-2 text-xs transition-colors" data-id="{{.ID}}" style="color: #f87171;">{{t $.Lang "settings.webhook_delete_label"}}</button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          {{end}}
-          {{if not .Webhooks}}
-          <div id="webhook-empty-row" class="px-5 py-10 text-center text-sm" style="color: var(--eb-muted);">{{t .Lang "settings.no_webhooks"}}</div>
-          {{end}}
         </div>
-      </section>
+        {{end}}
+        {{if not .Webhooks}}
+        <div id="webhook-empty-row" class="eb-card rounded-xl px-5 py-10 text-center text-sm" style="color: var(--eb-muted);">{{t .Lang "settings.no_webhooks"}}</div>
+        {{end}}
+      </div>
+
+      <div class="eb-card rounded-xl p-5 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-start gap-3 min-w-0 max-w-md">
+          <div class="h-8 w-8 rounded-lg flex items-center justify-center shrink-0" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          </div>
+          <div class="min-w-0">
+            <p class="text-sm font-semibold" style="color: var(--eb-text);">{{t .Lang "settings.how_it_works_title"}}</p>
+            <p class="text-xs mt-0.5" style="color: var(--eb-muted);">{{t .Lang "settings.how_it_works_body"}}</p>
+          </div>
+        </div>
+        <div class="flex flex-col gap-1.5 shrink-0">
+          <button type="button" id="webhook-doc-link" class="inline-flex items-center gap-1.5 text-xs font-medium transition-colors" style="color: var(--eb-accent);">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            {{t .Lang "settings.doc_link"}}
+          </button>
+          <button type="button" id="webhook-examples-link" class="inline-flex items-center gap-1.5 text-xs font-medium transition-colors" style="color: var(--eb-accent);">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            {{t .Lang "settings.examples_link"}}
+          </button>
+        </div>
+      </div>
 
      </div>
     </main>
@@ -79,6 +144,23 @@
     <div id="webhook-toast" class="hidden fixed bottom-5 right-5 z-[100] max-w-sm rounded-xl px-4 py-3 text-sm shadow-xl" style="background: var(--eb-surface); border: 1px solid var(--eb-border-strong); color: var(--eb-text);"></div>
   </div>
 </div>
+
+<style>
+  .webhook-toggle-switch { display: inline-flex; align-items: center; cursor: pointer; }
+  .webhook-toggle-switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .webhook-toggle-track {
+    display: inline-block; width: 34px; height: 20px; border-radius: 9999px;
+    background: var(--eb-border-strong); position: relative; transition: background-color 0.15s;
+    flex-shrink: 0;
+  }
+  .webhook-toggle-knob {
+    position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 9999px;
+    background: #fff; transition: transform 0.15s;
+  }
+  .webhook-toggle-switch input:checked + .webhook-toggle-track { background: var(--eb-accent); }
+  .webhook-toggle-switch input:checked + .webhook-toggle-track .webhook-toggle-knob { transform: translateX(14px); }
+  .webhook-toggle-switch input:focus-visible + .webhook-toggle-track { outline: 2px solid var(--eb-accent); outline-offset: 2px; }
+</style>
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
@@ -90,10 +172,15 @@
     cannotContact: "{{t .Lang "datasource.cannot_contact_server"}}",
     urlInvalid: "{{t .Lang "settings.webhook_url_invalid"}}",
     deleteConfirm: "{{t .Lang "settings.webhook_delete_confirm"}}",
+    regenerateConfirm: "{{t .Lang "settings.webhook_regenerate_confirm"}}",
+    regenerateOk: "{{t .Lang "settings.webhook_regenerate_ok"}}",
+    urlSaved: "{{t .Lang "settings.webhook_url_saved"}}",
     triggerFailed: "{{t .Lang "settings.webhook_trigger_failed"}}",
     triggerOk: "{{t .Lang "settings.webhook_trigger_ok"}}",
     triggerSending: "{{t .Lang "settings.webhook_trigger_sending"}}",
     lastTriggeredTemplate: "{{t .Lang "settings.webhook_last_triggered"}}",
+    enabledLabel: "{{t .Lang "settings.webhook_enabled"}}",
+    disabledLabel: "{{t .Lang "settings.webhook_disabled"}}",
     copyLabel: "{{t .Lang "common.copy"}}",
     copiedLabel: "{{t .Lang "common.copied"}}",
   };
@@ -262,8 +349,10 @@ http_response_code(200);`,
     details.dataset.activeLang = lang;
   }
 
-  document.querySelectorAll(".webhook-snippet-details").forEach((details) => {
+  document.querySelectorAll(".webhook-config-details").forEach((details) => {
+    const chevron = details.querySelector(".webhook-config-chevron");
     details.addEventListener("toggle", () => {
+      if (chevron) chevron.style.transform = details.open ? "rotate(90deg)" : "";
       if (details.open && !details.dataset.rendered) {
         details.dataset.rendered = "1";
         renderWebhookSnippet(details, "node");
@@ -331,6 +420,12 @@ http_response_code(200);`,
     });
   }
 
+  function updateRowTimestamp(row, updatedAt) {
+    if (!updatedAt) return;
+    const el = row?.querySelector(".webhook-updated-value");
+    if (el) el.textContent = updatedAt;
+  }
+
   document.querySelectorAll(".webhook-delete-btn").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const row = btn.closest(".webhook-row");
@@ -344,8 +439,98 @@ http_response_code(200);`,
     });
   });
 
+  document.querySelectorAll(".webhook-regenerate-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const row = btn.closest(".webhook-row");
+      if (!window.confirm(I18N.regenerateConfirm)) return;
+      try {
+        const res = await fetch(`/workspaces/${wsSlug}/webhooks/${btn.dataset.id}/regenerate-secret`, { method: "POST" });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) { showToast(body.error || I18N.errorRetry); return; }
+        const secretEl = row?.querySelector(".webhook-secret-value");
+        if (secretEl) secretEl.textContent = body.secret;
+        const configDetails = row?.querySelector(".webhook-config-details");
+        if (configDetails) {
+          delete configDetails.dataset.rendered;
+          if (configDetails.open && configDetails.dataset.activeLang) {
+            renderWebhookSnippet(configDetails, configDetails.dataset.activeLang);
+            configDetails.dataset.rendered = "1";
+          }
+        }
+        updateRowTimestamp(row, body.updatedAt);
+        showToast(I18N.regenerateOk, "success");
+      } catch (e) { showToast(I18N.cannotContact); }
+    });
+  });
+
+  document.querySelectorAll(".webhook-menu-wrap").forEach((wrap) => {
+    const btn = wrap.querySelector(".webhook-menu-btn");
+    const menu = wrap.querySelector(".webhook-menu");
+    if (!btn || !menu) return;
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      document.querySelectorAll(".webhook-menu").forEach((m) => { if (m !== menu) m.classList.add("hidden"); });
+      menu.classList.toggle("hidden");
+    });
+  });
+  document.addEventListener("click", () => {
+    document.querySelectorAll(".webhook-menu").forEach((m) => m.classList.add("hidden"));
+  });
+
+  document.querySelectorAll(".webhook-edit-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const row = btn.closest(".webhook-row");
+      row?.querySelector(".webhook-url-display")?.classList.add("hidden");
+      row?.querySelector(".webhook-status-badge")?.classList.add("hidden");
+      const form = row?.querySelector(".webhook-url-edit-form");
+      if (form) {
+        form.classList.remove("hidden");
+        form.classList.add("flex");
+        form.querySelector(".webhook-url-input")?.focus();
+      }
+    });
+  });
+
+  document.querySelectorAll(".webhook-url-cancel-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const row = btn.closest(".webhook-row");
+      const form = row?.querySelector(".webhook-url-edit-form");
+      if (form) { form.classList.add("hidden"); form.classList.remove("flex"); }
+      row?.querySelector(".webhook-url-display")?.classList.remove("hidden");
+      row?.querySelector(".webhook-status-badge")?.classList.remove("hidden");
+    });
+  });
+
+  document.querySelectorAll(".webhook-url-save-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const row = btn.closest(".webhook-row");
+      const id = row?.dataset.id;
+      const input = row?.querySelector(".webhook-url-input");
+      const url = input?.value.trim();
+      if (!url) return;
+      try {
+        const res = await fetch(`/workspaces/${wsSlug}/webhooks/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) { showToast(body.error || I18N.errorRetry); return; }
+        const display = row?.querySelector(".webhook-url-display");
+        if (display) display.textContent = body.url;
+        const form = row?.querySelector(".webhook-url-edit-form");
+        if (form) { form.classList.add("hidden"); form.classList.remove("flex"); }
+        display?.classList.remove("hidden");
+        row?.querySelector(".webhook-status-badge")?.classList.remove("hidden");
+        updateRowTimestamp(row, body.updatedAt);
+        showToast(I18N.urlSaved, "success");
+      } catch (e) { showToast(I18N.cannotContact); }
+    });
+  });
+
   document.querySelectorAll(".webhook-enabled-toggle").forEach((toggle) => {
     toggle.addEventListener("change", async () => {
+      const row = toggle.closest(".webhook-row");
       try {
         const res = await fetch(`/workspaces/${wsSlug}/webhooks/${toggle.dataset.id}`, {
           method: "PATCH",
@@ -354,8 +539,13 @@ http_response_code(200);`,
         });
         const body = await res.json().catch(() => ({}));
         if (!res.ok) { showToast(body.error || I18N.errorRetry); toggle.checked = !toggle.checked; return; }
-        const label = toggle.closest("label");
-        if (label) label.lastChild.textContent = " " + (toggle.checked ? "{{t .Lang "settings.webhook_enabled"}}" : "{{t .Lang "settings.webhook_disabled"}}");
+        const badge = row?.querySelector(".webhook-status-badge");
+        if (badge) {
+          badge.textContent = toggle.checked ? I18N.enabledLabel : I18N.disabledLabel;
+          badge.style.background = toggle.checked ? "rgba(52,211,153,0.15)" : "rgba(156,163,175,0.15)";
+          badge.style.color = toggle.checked ? "var(--eb-accent)" : "var(--eb-muted)";
+        }
+        updateRowTimestamp(row, body.updatedAt);
       } catch (e) { showToast(I18N.cannotContact); toggle.checked = !toggle.checked; }
     });
   });
@@ -364,7 +554,7 @@ http_response_code(200);`,
     btn.addEventListener("click", async () => {
       if (btn.dataset.busy) return;
       btn.dataset.busy = "1";
-      const original = btn.textContent;
+      const original = btn.innerHTML;
       const row = btn.closest(".webhook-row");
       const lastTriggeredEl = row?.querySelector(".webhook-last-triggered");
       btn.disabled = true;
@@ -397,16 +587,38 @@ http_response_code(200);`,
         if (lastTriggeredEl && body.lastTriggeredAt) {
           lastTriggeredEl.textContent = fmt(I18N.lastTriggeredTemplate, body.lastTriggeredAt, body.lastStatus || "");
         }
+        updateRowTimestamp(row, body.updatedAt);
       } catch (e) {
         clearInterval(tick);
         showToast(I18N.cannotContact);
       } finally {
         btn.disabled = false;
-        btn.textContent = original;
+        btn.innerHTML = original;
         delete btn.dataset.busy;
       }
     });
   });
+
+  const docLink = document.getElementById("webhook-doc-link");
+  if (docLink) {
+    docLink.addEventListener("click", () => {
+      const firstDetails = document.querySelector(".webhook-config-details");
+      if (firstDetails) {
+        firstDetails.open = true;
+        firstDetails.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    });
+  }
+  const examplesLink = document.getElementById("webhook-examples-link");
+  if (examplesLink) {
+    examplesLink.addEventListener("click", () => {
+      const firstDetails = document.querySelector(".webhook-config-details");
+      if (firstDetails) {
+        firstDetails.open = true;
+        firstDetails.querySelector(".webhook-snippet-tab")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    });
+  }
 })();
 </script>
 {{end}}

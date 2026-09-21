@@ -21,6 +21,7 @@ type Webhook struct {
 	LastTriggeredAt sql.NullTime
 	LastStatus      string
 	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 func newWebhookSecret() (string, error) {
@@ -50,11 +51,11 @@ func (s *Store) CreateWebhook(workspaceID int64, url string) (*Webhook, error) {
 	return s.GetWebhook(id)
 }
 
-const webhookColumns = `id, workspace_id, url, secret, enabled, last_triggered_at, last_status, created_at`
+const webhookColumns = `id, workspace_id, url, secret, enabled, last_triggered_at, last_status, created_at, updated_at`
 
 func scanWebhook(scan func(dest ...any) error) (*Webhook, error) {
 	h := &Webhook{}
-	err := scan(&h.ID, &h.WorkspaceID, &h.URL, &h.Secret, &h.Enabled, &h.LastTriggeredAt, &h.LastStatus, &h.CreatedAt)
+	err := scan(&h.ID, &h.WorkspaceID, &h.URL, &h.Secret, &h.Enabled, &h.LastTriggeredAt, &h.LastStatus, &h.CreatedAt, &h.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -97,14 +98,36 @@ func (s *Store) DeleteWebhook(id int64) error {
 }
 
 func (s *Store) SetWebhookEnabled(id int64, enabled bool) error {
-	_, err := s.db.Exec(`UPDATE webhooks SET enabled = ? WHERE id = ?`, enabled, id)
+	_, err := s.db.Exec(`UPDATE webhooks SET enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, enabled, id)
 	return err
+}
+
+// UpdateWebhookURL changes the destination URL — the secret and delivery
+// history stay untouched, only where the next delivery is sent changes.
+func (s *Store) UpdateWebhookURL(id int64, url string) error {
+	_, err := s.db.Exec(`UPDATE webhooks SET url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, url, id)
+	return err
+}
+
+// RegenerateWebhookSecret replaces a webhook's signing secret — e.g. after
+// a suspected leak — and returns the new one so the caller can show it (the
+// only time it's ever visible again is right after this call, same as at
+// creation).
+func (s *Store) RegenerateWebhookSecret(id int64) (string, error) {
+	secret, err := newWebhookSecret()
+	if err != nil {
+		return "", err
+	}
+	if _, err := s.db.Exec(`UPDATE webhooks SET secret = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, secret, id); err != nil {
+		return "", err
+	}
+	return secret, nil
 }
 
 // MarkWebhookTriggered records the outcome of the most recent delivery
 // attempt — shown on the settings page so members can tell a broken
 // webhook (e.g. a stale URL) from a healthy one without checking logs.
 func (s *Store) MarkWebhookTriggered(id int64, status string) error {
-	_, err := s.db.Exec(`UPDATE webhooks SET last_triggered_at = CURRENT_TIMESTAMP, last_status = ? WHERE id = ?`, status, id)
+	_, err := s.db.Exec(`UPDATE webhooks SET last_triggered_at = CURRENT_TIMESTAMP, last_status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, status, id)
 	return err
 }

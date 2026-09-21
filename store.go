@@ -152,7 +152,8 @@ func (s *Store) migrate() error {
 		enabled INTEGER NOT NULL DEFAULT 1,
 		last_triggered_at DATETIME,
 		last_status TEXT NOT NULL DEFAULT '',
-		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE INDEX IF NOT EXISTS idx_webhooks_workspace ON webhooks(workspace_id);
 
@@ -195,6 +196,7 @@ func (s *Store) migrate() error {
 		`ALTER TABLE users ADD COLUMN created_by INTEGER REFERENCES users(id)`,
 		`ALTER TABLE activity_log ADD COLUMN table_id INTEGER REFERENCES tables(id) ON DELETE CASCADE`,
 		`ALTER TABLE users ADD COLUMN last_seen_activity_id INTEGER NOT NULL DEFAULT 0`,
+		`ALTER TABLE webhooks ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP`,
 	} {
 		if _, err := s.db.Exec(alter); err != nil {
 			if !strings.Contains(err.Error(), "duplicate column name") {
