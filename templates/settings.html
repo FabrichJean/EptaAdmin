@@ -75,6 +75,8 @@
 
      </div>
     </main>
+
+    <div id="webhook-toast" class="hidden fixed bottom-5 right-5 z-[100] max-w-sm rounded-xl px-4 py-3 text-sm shadow-xl" style="background: var(--eb-surface); border: 1px solid var(--eb-border-strong); color: var(--eb-text);"></div>
   </div>
 </div>
 
@@ -209,6 +211,17 @@ http_response_code(200);`,
   const urlInput = document.getElementById("webhook-url");
   const errorBox = document.getElementById("add-webhook-error");
   const submitBtn = document.getElementById("submit-webhook-btn");
+  const toast = document.getElementById("webhook-toast");
+  let toastTimer;
+
+  function showToast(message, kind = "error") {
+    if (!toast) return;
+    clearTimeout(toastTimer);
+    toast.textContent = message;
+    toast.style.borderColor = kind === "success" ? "var(--eb-accent)" : "#f87171";
+    toast.classList.remove("hidden");
+    toastTimer = setTimeout(() => toast.classList.add("hidden"), 5000);
+  }
 
   if (addBtn && addForm) {
     addBtn.addEventListener("click", () => {
@@ -243,13 +256,14 @@ http_response_code(200);`,
 
   document.querySelectorAll(".webhook-delete-btn").forEach((btn) => {
     btn.addEventListener("click", async () => {
-      if (!confirm(I18N.deleteConfirm)) return;
+      const row = btn.closest(".webhook-row");
+      if (!window.confirm(I18N.deleteConfirm)) return;
       try {
         const res = await fetch(`/workspaces/${wsSlug}/webhooks/${btn.dataset.id}`, { method: "DELETE" });
         const body = await res.json().catch(() => ({}));
-        if (!res.ok) { alert(body.error || I18N.errorRetry); return; }
+        if (!res.ok) { showToast(body.error || I18N.errorRetry); return; }
         location.reload();
-      } catch (e) { alert(I18N.cannotContact); }
+      } catch (e) { showToast(I18N.cannotContact); }
     });
   });
 
@@ -262,10 +276,10 @@ http_response_code(200);`,
           body: JSON.stringify({ enabled: toggle.checked }),
         });
         const body = await res.json().catch(() => ({}));
-        if (!res.ok) { alert(body.error || I18N.errorRetry); toggle.checked = !toggle.checked; return; }
+        if (!res.ok) { showToast(body.error || I18N.errorRetry); toggle.checked = !toggle.checked; return; }
         const label = toggle.closest("label");
         if (label) label.lastChild.textContent = " " + (toggle.checked ? "{{t .Lang "settings.webhook_enabled"}}" : "{{t .Lang "settings.webhook_disabled"}}");
-      } catch (e) { alert(I18N.cannotContact); toggle.checked = !toggle.checked; }
+      } catch (e) { showToast(I18N.cannotContact); toggle.checked = !toggle.checked; }
     });
   });
 
@@ -278,13 +292,13 @@ http_response_code(200);`,
         const res = await fetch(`/workspaces/${wsSlug}/webhooks/${btn.dataset.id}/trigger`, { method: "POST" });
         const body = await res.json().catch(() => ({}));
         if (!res.ok) {
-          alert((body.error || I18N.triggerFailed));
+          showToast(body.error || I18N.triggerFailed);
         } else {
-          alert(I18N.triggerOk);
+          showToast(I18N.triggerOk, "success");
         }
         location.reload();
       } catch (e) {
-        alert(I18N.cannotContact);
+        showToast(I18N.cannotContact);
         btn.disabled = false;
         btn.textContent = original;
       }
