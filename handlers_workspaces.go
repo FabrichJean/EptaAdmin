@@ -8,6 +8,36 @@ import (
 	"strings"
 )
 
+// loadDataSourceInWorkspace fetches a data source (a folder grouping
+// tables — see Table) by slug, scoped to the given workspace, writing a
+// 404 otherwise.
+func (a *App) loadDataSourceInWorkspace(w http.ResponseWriter, r *http.Request, ws *Workspace) (*DataSource, bool) {
+	slug := r.PathValue("dsSlug")
+	ds, err := a.store.GetDataSourceBySlug(ws.ID, slug)
+	if err != nil {
+		log.Printf("get data source error: %v", err)
+		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
+		return nil, false
+	}
+	if ds == nil {
+		http.NotFound(w, r)
+		return nil, false
+	}
+	return ds, true
+}
+
+// dataSourceTreeItem pairs one data source with its tables for the
+// secondary sidebar's tree (data source > table).
+type dataSourceTreeItem struct {
+	DataSource *DataSource
+	Tables     []*Table
+}
+
+// buildDataSourceTree loads each data source's tables so the secondary
+// sidebar can render the full data source > table tree without a round
+// trip per node.
+func (a *App) buildDataSourceTree(dataSources []*DataSource) ([]dataSourceTreeItem, error) {
+	tree := make([]dataSourceTreeItem, 0, len(dataSources))
 // workspaceDetailData builds the common template data for
 // workspace_detail.html, so the header context (breadcrumb, icon, badge...)
 // stays consistent across the initial render and the two form-error

@@ -325,19 +325,37 @@ func recordsFromColumns(cs map[string][]any) RecordStore {
 	maxLen := 0
 	for _, values := range cs {
 		if len(values) > maxLen {
-		for k, v := range row {
-			cs[k] = append(cs[k], v)
+			maxLen = len(values)
 		}
 	}
-	return cs
+	records := make(RecordStore, maxLen)
+	for i := range records {
+		records[i] = Record{}
+	}
+	keys := make([]string, 0, len(cs))
+	for k := range cs {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		for i, v := range cs[k] {
+			if v != nil {
+				records[i][k] = v
+			}
+		}
+	}
+	return records
 }
 
-// SaveColumnStore writes the store back atomically (write to a temp file,
+// SaveRecordStore writes the store back atomically (write to a temp file,
 // then rename) so a crash mid-write never corrupts the data source. The
 // parent directory is recreated if missing, so an out-of-band removal of a
 // workspace's data folder doesn't permanently break writes to it.
-func SaveColumnStore(path string, cs ColumnStore) error {
-	data, err := json.MarshalIndent(cs, "", "  ")
+func SaveRecordStore(path string, records RecordStore) error {
+	if records == nil {
+		records = RecordStore{}
+	}
+	data, err := json.MarshalIndent(records, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -368,45 +386,135 @@ type Column struct {
 // BuildColumns lays out the schema columns first (in their declared order),
 // then appends any additional keys present in the store but not in the
 // schema, so nothing in the underlying JSON is ever hidden.
-func BuildColumns(schemaCols []*DataSourceColumn, cs ColumnStore) []Column {
+func BuildColumns(schemaCols []*TableColumn, records RecordStore) []Column {
 	cols := make([]Column, 0, len(schemaCols))
 	known := map[string]bool{}
 	for _, c := range schemaCols {
-		cols = append(cols, Column{Key: c.Key, Type: c.Type, Managed: true, Editable: true, Values: cs[c.Key], Description: c.Description})
+		cols = append(cols, Column{Key: c.Key, Type: c.Type, Managed: true, Editable: true, Values: records.Column(c.Key), Description: c.Description})
 		known[c.Key] = true
 	}
 
-	extraKeys := make([]string, 0)
-	for k := range cs {
-		if !known[k] {
-			extraKeys = append(extraKeys, k)
+	for _, k := range records.Keys() {
+		if known[k] {
+			continue
 		}
-	}
-	sort.Strings(extraKeys)
-	for _, k := range extraKeys {
 		// Extra columns are shown read-only: they have no declared type, so
 		// editing them would silently guess one again. Use "+ Column" to
 		// adopt one under the declared schema.
-		cols = append(cols, Column{Key: k, Managed: false, Editable: false, Values: cs[k]})
+		cols = append(cols, Column{Key: k, Managed: false, Editable: false, Values: records.Column(k)})
 	}
 	return cols
+}
+
+// GridRow is one record laid out for the SQL-style grid view: Cells is
+// index-aligned with the page's Columns slice (Cells[i] came from
+// Columns[i].Values[Index]), so the template never has to re-index a map.
+type GridRow struct {
+	Index int
+	Cells []any
+}
+
+// BuildGridRows transposes a set of already-aligned columns back into rows,
+// the shape the grid view renders (one <tr> per record) rather than the
+// per-column card view's shape (one block per field).
+func BuildGridRows(columns []Column) []GridRow {
+	if len(columns) == 0 {
+		return nil
+	}
+	rowCount := len(columns[0].Values)
+	rows := make([]GridRow, rowCount)
+	for i := 0; i < rowCount; i++ {
+		cells := make([]any, len(columns))
+		for c, col := range columns {
+			cells[c] = col.Values[i]
+		}
+		rows[i] = GridRow{Index: i, Cells: cells}
+	}
+	return rows
+}
+
+// gridCellMaxChars caps how much of a long string or a compacted JSON
+// value shows in one grid cell — this is an overview grid, not the editor,
+// so a truncated preview (with the full value still one click away later)
+// beats a cell that blows up the row height or the column width.
+const gridCellMaxChars = 60
+
+// compactJSONPreview renders a map/array value as compact (non-indented)
+// JSON, truncated to maxChars — the grid equivalent of FormatValue's
+// pretty-printed form, which would break a single-line row.
+func compactJSONPreview(v any, maxChars int) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return ""
+	}
+	s := string(b)
+	r := []rune(s)
+	if len(r) > maxChars {
+		return string(r[:maxChars]) + "…"
+	}
+	return s
+}
+
+// JSONAttr renders a raw JSON value compactly, for embedding as an HTML
+// attribute (e.g. data-raw="...") that JS then JSON.parses back — the
+// grid's inline cell editor needs the real typed value, not GridCellHTML's
+// truncated display string.
+func JSONAttr(v any) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return "null"
+	}
+	return string(b)
+}
+
+// GridCellHTML renders one cell's raw JSON value for the SQL-style grid,
+// typed and colored the same way the rest of the app already distinguishes
+// value types (see ValueType) — nil shows as a muted "no value" glyph
+// rather than an empty, ambiguous-looking cell.
+func GridCellHTML(v any) template.HTML {
+	switch val := v.(type) {
+	case nil:
+		return `<span style="color: var(--eb-muted);" title="vide">⊘</span>`
+	case bool:
+		label := "false"
+		if val {
+			label = "true"
+		}
+		return template.HTML(`<span style="color:#c084fc;">` + label + `</span>`)
+	case float64:
+		return template.HTML(`<span style="color: var(--eb-accent); font-variant-numeric: tabular-nums;">` + template.HTMLEscapeString(strconv.FormatFloat(val, 'f', -1, 64)) + `</span>`)
+	case string:
+		if looksLikeImage(val) {
+			name := imageFilename(val)
+			return template.HTML(`<span style="display:inline-flex;align-items:center;gap:0.5rem;">` +
+				`<img src="` + template.HTMLEscapeString(val) + `" class="eb-thumb" style="height:1.5rem;width:1.5rem;flex-shrink:0;" alt="" />` +
+				`<span style="color: var(--eb-muted); font-size: 0.8em;">` + template.HTMLEscapeString(name) + `</span></span>`)
+		}
+		r := []rune(val)
+		text := val
+		suffix := ""
+		if len(r) > gridCellMaxChars {
+			text = string(r[:gridCellMaxChars])
+			suffix = "…"
+		}
+		return template.HTML(`<span>` + template.HTMLEscapeString(text) + suffix + `</span>`)
+	case []any, map[string]any:
+		return template.HTML(`<span style="color: var(--eb-muted); font-family: ui-monospace, monospace; font-size: 0.8em;">` + template.HTMLEscapeString(compactJSONPreview(val, gridCellMaxChars)) + `</span>`)
+	default:
+		return template.HTML(template.HTMLEscapeString(fmt.Sprint(val)))
+	}
 }
 
 // InferSchemaFromColumns guesses an initial schema (key + type) from
 // existing data. Used once, the first time a data source with pre-existing
 // values is opened, to bootstrap its schema — after that, the schema is
 // the source of truth, not the data.
-func InferSchemaFromColumns(cs ColumnStore) []struct{ Key, Type string } {
-	keys := make([]string, 0, len(cs))
-	for k := range cs {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
+func InferSchemaFromColumns(records RecordStore) []struct{ Key, Type string } {
+	keys := records.Keys()
 	out := make([]struct{ Key, Type string }, 0, len(keys))
 	for _, k := range keys {
 		t := ColumnTypeText
-		for _, v := range cs[k] {
+		for _, v := range records.Column(k) {
 			if v != nil {
 				t = inferType(v)
 				break
@@ -426,6 +534,21 @@ func inferType(v any) string {
 	default:
 		return ColumnTypeText
 	}
+}
+
+// imageFilename extracts the display-friendly filename out of an image
+// value: strips any query string (signed upload URLs carry "?sig=…") and
+// keeps just the last path segment. A data: URI has no filename at all,
+// so it renders as an empty label rather than the whole encoded blob.
+func imageFilename(s string) string {
+	if strings.HasPrefix(s, "data:") {
+		return ""
+	}
+	clean := s
+	if i := strings.IndexByte(clean, '?'); i >= 0 {
+		clean = clean[:i]
+	}
+	return filepath.Base(clean)
 }
 
 // looksLikeImage heuristically flags a string value as an image reference:
@@ -461,12 +584,17 @@ func ValueType(v any) string {
 			return ColumnTypeLongText
 		}
 		return ColumnTypeText
+	case map[string]any, []any:
+		return ColumnTypeJSON
 	default:
 		return ColumnTypeText
 	}
 }
 
-// FormatValue renders a raw JSON value as a display string.
+// FormatValue renders a raw JSON value as a display string. A map/array
+// (a "json"-typed value — see ValueType) is pretty-printed, not
+// compacted, since this is also what populates the edit textarea: it needs
+// to stay valid, re-parseable JSON a person can actually read and edit.
 func FormatValue(v any) string {
 	switch val := v.(type) {
 	case nil:
@@ -480,14 +608,8 @@ func FormatValue(v any) string {
 		return val
 	case float64:
 		return strconv.FormatFloat(val, 'f', -1, 64)
-	case []any:
-		parts := make([]string, len(val))
-		for i, item := range val {
-			parts[i] = FormatValue(item)
-		}
-		return strings.Join(parts, ", ")
 	default:
-		b, _ := json.Marshal(val)
+		b, _ := json.MarshalIndent(val, "", "  ")
 		return string(b)
 	}
 }
@@ -501,24 +623,19 @@ type SearchHit struct {
 	Value  string
 }
 
-// SearchColumnStore scans every value of every column for a case-insensitive
+// SearchRecords scans every value of every column for a case-insensitive
 // substring match, returning at most limit hits (0 means unlimited). Values
 // are compared via FormatValue so e.g. numbers and booleans are searchable
 // as their displayed text.
-func SearchColumnStore(cs ColumnStore, query string, limit int) []SearchHit {
+func SearchRecords(records RecordStore, query string, limit int) []SearchHit {
 	query = strings.ToLower(strings.TrimSpace(query))
 	if query == "" {
 		return nil
 	}
-	keys := make([]string, 0, len(cs))
-	for k := range cs {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
 
 	var hits []SearchHit
-	for _, k := range keys {
-		for i, v := range cs[k] {
+	for _, k := range records.Keys() {
+		for i, v := range records.Column(k) {
 			text := FormatValue(v)
 			if strings.Contains(strings.ToLower(text), query) {
 				hits = append(hits, SearchHit{Column: k, Index: i, Value: text})
@@ -547,6 +664,12 @@ func CoerceTyped(lang, colType, raw string) (any, error) {
 			return nil, fmt.Errorf(T(lang, "datasource.invalid_boolean"), raw)
 		}
 		return raw == "true", nil
+	case ColumnTypeJSON:
+		var parsed any
+		if err := json.Unmarshal([]byte(raw), &parsed); err != nil {
+			return nil, fmt.Errorf(T(lang, "datasource.invalid_json"), err.Error())
+		}
+		return parsed, nil
 	default:
 		return raw, nil
 	}
