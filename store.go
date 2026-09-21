@@ -196,7 +196,12 @@ func (s *Store) migrate() error {
 		`ALTER TABLE users ADD COLUMN created_by INTEGER REFERENCES users(id)`,
 		`ALTER TABLE activity_log ADD COLUMN table_id INTEGER REFERENCES tables(id) ON DELETE CASCADE`,
 		`ALTER TABLE users ADD COLUMN last_seen_activity_id INTEGER NOT NULL DEFAULT 0`,
-		`ALTER TABLE webhooks ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP`,
+		// SQLite rejects a non-constant default (CURRENT_TIMESTAMP) on ADD
+		// COLUMN — it's fine in CREATE TABLE (a fresh install's webhooks
+		// table above already has it), but an existing install backfilling
+		// this column needs a constant placeholder here, fixed up for real
+		// by backfillWebhookUpdatedAt below.
+		`ALTER TABLE webhooks ADD COLUMN updated_at DATETIME NOT NULL DEFAULT '1970-01-01 00:00:00'`,
 	} {
 		if _, err := s.db.Exec(alter); err != nil {
 			if !strings.Contains(err.Error(), "duplicate column name") {
@@ -204,7 +209,19 @@ func (s *Store) migrate() error {
 			}
 		}
 	}
+	if err := s.backfillWebhookUpdatedAt(); err != nil {
+		return err
+	}
 	return s.backfillDataSourceSlugs()
+}
+
+// backfillWebhookUpdatedAt gives any webhook row still carrying the ADD
+// COLUMN placeholder (see above) a real updated_at — its own created_at,
+// the best available approximation for "last changed" on a row that
+// predates this column existing at all.
+func (s *Store) backfillWebhookUpdatedAt() error {
+	_, err := s.db.Exec(`UPDATE webhooks SET updated_at = created_at WHERE updated_at = '1970-01-01 00:00:00'`)
+	return err
 }
 
 func (s *Store) backfillDataSourceSlugs() error {
