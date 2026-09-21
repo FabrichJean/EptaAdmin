@@ -11,6 +11,7 @@ const (
 	ColumnTypeNumber   = "number"
 	ColumnTypeBoolean  = "boolean"
 	ColumnTypeImage    = "image" // a URL, normally produced by uploading a file
+	ColumnTypeJSON     = "json"  // an arbitrary nested object/array — e.g. an imported structure with no flat equivalent
 )
 
 var validColumnTypes = map[string]bool{
@@ -19,6 +20,7 @@ var validColumnTypes = map[string]bool{
 	ColumnTypeNumber:   true,
 	ColumnTypeBoolean:  true,
 	ColumnTypeImage:    true,
+	ColumnTypeJSON:     true,
 }
 
 func IsValidColumnType(t string) bool {
@@ -35,44 +37,48 @@ func ColumnTypeLabel(lang, t string) string {
 		return T(lang, "type.long_text")
 	case ColumnTypeImage:
 		return T(lang, "type.image")
+	case ColumnTypeJSON:
+		return T(lang, "type.json")
 	default:
 		return T(lang, "type.text")
 	}
 }
 
 var ErrColumnExists = errors.New("cette colonne existe déjà")
+var ErrTableColumnExists = errors.New("cette colonne existe déjà")
 
-// DataSourceColumn is one field of a data source's declared schema — the
-// server-side source of truth for which columns exist, their order and
-// their type, rather than columns being guessed from whatever happens to
-// be in the JSON file.
-type DataSourceColumn struct {
-	ID           int64
-	DataSourceID int64
-	Key          string
-	Type         string
-	Position     int
-	Description  string
+// TableColumn is one field of a table's declared schema — the server-side
+// source of truth for which columns exist, their order and their type,
+// rather than columns being guessed from whatever happens to be in the
+// JSON file. A DataSource is only ever a folder grouping Tables (see
+// table_store.go), so this is scoped to a table, not a data source.
+type TableColumn struct {
+	ID          int64
+	TableID     int64
+	Key         string
+	Type        string
+	Position    int
+	Description string
 }
 
-func (c *DataSourceColumn) TypeLabel(lang string) string {
+func (c *TableColumn) TypeLabel(lang string) string {
 	return ColumnTypeLabel(lang, c.Type)
 }
 
-func (s *Store) ListDataSourceColumns(dataSourceID int64) ([]*DataSourceColumn, error) {
+func (s *Store) ListTableColumns(tableID int64) ([]*TableColumn, error) {
 	rows, err := s.db.Query(
-		`SELECT id, data_source_id, key, type, position, description FROM data_source_columns WHERE data_source_id = ? ORDER BY position`,
-		dataSourceID,
+		`SELECT id, table_id, key, type, position, description FROM table_columns WHERE table_id = ? ORDER BY position`,
+		tableID,
 	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var out []*DataSourceColumn
+	var out []*TableColumn
 	for rows.Next() {
-		c := &DataSourceColumn{}
-		if err := rows.Scan(&c.ID, &c.DataSourceID, &c.Key, &c.Type, &c.Position, &c.Description); err != nil {
+		c := &TableColumn{}
+		if err := rows.Scan(&c.ID, &c.TableID, &c.Key, &c.Type, &c.Position, &c.Description); err != nil {
 			return nil, err
 		}
 		out = append(out, c)
@@ -80,12 +86,12 @@ func (s *Store) ListDataSourceColumns(dataSourceID int64) ([]*DataSourceColumn, 
 	return out, rows.Err()
 }
 
-// AddDataSourceColumn appends a new column to a data source's schema, at
-// the next available position.
-func (s *Store) AddDataSourceColumn(dataSourceID int64, key, colType, description string) (*DataSourceColumn, error) {
+// AddTableColumn appends a new column to a table's schema, at the next
+// available position.
+func (s *Store) AddTableColumn(tableID int64, key, colType, description string) (*TableColumn, error) {
 	var maxPos sql.NullInt64
 	if err := s.db.QueryRow(
-		`SELECT MAX(position) FROM data_source_columns WHERE data_source_id = ?`, dataSourceID,
+		`SELECT MAX(position) FROM table_columns WHERE table_id = ?`, tableID,
 	).Scan(&maxPos); err != nil {
 		return nil, err
 	}
@@ -95,12 +101,12 @@ func (s *Store) AddDataSourceColumn(dataSourceID int64, key, colType, descriptio
 	}
 
 	res, err := s.db.Exec(
-		`INSERT INTO data_source_columns (data_source_id, key, type, position, description) VALUES (?, ?, ?, ?, ?)`,
-		dataSourceID, key, colType, position, description,
+		`INSERT INTO table_columns (table_id, key, type, position, description) VALUES (?, ?, ?, ?, ?)`,
+		tableID, key, colType, position, description,
 	)
 	if err != nil {
 		if isUniqueConstraintErr(err) {
-			return nil, ErrColumnExists
+			return nil, ErrTableColumnExists
 		}
 		return nil, err
 	}
@@ -108,65 +114,23 @@ func (s *Store) AddDataSourceColumn(dataSourceID int64, key, colType, descriptio
 	if err != nil {
 		return nil, err
 	}
-	return &DataSourceColumn{ID: id, DataSourceID: dataSourceID, Key: key, Type: colType, Position: position, Description: description}, nil
+	return &TableColumn{ID: id, TableID: tableID, Key: key, Type: colType, Position: position, Description: description}, nil
 }
 
-func (s *Store) UpdateDataSourceColumnDescription(dataSourceID int64, key, description string) error {
+func (s *Store) UpdateTableColumnDescription(tableID int64, key, description string) error {
 	_, err := s.db.Exec(
-		`UPDATE data_source_columns SET description = ? WHERE data_source_id = ? AND key = ?`,
-		description, dataSourceID, key,
+		`UPDATE table_columns SET description = ? WHERE table_id = ? AND key = ?`,
+		description, tableID, key,
 	)
 	return err
 }
 
-// DeleteDataSourceColumn removes a column from the schema. The caller is
+// DeleteTableColumn removes a column from the schema. The caller is
 // responsible for also removing its values from the JSON store.
-func (s *Store) DeleteDataSourceColumn(dataSourceID int64, key string) error {
+func (s *Store) DeleteTableColumn(tableID int64, key string) error {
 	_, err := s.db.Exec(
-		`DELETE FROM data_source_columns WHERE data_source_id = ? AND key = ?`,
-		dataSourceID, key,
-	)
-	return err
-}
-
-// ColumnPosition is one column card's saved (x, y) on the "free layout"
-// canvas (see datasource_table.html) — a shared, per-data-source display
-// preference, not per-viewer, so every workspace member sees the same
-// arrangement on any device.
-type ColumnPosition struct {
-	Key string
-	X   int
-	Y   int
-}
-
-func (s *Store) ListColumnPositions(dataSourceID int64) ([]*ColumnPosition, error) {
-	rows, err := s.db.Query(
-		`SELECT column_key, pos_x, pos_y FROM column_canvas_positions WHERE data_source_id = ?`,
-		dataSourceID,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var out []*ColumnPosition
-	for rows.Next() {
-		p := &ColumnPosition{}
-		if err := rows.Scan(&p.Key, &p.X, &p.Y); err != nil {
-			return nil, err
-		}
-		out = append(out, p)
-	}
-	return out, rows.Err()
-}
-
-// SetColumnPosition saves (or moves) one column's card position, upserting
-// so repeated drags of the same card just update its row.
-func (s *Store) SetColumnPosition(dataSourceID int64, key string, x, y int) error {
-	_, err := s.db.Exec(
-		`INSERT INTO column_canvas_positions (data_source_id, column_key, pos_x, pos_y) VALUES (?, ?, ?, ?)
-		 ON CONFLICT(data_source_id, column_key) DO UPDATE SET pos_x = excluded.pos_x, pos_y = excluded.pos_y`,
-		dataSourceID, key, x, y,
+		`DELETE FROM table_columns WHERE table_id = ? AND key = ?`,
+		tableID, key,
 	)
 	return err
 }
