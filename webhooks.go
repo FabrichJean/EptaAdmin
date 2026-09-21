@@ -16,7 +16,7 @@ import (
 // take — fire-and-forget deliveries (see fireWebhooks) run in their own
 // goroutine so this never blocks the request that triggered them, but a
 // hung external server should still not leak the connection forever.
-const webhookDeliveryTimeout = 10 * time.Second
+const webhookDeliveryTimeout = 15 * time.Minute
 
 // webhookPayload is the JSON body posted to every webhook URL. Details
 // mirrors whatever was passed to logActivity for the triggering action —
@@ -46,7 +46,10 @@ func computeWebhookSignature(secret string, body []byte) string {
 // immediate success/failure) or from its own goroutine (an automatic
 // trigger from logActivity, which must never block the request that
 // caused it).
-func (a *App) deliverWebhook(hook *Webhook, event string, manual bool, details map[string]any) error {
+func (a *App) deliverWebhook(hook *Webhook, event string, manual bool, details map[string]any) (err error) {
+	a.webhookDeploy.start(event)
+	defer func() { a.webhookDeploy.finish(err) }()
+
 	payload := webhookPayload{
 		Event:     event,
 		Manual:    manual,

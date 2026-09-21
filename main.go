@@ -57,6 +57,7 @@ func main() {
 	mux.HandleFunc("GET /workspaces", app.requireAuth(app.handleWorkspacesPage))
 	mux.HandleFunc("GET /activity", app.requireAuth(app.handleGlobalActivity))
 	mux.HandleFunc("GET /api/search", app.requireAuth(app.handleGlobalSearch))
+	mux.HandleFunc("GET /api/webhook-status", app.requireAuth(app.handleWebhookStatus))
 	mux.HandleFunc("POST /workspaces", app.requireAuth(app.handleCreateWorkspace))
 	mux.HandleFunc("GET /workspaces/{slug}", app.requireAuth(app.handleWorkspaceDetail))
 	mux.HandleFunc("GET /webhooks", app.requireAuth(app.handleGlobalWebhooks))

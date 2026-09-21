@@ -99,6 +99,8 @@ var translations = map[string]map[string]string{
 		"sidebar2.new_table_prompt":          "Nom de la table",
 		"sidebar2.table_exists":              "Cette table existe déjà.",
 		"sidebar2.table_name_required":       "Le nom de la table est requis.",
+		"webhook.deploy_running":             "Déploiement en cours : build et copie du site…",
+		"webhook.deploy_failed":              "Le déploiement a échoué.",
 
 		"activity.title":                        "Activité",
 		"activity.link":                         "Activité",
@@ -479,6 +481,8 @@ var translations = map[string]map[string]string{
 		"sidebar2.new_table_prompt":          "Table name",
 		"sidebar2.table_exists":              "This table already exists.",
 		"sidebar2.table_name_required":       "The table name is required.",
+		"webhook.deploy_running":             "Deployment in progress: building and copying the site…",
+		"webhook.deploy_failed":              "Deployment failed.",
 
 		"activity.title":                        "Activity",
 		"activity.link":                         "Activity",
