@@ -609,6 +609,33 @@ func looksLikeFile(s string) bool {
 	return strings.Contains(s, "/uploads/") && !looksLikeImage(s)
 }
 
+// markdownPatterns are checked one line at a time — a single matching line
+// is enough to call the whole value markdown (a heading or a list item
+// doesn't need surrounding markdown to still be markdown).
+var markdownPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`(?m)^#{1,6}\s+\S`),        // # Heading
+	regexp.MustCompile(`(?m)^\s*[-*+]\s+\S`),      // - list item
+	regexp.MustCompile(`(?m)^\s*\d+\.\s+\S`),      // 1. list item
+	regexp.MustCompile(`(?m)^\s*>\s+\S`),          // > blockquote
+	regexp.MustCompile("```"),                     // fenced code block
+	regexp.MustCompile(`\*\*[^*\n]+\*\*`),         // **bold**
+	regexp.MustCompile(`__[^_\n]+__`),             // __bold__
+	regexp.MustCompile(`\[[^\]\n]+\]\([^)\n]+\)`), // [text](url)
+}
+
+// looksLikeMarkdown heuristically flags a string value as markdown source —
+// checked before the generic long_text fallback so a description written
+// with headings/lists/links/emphasis gets the markdown editor instead of a
+// plain textarea.
+func looksLikeMarkdown(s string) bool {
+	for _, re := range markdownPatterns {
+		if re.MatchString(s) {
+			return true
+		}
+	}
+	return false
+}
+
 // uploadHexPrefix matches the random collision-safe prefix SaveUploadedFile
 // puts in front of the original filename (see uploads.go) — stripped back
 // off here so the grid shows "invoice.pdf", not "a1b2c3d4e5f6a7b8_invoice.pdf".
@@ -640,6 +667,9 @@ func ValueType(v any) string {
 		}
 		if looksLikeFile(val) {
 			return ColumnTypeFile
+		}
+		if looksLikeMarkdown(val) {
+			return ColumnTypeMarkdown
 		}
 		if strings.Contains(val, "\n") {
 			return ColumnTypeLongText

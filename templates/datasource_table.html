@@ -15,6 +15,19 @@
   .eb-grid-table th .eb-col-del-btn, .eb-grid-table th .eb-col-rename-btn, .eb-grid-table td.eb-grid-id-col .eb-row-del-btn, .eb-grid-table td.eb-grid-id-col .eb-row-code-btn { opacity: 0; transition: opacity 0.1s; }
   .eb-grid-table th:hover .eb-col-del-btn, .eb-grid-table th:hover .eb-col-rename-btn, .eb-grid-table tbody tr:hover .eb-row-del-btn, .eb-grid-table tbody tr:hover .eb-row-code-btn { opacity: 1; }
   .eb-cell-editor select, .eb-cell-editor input, .eb-cell-editor textarea { font-size: 0.8125rem; }
+  .eb-markdown-preview h1, .eb-markdown-preview h2, .eb-markdown-preview h3 { font-weight: 600; margin: 0.75em 0 0.35em; color: var(--eb-text); }
+  .eb-markdown-preview h1 { font-size: 1.35em; }
+  .eb-markdown-preview h2 { font-size: 1.2em; }
+  .eb-markdown-preview h3 { font-size: 1.05em; }
+  .eb-markdown-preview p { margin: 0.5em 0; }
+  .eb-markdown-preview ul, .eb-markdown-preview ol { margin: 0.5em 0; padding-left: 1.5em; }
+  .eb-markdown-preview li { margin: 0.15em 0; }
+  .eb-markdown-preview a { color: var(--eb-accent); }
+  .eb-markdown-preview blockquote { margin: 0.5em 0; padding-left: 0.75em; border-left: 3px solid var(--eb-border); color: var(--eb-muted); }
+  .eb-markdown-preview code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.85em; background: var(--eb-surface-2); padding: 0.1em 0.35em; border-radius: 0.25em; }
+  .eb-markdown-preview pre { background: var(--eb-surface-2); padding: 0.75em; border-radius: 0.5em; overflow-x: auto; }
+  .eb-markdown-preview pre code { background: none; padding: 0; }
+  .eb-markdown-preview img { max-width: 100%; }
 </style>
 {{end}}
 {{define "content"}}
@@ -119,6 +132,23 @@
   </div>
 </div>
 
+<div id="md-editor-backdrop" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0,0,0,0.6);">
+  <div class="eb-card rounded-xl w-full flex flex-col" style="max-width: 56rem; height: 85vh;">
+    <div class="px-5 py-4 flex items-center justify-between shrink-0" style="border-bottom: 1px solid var(--eb-border);">
+      <h2 class="text-sm font-semibold" style="color: var(--eb-text);">{{t .Lang "datasource.markdown_editor_title"}}</h2>
+      <button id="md-editor-close-btn" type="button" class="eb-icon-btn text-lg leading-none shrink-0">✕</button>
+    </div>
+    <div class="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2">
+      <textarea id="md-editor-textarea" class="w-full h-full p-4 text-xs font-mono resize-none outline-none" style="background: var(--eb-bg); color: var(--eb-text); border-right: 1px solid var(--eb-border);" spellcheck="false"></textarea>
+      <div id="md-editor-preview" class="w-full h-full p-4 overflow-y-auto text-sm eb-markdown-preview" style="color: var(--eb-text);"></div>
+    </div>
+    <div class="px-5 py-4 flex items-center justify-end gap-2 shrink-0" style="border-top: 1px solid var(--eb-border);">
+      <button id="md-editor-cancel-btn" type="button" class="eb-btn-secondary rounded-lg text-sm px-4 py-2 transition-colors">{{t .Lang "common.cancel"}}</button>
+      <button id="md-editor-save-btn" type="button" class="eb-btn-primary rounded-lg text-sm px-4 py-2 transition-colors">{{t .Lang "common.save"}}</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function () {
   const wsSlug = {{.Workspace.Slug}};
@@ -139,9 +169,12 @@
     typeBoolean: "{{t .Lang "type.boolean"}}",
     typeImage: "{{t .Lang "type.image"}}",
     typeFile: "{{t .Lang "type.file"}}",
+    typeMarkdown: "{{t .Lang "type.markdown"}}",
     typeJSON: "{{t .Lang "type.json"}}",
     uploadImage: "{{t .Lang "datasource.upload_image_button"}}",
     uploadFile: "{{t .Lang "datasource.upload_image_button"}}",
+    editMarkdown: "{{t .Lang "datasource.edit_markdown_button"}}",
+    markdownEmptyPlaceholder: "{{t .Lang "datasource.markdown_empty_placeholder"}}",
     save: "{{t .Lang "common.save"}}",
     cancel: "{{t .Lang "common.cancel"}}",
   };
@@ -250,12 +283,26 @@
     function looksLikeFile(s) {
       return s.includes("/uploads/") && !looksLikeImage(s);
     }
+    const MARKDOWN_PATTERNS = [
+      /^#{1,6}\s+\S/m,
+      /^\s*[-*+]\s+\S/m,
+      /^\s*\d+\.\s+\S/m,
+      /^\s*>\s+\S/m,
+      /```/,
+      /\*\*[^*\n]+\*\*/,
+      /__[^_\n]+__/,
+      /\[[^\]\n]+\]\([^)\n]+\)/,
+    ];
+    function looksLikeMarkdown(s) {
+      return MARKDOWN_PATTERNS.some((re) => re.test(s));
+    }
     let currentType = "text";
     if (typeof rawJSON === "boolean") currentType = "boolean";
     else if (typeof rawJSON === "number") currentType = "number";
     else if (rawJSON !== null && typeof rawJSON === "object") currentType = "json";
     else if (typeof rawJSON === "string" && looksLikeImage(rawJSON)) currentType = "image";
     else if (typeof rawJSON === "string" && looksLikeFile(rawJSON)) currentType = "file";
+    else if (typeof rawJSON === "string" && looksLikeMarkdown(rawJSON)) currentType = "markdown";
     else if (typeof rawJSON === "string" && rawJSON.includes("\n")) currentType = "long_text";
 
     const original = td.innerHTML;
@@ -264,7 +311,7 @@
 
     const select = document.createElement("select");
     select.className = "eb-field-sm rounded px-1 py-0.5 text-xs";
-    [["text", I18N.typeText], ["long_text", I18N.typeLongText], ["number", I18N.typeNumber], ["boolean", I18N.typeBoolean], ["image", I18N.typeImage], ["file", I18N.typeFile], ["json", I18N.typeJSON]].forEach(([value, label]) => {
+    [["text", I18N.typeText], ["long_text", I18N.typeLongText], ["markdown", I18N.typeMarkdown], ["number", I18N.typeNumber], ["boolean", I18N.typeBoolean], ["image", I18N.typeImage], ["file", I18N.typeFile], ["json", I18N.typeJSON]].forEach(([value, label]) => {
       const opt = document.createElement("option");
       opt.value = value; opt.textContent = label;
       if (value === currentType) opt.selected = true;
@@ -436,6 +483,44 @@
         valueContainer.appendChild(valueEl);
         valueContainer.appendChild(uploadBtn);
         valueContainer.appendChild(fileInput);
+      } else if (type === "markdown") {
+        // The actual value lives in a hidden textarea — editing happens in
+        // the shared modal (see openMarkdownEditor), which writes back into
+        // it on Save; this cell just shows a short preview + an Edit button.
+        valueEl = document.createElement("textarea");
+        valueEl.className = "hidden";
+        valueEl.value = initial === null || initial === undefined ? "" : String(initial);
+
+        const editBtn = document.createElement("button");
+        editBtn.type = "button";
+        editBtn.textContent = I18N.editMarkdown;
+        editBtn.className = "eb-btn-secondary rounded px-2 py-0.5 text-xs shrink-0";
+
+        const previewLabel = document.createElement("span");
+        previewLabel.className = "text-xs truncate";
+        previewLabel.style.color = "var(--eb-muted)";
+        previewLabel.style.maxWidth = "16rem";
+
+        function refreshMarkdownPreview() {
+          const text = (valueEl.value || "").trim();
+          if (!text) {
+            previewLabel.textContent = I18N.markdownEmptyPlaceholder;
+          } else {
+            const firstLine = text.split("\n")[0];
+            previewLabel.textContent = firstLine.length > 60 ? firstLine.slice(0, 60) + "…" : firstLine;
+          }
+        }
+        refreshMarkdownPreview();
+
+        editBtn.addEventListener("click", () => {
+          if (window.openMarkdownEditor) window.openMarkdownEditor(valueEl, refreshMarkdownPreview);
+        });
+
+        valueContainer = document.createElement("div");
+        valueContainer.className = "flex items-center gap-2";
+        valueContainer.appendChild(editBtn);
+        valueContainer.appendChild(previewLabel);
+        valueContainer.appendChild(valueEl);
       } else {
         valueEl = document.createElement("input");
         valueEl.type = type === "number" ? "number" : "text";
@@ -604,7 +689,64 @@
     if (e.key === "Escape" && codeBackdrop && !codeBackdrop.classList.contains("hidden")) closeCodeModal();
   });
 })();
+
+// Shared markdown write+preview modal for every "markdown"-typed cell —
+// one instance in the DOM, reused across cells: openMarkdownEditor(textarea)
+// points it at whichever hidden <textarea> currently holds that cell's
+// value and copies the edited text back into it on Save.
+(function () {
+  const backdrop = document.getElementById("md-editor-backdrop");
+  const textarea = document.getElementById("md-editor-textarea");
+  const preview = document.getElementById("md-editor-preview");
+  const closeBtn = document.getElementById("md-editor-close-btn");
+  const cancelBtn = document.getElementById("md-editor-cancel-btn");
+  const saveBtn = document.getElementById("md-editor-save-btn");
+  if (!backdrop || !textarea || !preview) return;
+
+  let target = null;
+  let onSave = null;
+
+  function renderPreview() {
+    const raw = textarea.value || "";
+    if (window.marked && window.DOMPurify) {
+      preview.innerHTML = DOMPurify.sanitize(marked.parse(raw));
+    } else {
+      preview.textContent = raw;
+    }
+  }
+  textarea.addEventListener("input", renderPreview);
+
+  function close() {
+    backdrop.classList.add("hidden");
+    target = null;
+    onSave = null;
+  }
+  if (closeBtn) closeBtn.addEventListener("click", close);
+  if (cancelBtn) cancelBtn.addEventListener("click", close);
+  backdrop.addEventListener("click", (e) => { if (e.target === backdrop) close(); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !backdrop.classList.contains("hidden")) close();
+  });
+  if (saveBtn) {
+    saveBtn.addEventListener("click", () => {
+      if (target) target.value = textarea.value;
+      if (onSave) onSave();
+      close();
+    });
+  }
+
+  window.openMarkdownEditor = function (targetTextarea, onSaveCallback) {
+    target = targetTextarea;
+    onSave = onSaveCallback;
+    textarea.value = targetTextarea.value || "";
+    renderPreview();
+    backdrop.classList.remove("hidden");
+    textarea.focus();
+  };
+})();
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
 {{end}}
 {{template "layout" .}}
