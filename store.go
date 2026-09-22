@@ -167,6 +167,25 @@ func (s *Store) migrate() error {
 		last_used_at DATETIME
 	);
 
+	-- A tracked site is a website embedding the analytics SDK (see
+	-- tracking_store.go / handlers_tracking.go / static/track.js): its
+	-- events land as rows in a normal table (table_id), reusing the exact
+	-- same JSON record store every other table uses — no dedicated event
+	-- schema. Public tracking key auth mirrors api_keys.go's pattern
+	-- (random token + SHA-256 hash, prefix kept in clear for display).
+	CREATE TABLE IF NOT EXISTS tracked_sites (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		workspace_id INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+		table_id INTEGER NOT NULL REFERENCES tables(id) ON DELETE CASCADE,
+		name TEXT NOT NULL,
+		domain TEXT NOT NULL DEFAULT '',
+		key_prefix TEXT NOT NULL,
+		key_hash TEXT NOT NULL UNIQUE,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		last_used_at DATETIME
+	);
+	CREATE INDEX IF NOT EXISTS idx_tracked_sites_workspace ON tracked_sites(workspace_id);
+
 	CREATE TABLE IF NOT EXISTS activity_log (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		workspace_id INTEGER REFERENCES workspaces(id) ON DELETE CASCADE,
