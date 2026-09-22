@@ -234,6 +234,12 @@ func (e *ActivityEntry) Describe(lang string) string {
 		return T(lang, "activity.desc.site.track_event_enter", detailString(d, "siteName"), detailString(d, "url"))
 	case ActionVisualSiteCreate:
 		return T(lang, "activity.desc.visual_site.create", actor, detailString(d, "name"))
+	case ActionVisualSiteDelete:
+		return T(lang, "activity.desc.visual_site.delete", actor, detailString(d, "name"))
+	case ActionVisualSiteKeyRegenerate:
+		return T(lang, "activity.desc.visual_site.key_regenerate", actor, detailString(d, "name"))
+	case ActionVisualSiteApply:
+		return T(lang, "activity.desc.visual_site.apply", actor, detailString(d, "name"))
 	default:
 		return actor + " — " + e.Action
 	}
