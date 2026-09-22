@@ -59,6 +59,16 @@ const (
 	ActionWebhookAutoTrigger      = "webhook.auto_trigger"
 	ActionWebhookURLUpdate        = "webhook.url_update"
 	ActionWebhookSecretRegenerate = "webhook.secret_regenerate"
+
+	ActionSiteCreate        = "site.create"
+	ActionSiteDelete        = "site.delete"
+	ActionSiteKeyRegenerate = "site.key_regenerate"
+	// ActionSiteTrackEvent fires once per visitor enter/exit event — high
+	// volume by design (see handleTrackCollect), which is why logActivity
+	// excludes it from also firing the workspace's outbound webhooks: a
+	// webhook is "notify my own server of a workspace change", not "relay
+	// every anonymous pageview", and would flood a configured endpoint.
+	ActionSiteTrackEvent = "site.track_event"
 )
 
 // reversibleActions is the confirmed scope: real undo for actions on data
@@ -202,6 +212,21 @@ func (e *ActivityEntry) Describe(lang string) string {
 		return T(lang, "activity.desc.webhook.url_update", actor, detailString(d, "oldUrl"), detailString(d, "newUrl"))
 	case ActionWebhookSecretRegenerate:
 		return T(lang, "activity.desc.webhook.secret_regenerate", actor, detailString(d, "url"))
+	case ActionSiteCreate:
+		return T(lang, "activity.desc.site.create", actor, detailString(d, "name"))
+	case ActionSiteDelete:
+		return T(lang, "activity.desc.site.delete", actor, detailString(d, "name"))
+	case ActionSiteKeyRegenerate:
+		return T(lang, "activity.desc.site.key_regenerate", actor, detailString(d, "name"))
+	case ActionSiteTrackEvent:
+		// No actor: this is an anonymous visitor, not a signed-in account —
+		// unlike every other entry, the sentence deliberately doesn't start
+		// with "%s a...".
+		eventType := detailString(d, "eventType")
+		if eventType == "exit" {
+			return T(lang, "activity.desc.site.track_event_exit", detailString(d, "siteName"), detailString(d, "url"))
+		}
+		return T(lang, "activity.desc.site.track_event_enter", detailString(d, "siteName"), detailString(d, "url"))
 	default:
 		return actor + " — " + e.Action
 	}
@@ -240,7 +265,7 @@ func (a *App) logActivity(p logActivityParams) {
 	// delivers its one webhook synchronously, and broadcasting create/
 	// delete/manual-trigger to every OTHER webhook too would be surprising
 	// noise rather than a real "workspace update".
-	if !strings.HasPrefix(p.Action, "webhook.") {
+	if !strings.HasPrefix(p.Action, "webhook.") && p.Action != ActionSiteTrackEvent {
 		a.fireWebhooks(p.WorkspaceID, p.Action, p.Details)
 	}
 }
