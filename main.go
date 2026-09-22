@@ -55,6 +55,12 @@ func main() {
 	mux.HandleFunc("GET /api/v1/workspaces/{slug}/datasources/{dsSlug}/columns/{key}", app.requireAPIKey(app.handleAPIGetColumn))
 	mux.HandleFunc("GET /api/v1/workspaces/{slug}/datasources/{dsSlug}/columns/{key}/{index}", app.requireAPIKey(app.handleAPIGetColumnValue))
 	mux.HandleFunc("GET /api/v1/workspaces/{slug}/uploads/{filename}", app.handleAPIServeUpload)
+	// Public analytics ingestion — no session, no personal API key: auth is
+	// the site's own public tracking key, resolved from the JSON body (see
+	// handleTrackCollect). Reachable directly from arbitrary third-party
+	// browsers, which is why it's placed under /api/v1/ (see withAPICORS
+	// below, which grants it cross-origin access same as the read-only API).
+	mux.HandleFunc("POST /api/v1/track", app.handleTrackCollect)
 	mux.HandleFunc("GET /workspaces", app.requireAuth(app.handleWorkspacesPage))
 	mux.HandleFunc("GET /activity", app.requireAuth(app.handleGlobalActivity))
 	mux.HandleFunc("GET /api/search", app.requireAuth(app.handleGlobalSearch))
@@ -70,6 +76,13 @@ func main() {
 	mux.HandleFunc("PATCH /workspaces/{slug}/webhooks/{id}", app.requireAuth(app.handleUpdateWebhook))
 	mux.HandleFunc("POST /workspaces/{slug}/webhooks/{id}/trigger", app.requireAuth(app.handleTriggerWebhook))
 	mux.HandleFunc("POST /workspaces/{slug}/webhooks/{id}/regenerate-secret", app.requireAuth(app.handleRegenerateWebhookSecret))
+	mux.HandleFunc("POST /workspaces/{slug}/sites", app.requireAuth(app.handleCreateTrackedSite))
+	mux.HandleFunc("DELETE /workspaces/{slug}/sites/{id}", app.requireAuth(app.handleDeleteTrackedSite))
+	mux.HandleFunc("POST /workspaces/{slug}/sites/{id}/regenerate-key", app.requireAuth(app.handleRegenerateTrackedSiteKey))
+	mux.HandleFunc("GET /workspaces/{slug}/sites/{id}/dashboard", app.requireAuth(app.handleTrackingDashboard))
+	mux.HandleFunc("GET /workspaces/{slug}/sites/{id}/dashboard/data", app.requireAuth(app.handleTrackingDashboardData))
+	mux.HandleFunc("GET /workspaces/{slug}/sites/{id}/events/recent", app.requireAuth(app.handleTrackingRecentEvents))
+	mux.HandleFunc("GET /plugins", app.requireAuth(app.handleGlobalPlugins))
 	// Public callback a webhook receiver posts real-time progress updates
 	// to — see webhooks.go's progressUrl convention. No session auth: the
 	// external server calling this isn't a logged-in browser. Guarded only
@@ -129,8 +142,16 @@ func withAPICORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/v1/") {
 			w.Header().Set("Access-Control-Allow-Origin", "*")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+			if r.URL.Path == "/api/v1/track" {
+				// The tracking SDK sends a plain JSON POST with no
+				// Authorization header (its key travels in the body, see
+				// handleTrackCollect) — only Content-Type needs allowing.
+				w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			} else {
+				w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+				w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+			}
 			if r.Method == http.MethodOptions {
 				w.WriteHeader(http.StatusNoContent)
 				return
