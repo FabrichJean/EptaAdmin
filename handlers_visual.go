@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 )
 
 // loadVisualSiteInWorkspace mirrors loadTrackedSiteInWorkspace: fetch a
@@ -187,7 +186,7 @@ func (a *App) handleGenerateVisualEditLink(w http.ResponseWriter, r *http.Reques
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "visual.domain_required")})
 		return
 	}
-	token, err := a.generateEditToken(site.ID, site.TokenGeneration)
+	token, err := a.generateEditToken(site.ID, site.TokenGeneration, currentUser.ID)
 	if err != nil {
 		log.Printf("generate visual edit token error: %v", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
@@ -222,27 +221,13 @@ func (a *App) handleVisualSiteDashboard(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
-	fields, err := a.store.ListVisualFields(site.ID)
-	if err != nil {
-		log.Printf("list visual fields error: %v", err)
-		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
-		return
-	}
-	syncedTableSlug := ""
-	if site.SyncedTableID.Valid {
-		if t, err := a.store.GetTable(site.SyncedTableID.Int64); err == nil && t != nil {
-			syncedTableSlug = t.Slug
-		}
-	}
 
 	a.render(w, r, "visual_dashboard.html", map[string]any{
-		"CurrentUser":     currentUser,
-		"ActiveNav":       "plugins",
-		"PageTitle":       site.Name,
-		"Workspace":       ws,
-		"Site":            site,
-		"Fields":          fields,
-		"SyncedTableSlug": syncedTableSlug,
+		"CurrentUser": currentUser,
+		"ActiveNav":   "plugins",
+		"PageTitle":   site.Name,
+		"Workspace":   ws,
+		"Site":        site,
 		"Breadcrumb": []Breadcrumb{
 			{Label: T(lang, "nav.workspaces"), URL: "/workspaces"},
 			{Label: ws.Name, URL: "/workspaces/" + ws.Slug},
@@ -254,108 +239,99 @@ func (a *App) handleVisualSiteDashboard(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
-// handleDeleteVisualFieldFromDashboard lets an admin unlink a mapped
-// element from inside EptaAdmin, not only from the live site's delete
-// affordance.
-func (a *App) handleDeleteVisualFieldFromDashboard(w http.ResponseWriter, r *http.Request) {
-	currentUser := userFromContext(r)
-	lang := a.resolveLang(r)
-	ws, role, ok := a.loadWorkspaceMembership(w, r, currentUser)
-	if !ok {
-		return
+// resolveVisualWrite validates a write-capable public call (write/clear
+// cell, upload): the key must resolve to a real site AND the token must
+// verify for that exact site. Both fail the same way (site=nil) so a
+// caller can't distinguish "bad key" from "bad token" — no reason to help
+// someone probing for valid keys/tokens tell those apart. Also returns the
+// admin's user ID embedded in the token, so callers can attribute the
+// resulting activity log entry to a real account instead of "unknown".
+func (a *App) resolveVisualWrite(key, token string) (*VisualSite, int64) {
+	site, err := a.store.GetVisualSiteByKeyToken(key)
+	if err != nil || site == nil {
+		return nil, 0
 	}
-	if !hasPermission(role, PermSettingsManage) {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": T(lang, "common.access_denied")})
-		return
+	userID, ok, err := a.verifyEditToken(token, site.ID, site.TokenGeneration)
+	if err != nil || !ok {
+		return nil, 0
 	}
-	site, ok := a.loadVisualSiteInWorkspace(w, r, ws)
-	if !ok {
-		return
-	}
-	fieldID, err := strconv.ParseInt(r.PathValue("fieldID"), 10, 64)
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	if err := a.store.DeleteVisualFieldByID(fieldID, site.ID); err != nil {
-		log.Printf("delete visual field error: %v", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	return site, userID
 }
 
-// visualSyncColumnKeys are the fixed columns of a visual site's synced
-// snapshot table — one row per currently-mapped field, rebuilt from
-// scratch on every "Appliquer" click (see handleApplyVisualSiteToDataSource).
-var visualSyncColumnKeys = []string{"page_url", "selector", "type", "value", "updated_at"}
+// resolveVisualTargetTable loads the workspace+table a write/clear call
+// targets, and verifies the workspace actually matches the tracked
+// site's own workspace — without this, a forged workspaceSlug in the
+// request body could point a valid site's key/token at a completely
+// different workspace's data.
+func (a *App) resolveVisualTargetTable(site *VisualSite, workspaceSlug, tableSlug string) (*Workspace, *Table, bool) {
+	ws, err := a.store.GetWorkspaceBySlug(workspaceSlug)
+	if err != nil || ws == nil || ws.ID != site.WorkspaceID {
+		return nil, nil, false
+	}
+	t, err := a.store.GetTableByWorkspaceSlug(ws.ID, tableSlug)
+	if err != nil || t == nil {
+		return nil, nil, false
+	}
+	return ws, t, true
+}
 
-// handleApplyVisualSiteToDataSource materializes the visual site's
-// current edited-elements state into a real, browsable/exportable table —
-// visual_fields (store.go) stays the live source of truth the SDK reads
-// from, this is a manual, on-demand snapshot for people who want to see
-// or export the same data through the standard grid/API surface. Each
-// click fully overwrites the table's contents with a fresh snapshot
-// (not an incremental append, unlike tracking's event log) — the synced
-// table is created once (first click) and reused on every later one, via
-// VisualSite.SyncedTableID.
-func (a *App) handleApplyVisualSiteToDataSource(w http.ResponseWriter, r *http.Request) {
-	currentUser := userFromContext(r)
-	lang := a.resolveLang(r)
-	ws, role, ok := a.loadWorkspaceMembership(w, r, currentUser)
+type visualWriteCellRequest struct {
+	Key           string `json:"key"`
+	Token         string `json:"token"`
+	WorkspaceSlug string `json:"workspaceSlug"`
+	TableSlug     string `json:"tableSlug"`
+	Column        string `json:"column"`
+	Index         int    `json:"index"`
+	Value         string `json:"value"`
+	Type          string `json:"type"`
+}
+
+// handleVisualWriteCell is the direct-write counterpart to the grid's own
+// handleSaveRecords (handlers_table.go) — same underlying mechanism
+// (CoerceTyped + RecordStore.UpdateField under dataWriteMu), just reached
+// through the site's public key + a short-lived edit token instead of a
+// session cookie, since this is called cross-origin from the client site
+// being edited rather than from EptaAdmin's own UI. The resulting
+// activity entry reuses ActionValueUpdate — a visual edit and a grid edit
+// are the same kind of action, and this way it's undoable through the
+// existing Activité "Annuler" mechanism too.
+func (a *App) handleVisualWriteCell(w http.ResponseWriter, r *http.Request) {
+	var req visualWriteCellRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	site, userID := a.resolveVisualWrite(req.Key, req.Token)
+	if site == nil {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+	ws, t, ok := a.resolveVisualTargetTable(site, req.WorkspaceSlug, req.TableSlug)
 	if !ok {
-		return
-	}
-	if !hasPermission(role, PermSettingsManage) {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": T(lang, "common.access_denied")})
-		return
-	}
-	site, ok := a.loadVisualSiteInWorkspace(w, r, ws)
-	if !ok {
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
-	var t *Table
-	if site.SyncedTableID.Valid {
-		existing, err := a.store.GetTable(site.SyncedTableID.Int64)
-		if err != nil {
-			log.Printf("get synced visual table error: %v", err)
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
-			return
-		}
-		t = existing
-	}
-	if t == nil {
-		ds, err := a.store.GetOrCreateVisualSitesDataSource(ws.ID)
-		if err != nil {
-			log.Printf("get or create visual sites data source error: %v", err)
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
-			return
-		}
-		newTable, err := a.store.CreateTable(ds.ID, ws.ID, site.Name)
-		if err != nil {
-			log.Printf("create visual sync table error: %v", err)
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
-			return
-		}
-		if err := SaveRecordStore(newTable.StoragePath, RecordStore{}); err != nil {
-			log.Printf("init visual sync table store error: %v", err)
-		}
-		for _, key := range visualSyncColumnKeys {
-			if _, err := a.store.AddTableColumn(newTable.ID, key, ColumnTypeText, ""); err != nil && err != ErrTableColumnExists {
-				log.Printf("add visual sync column error: %v", err)
-			}
-		}
-		if err := a.store.SetVisualSiteSyncedTableID(site.ID, newTable.ID); err != nil {
-			log.Printf("set visual site synced table error: %v", err)
-		}
-		t = newTable
-	}
-
-	fields, err := a.store.ListVisualFields(site.ID)
+	columns, err := a.store.ListTableColumns(t.ID)
 	if err != nil {
-		log.Printf("list visual fields error: %v", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		log.Printf("list table columns error: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	known := false
+	for _, c := range columns {
+		if c.Key == req.Column {
+			known = true
+			break
+		}
+	}
+	if !known {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	value, err := CoerceTyped("en", req.Type, req.Value)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -364,167 +340,109 @@ func (a *App) handleApplyVisualSiteToDataSource(w http.ResponseWriter, r *http.R
 
 	fresh, err := a.store.GetTable(t.ID)
 	if err != nil || fresh == nil {
-		log.Printf("get table error: %v", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
-	records := RecordStore{}
-	for _, f := range fields {
-		values := map[string]string{
-			"page_url":   f.PageURL,
-			"selector":   f.Selector,
-			"type":       f.ValueType,
-			"value":      f.Value,
-			"updated_at": f.UpdatedAt.Format(time.RFC3339),
-		}
-		for _, key := range visualSyncColumnKeys {
-			records, _ = records.AppendField(key, values[key])
-		}
+	records, err := LoadRecordStore(fresh.StoragePath)
+	if err != nil {
+		log.Printf("load visual target record store error: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
-
+	col := records.Column(req.Column)
+	if req.Index < 0 || req.Index >= len(col) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	oldValue := col[req.Index]
+	if err := records.UpdateField(req.Column, req.Index, value); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	newData, err := json.MarshalIndent(records, "", "  ")
 	if err != nil {
-		log.Printf("marshal visual sync record store error: %v", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		log.Printf("marshal visual target record store error: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	if err := EnsureWorkspaceStorageWithinLimit(ws.ID, fresh.StoragePath, int64(len(newData))); err != nil {
-		if err == ErrWorkspaceStorageLimitExceeded {
-			writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": T(lang, "datasource.storage_limit_exceeded")})
-			return
-		}
-		log.Printf("check workspace storage limit error: %v", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		w.WriteHeader(http.StatusRequestEntityTooLarge)
 		return
 	}
 	if err := SaveRecordStore(fresh.StoragePath, records); err != nil {
-		log.Printf("save visual sync record store error: %v", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": T(lang, "datasource.write_error")})
+		log.Printf("save visual target record store error: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	if _, err := a.store.BumpTableVersion(fresh.ID, fresh.Version); err != nil {
-		log.Printf("bump visual sync table version error: %v", err)
+		log.Printf("bump visual target table version error: %v", err)
 	}
 
-	a.logActivity(logActivityParams{WorkspaceID: ws.ID, TableID: fresh.ID, UserID: currentUser.ID, Action: ActionVisualSiteApply, Details: map[string]any{"name": site.Name, "count": len(fields)}})
+	a.logActivity(logActivityParams{WorkspaceID: ws.ID, TableID: fresh.ID, UserID: userID, Action: ActionValueUpdate, Details: map[string]any{"column": req.Column, "index": req.Index, "oldValue": oldValue, "newValue": value}})
 
-	writeJSON(w, http.StatusOK, map[string]any{"tableSlug": fresh.Slug, "count": len(fields)})
-}
-
-// --- Public API, called cross-origin from the client site by
-// static/visual.js. See main.go's withAPICORS for the /api/v1/visual/
-// CORS allowance (GET/POST/DELETE/OPTIONS, Content-Type only — no
-// Authorization header, everything travels in the body/query since a
-// bare <script> tag on an arbitrary third-party page can't manage one).
-
-type visualFieldPublic struct {
-	Selector string `json:"selector"`
-	Type     string `json:"type"`
-	Value    string `json:"value"`
-}
-
-// handleVisualListFields is what EVERY visitor's page load calls (edit
-// mode or not) — it's how an edit becomes visible to everyone, not just
-// the admin who made it. Public and read-only, same trust level as the
-// tracking key: knowing it only lets you read this site's own edited
-// content, nothing else.
-func (a *App) handleVisualListFields(w http.ResponseWriter, r *http.Request) {
-	key := r.URL.Query().Get("key")
-	url := r.URL.Query().Get("url")
-	site, err := a.store.GetVisualSiteByKeyToken(key)
-	if err != nil {
-		log.Printf("resolve visual site error: %v", err)
-		writeJSON(w, http.StatusOK, []visualFieldPublic{})
-		return
-	}
-	if site == nil {
-		writeJSON(w, http.StatusOK, []visualFieldPublic{})
-		return
-	}
-	fields, err := a.store.ListVisualFieldsForPage(site.ID, url)
-	if err != nil {
-		log.Printf("list visual fields for page error: %v", err)
-		writeJSON(w, http.StatusOK, []visualFieldPublic{})
-		return
-	}
-	out := make([]visualFieldPublic, len(fields))
-	for i, f := range fields {
-		out[i] = visualFieldPublic{Selector: f.Selector, Type: f.ValueType, Value: f.Value}
-	}
-	writeJSON(w, http.StatusOK, out)
-}
-
-// resolveVisualWrite validates a write-capable public call (save/delete
-// field, upload): the key must resolve to a real site AND the token must
-// verify for that exact site. Both fail the same way (site=nil) so a
-// caller can't distinguish "bad key" from "bad token" — no reason to help
-// someone probing for valid keys/tokens tell those apart.
-func (a *App) resolveVisualWrite(key, token string) *VisualSite {
-	site, err := a.store.GetVisualSiteByKeyToken(key)
-	if err != nil || site == nil {
-		return nil
-	}
-	ok, err := a.verifyEditToken(token, site.ID, site.TokenGeneration)
-	if err != nil || !ok {
-		return nil
-	}
-	return site
-}
-
-type visualSaveFieldRequest struct {
-	Key      string `json:"key"`
-	Token    string `json:"token"`
-	URL      string `json:"url"`
-	Selector string `json:"selector"`
-	Type     string `json:"type"`
-	Value    string `json:"value"`
-}
-
-func (a *App) handleVisualSaveField(w http.ResponseWriter, r *http.Request) {
-	var req visualSaveFieldRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	site := a.resolveVisualWrite(req.Key, req.Token)
-	if site == nil {
-		w.WriteHeader(http.StatusForbidden)
-		return
-	}
-	if req.URL == "" || req.Selector == "" || (req.Type != "text" && req.Type != "image") {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	if err := a.store.UpsertVisualField(site.ID, req.URL, req.Selector, req.Type, req.Value); err != nil {
-		log.Printf("upsert visual field error: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (a *App) handleVisualDeleteField(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Key      string `json:"key"`
-		Token    string `json:"token"`
-		URL      string `json:"url"`
-		Selector string `json:"selector"`
-	}
+type visualClearCellRequest struct {
+	Key           string `json:"key"`
+	Token         string `json:"token"`
+	WorkspaceSlug string `json:"workspaceSlug"`
+	TableSlug     string `json:"tableSlug"`
+	Column        string `json:"column"`
+	Index         int    `json:"index"`
+}
+
+// handleVisualClearCell is the "✕" delete affordance's target — clears a
+// cell's value (RecordStore.DeleteField, same as the grid's own delete),
+// not the whole record, so every other field's alignment to it is
+// undisturbed (see DeleteField's own doc comment in jsondata.go).
+func (a *App) handleVisualClearCell(w http.ResponseWriter, r *http.Request) {
+	var req visualClearCellRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	site := a.resolveVisualWrite(req.Key, req.Token)
+	site, userID := a.resolveVisualWrite(req.Key, req.Token)
 	if site == nil {
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
-	if err := a.store.DeleteVisualField(site.ID, req.URL, req.Selector); err != nil {
-		log.Printf("delete visual field error: %v", err)
+	ws, t, ok := a.resolveVisualTargetTable(site, req.WorkspaceSlug, req.TableSlug)
+	if !ok {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	dataWriteMu.Lock()
+	defer dataWriteMu.Unlock()
+
+	fresh, err := a.store.GetTable(t.ID)
+	if err != nil || fresh == nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	records, err := LoadRecordStore(fresh.StoragePath)
+	if err != nil {
+		log.Printf("load visual target record store error: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	oldValue, err := records.DeleteField(req.Column, req.Index)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if err := SaveRecordStore(fresh.StoragePath, records); err != nil {
+		log.Printf("save visual target record store error: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if _, err := a.store.BumpTableVersion(fresh.ID, fresh.Version); err != nil {
+		log.Printf("bump visual target table version error: %v", err)
+	}
+
+	a.logActivity(logActivityParams{WorkspaceID: ws.ID, TableID: fresh.ID, UserID: userID, Action: ActionValueDelete, Details: map[string]any{"column": req.Column, "index": req.Index, "value": oldValue}})
+
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -540,7 +458,7 @@ func (a *App) handleVisualUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	key := r.FormValue("key")
 	token := r.FormValue("token")
-	site := a.resolveVisualWrite(key, token)
+	site, _ := a.resolveVisualWrite(key, token)
 	if site == nil {
 		w.WriteHeader(http.StatusForbidden)
 		return
@@ -610,7 +528,7 @@ func (a *App) handleVisualVerifyToken(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": false})
 		return
 	}
-	site := a.resolveVisualWrite(req.Key, req.Token)
+	site, _ := a.resolveVisualWrite(req.Key, req.Token)
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": site != nil})
 }
 
@@ -630,7 +548,7 @@ func (a *App) handleVisualLogout(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	site := a.resolveVisualWrite(req.Key, req.Token)
+	site, _ := a.resolveVisualWrite(req.Key, req.Token)
 	if site != nil {
 		if err := a.store.BumpVisualSiteTokenGeneration(site.ID); err != nil {
 			log.Printf("bump visual site token generation error: %v", err)
