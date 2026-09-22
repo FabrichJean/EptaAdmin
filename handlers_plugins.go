@@ -5,13 +5,16 @@ import (
 	"net/http"
 )
 
-// pluginGroup pairs one workspace with its tracked sites — the "Plugins"
-// hub page's only integration type today is Tracking, but the shape
-// (a workspace, its list of configured instances) is generic enough to
-// grow a second plugin type later without reshaping this struct.
+// pluginGroup pairs one workspace with its tracked sites.
 type pluginGroup struct {
 	Workspace *UserWorkspace
 	Sites     []trackedSiteView
+}
+
+// visualPluginGroup mirrors pluginGroup for the Visual integration type.
+type visualPluginGroup struct {
+	Workspace *UserWorkspace
+	Sites     []*VisualSite
 }
 
 // handleGlobalPlugins lists every tracked site across every workspace the
@@ -33,7 +36,13 @@ func (a *App) handleGlobalPlugins(w http.ResponseWriter, r *http.Request) {
 
 	groups := make([]pluginGroup, 0, len(workspaces))
 	hasAnySites := false
+	visualGroups := make([]visualPluginGroup, 0, len(workspaces))
+	hasAnyVisualSites := false
+	manageableWorkspaces := make([]*UserWorkspace, 0, len(workspaces))
 	for _, ws := range workspaces {
+		if hasPermission(ws.Role, PermSettingsManage) {
+			manageableWorkspaces = append(manageableWorkspaces, ws)
+		}
 		if !hasPermission(ws.Role, PermDataRead) {
 			continue
 		}
@@ -55,6 +64,9 @@ func (a *App) handleGlobalPlugins(w http.ResponseWriter, r *http.Request) {
 			hasAnySites = true
 		}
 		groups = append(groups, pluginGroup{Workspace: ws, Sites: sites})
+
+		visualSites, err := a.store.ListVisualSites(ws.ID)
+		if err != nil {
 	}
 
 	a.render(w, r, "plugins.html", map[string]any{
