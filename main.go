@@ -96,6 +96,12 @@ func main() {
 	mux.HandleFunc("GET /plugins", app.requireAuth(app.handleGlobalPlugins))
 	mux.HandleFunc("POST /workspaces/{slug}/visual-sites", app.requireAuth(app.handleCreateVisualSite))
 	mux.HandleFunc("DELETE /workspaces/{slug}/visual-sites/{id}", app.requireAuth(app.handleDeleteVisualSite))
+	mux.HandleFunc("POST /workspaces/{slug}/visual-sites/{id}/regenerate-key", app.requireAuth(app.handleRegenerateVisualSiteKey))
+	mux.HandleFunc("PATCH /workspaces/{slug}/visual-sites/{id}/domain", app.requireAuth(app.handleUpdateVisualSiteDomain))
+	mux.HandleFunc("POST /workspaces/{slug}/visual-sites/{id}/apply-to-datasource", app.requireAuth(app.handleApplyVisualSiteToDataSource))
+	mux.HandleFunc("POST /workspaces/{slug}/visual-sites/{id}/edit-link", app.requireAuth(app.handleGenerateVisualEditLink))
+	mux.HandleFunc("GET /workspaces/{slug}/visual-sites/{id}/dashboard", app.requireAuth(app.handleVisualSiteDashboard))
+	mux.HandleFunc("DELETE /workspaces/{slug}/visual-sites/{id}/fields/{fieldID}", app.requireAuth(app.handleDeleteVisualFieldFromDashboard))
 	// Public callback a webhook receiver posts real-time progress updates
 	// to — see webhooks.go's progressUrl convention. No session auth: the
 	// external server calling this isn't a logged-in browser. Guarded only
@@ -160,6 +166,13 @@ func withAPICORS(next http.Handler) http.Handler {
 				// Authorization header (its key travels in the body, see
 				// handleTrackCollect) — only Content-Type needs allowing.
 				w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			} else if strings.HasPrefix(r.URL.Path, "/api/v1/visual/") {
+				// Same body-only auth story as tracking (key/token travel in
+				// the JSON body or multipart form, never a header), but the
+				// visual SDK also needs GET (read overrides) and DELETE
+				// (unlink a field) alongside POST.
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
 				w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 			} else {
 				w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
