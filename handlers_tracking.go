@@ -385,6 +385,7 @@ func (a *App) handleTrackingDashboard(w http.ResponseWriter, r *http.Request) {
 		"Site":        site,
 		"TableSlug":   t.Slug,
 		"Stats":       stats,
+		"WorldMapSVG": worldMapSVG,
 		"Breadcrumb": []Breadcrumb{
 			{Label: T(lang, "nav.workspaces"), URL: "/workspaces"},
 			{Label: ws.Name, URL: "/workspaces/" + ws.Slug},
