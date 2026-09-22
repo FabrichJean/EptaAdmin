@@ -143,3 +143,148 @@ func (s *Store) ListVisualSites(workspaceID int64) ([]*VisualSite, error) {
 	defer rows.Close()
 
 	var out []*VisualSite
+	for rows.Next() {
+		site, err := scanVisualSite(rows.Scan)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, site)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) DeleteVisualSite(id, workspaceID int64) error {
+	_, err := s.db.Exec(`DELETE FROM visual_sites WHERE id = ? AND workspace_id = ?`, id, workspaceID)
+	return err
+}
+
+// UpdateVisualSiteDomain lets the admin set/change the domain after
+// creation — the "Générer un lien d'édition" button needs one, and
+// nothing required entering it up front at creation time.
+func (s *Store) UpdateVisualSiteDomain(id, workspaceID int64, domain string) error {
+	_, err := s.db.Exec(`UPDATE visual_sites SET domain = ? WHERE id = ? AND workspace_id = ?`, domain, id, workspaceID)
+	return err
+}
+
+// RegenerateVisualSiteKey mirrors RegenerateTrackedSiteKey — rotates a
+// leaked/rotated key, returning the new plaintext once.
+func (s *Store) RegenerateVisualSiteKey(id int64) (string, error) {
+	token, err := generateVisualKeyToken()
+	if err != nil {
+		return "", err
+	}
+	hash := hashVisualKeyToken(token)
+	prefix := token
+	if len(prefix) > visualKeyPrefixDisplayLen {
+		prefix = prefix[:visualKeyPrefixDisplayLen]
+	}
+	if _, err := s.db.Exec(`UPDATE visual_sites SET key_hash = ?, key_prefix = ? WHERE id = ?`, hash, prefix, id); err != nil {
+		return "", err
+	}
+	return token, nil
+}
+
+// GetVisualSiteByKeyToken resolves a plaintext public key (as sent by the
+// SDK) to its site — used by every public /api/v1/visual/* call.
+func (s *Store) GetVisualSiteByKeyToken(token string) (*VisualSite, error) {
+	hash := hashVisualKeyToken(token)
+	row := s.db.QueryRow(`SELECT `+visualSiteColumns+` FROM visual_sites WHERE key_hash = ?`, hash)
+	site, err := scanVisualSite(row.Scan)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil || site == nil {
+		return site, err
+	}
+	_, _ = s.db.Exec(`UPDATE visual_sites SET last_used_at = CURRENT_TIMESTAMP WHERE key_hash = ?`, hash)
+	return site, nil
+}
+
+// VisualField is one edited element's current state.
+type VisualField struct {
+	ID        int64
+	SiteID    int64
+	PageURL   string
+	Selector  string
+	ValueType string
+	Value     string
+	UpdatedAt time.Time
+}
+
+const visualFieldColumns = `id, site_id, page_url, selector, value_type, value, updated_at`
+
+func scanVisualField(scan func(dest ...any) error) (*VisualField, error) {
+	f := &VisualField{}
+	err := scan(&f.ID, &f.SiteID, &f.PageURL, &f.Selector, &f.ValueType, &f.Value, &f.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
+}
+
+// UpsertVisualField creates or overwrites the current value for one
+// (site, page, selector) — an edit always replaces the whole prior state
+// for that element, there's no history kept (unlike tracking's append-only
+// events, visual fields are current-state only, see store.go's schema
+// comment).
+func (s *Store) UpsertVisualField(siteID int64, pageURL, selector, valueType, value string) error {
+	_, err := s.db.Exec(
+		`INSERT INTO visual_fields (site_id, page_url, selector, value_type, value) VALUES (?, ?, ?, ?, ?)
+		 ON CONFLICT (site_id, page_url, selector) DO UPDATE SET value_type = excluded.value_type, value = excluded.value, updated_at = CURRENT_TIMESTAMP`,
+		siteID, pageURL, selector, valueType, value,
+	)
+	return err
+}
+
+func (s *Store) DeleteVisualField(siteID int64, pageURL, selector string) error {
+	_, err := s.db.Exec(`DELETE FROM visual_fields WHERE site_id = ? AND page_url = ? AND selector = ?`, siteID, pageURL, selector)
+	return err
+}
+
+// ListVisualFieldsForPage is the SDK's per-pageview lookup: every override
+// to apply for one exact URL.
+func (s *Store) ListVisualFieldsForPage(siteID int64, pageURL string) ([]*VisualField, error) {
+	rows, err := s.db.Query(`SELECT `+visualFieldColumns+` FROM visual_fields WHERE site_id = ? AND page_url = ?`, siteID, pageURL)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*VisualField
+	for rows.Next() {
+		f, err := scanVisualField(rows.Scan)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, f)
+	}
+	return out, rows.Err()
+}
+
+// ListVisualFields is the EptaAdmin-side management view: every mapped
+// element across the whole site, newest-updated first.
+func (s *Store) ListVisualFields(siteID int64) ([]*VisualField, error) {
+	rows, err := s.db.Query(`SELECT `+visualFieldColumns+` FROM visual_fields WHERE site_id = ? ORDER BY updated_at DESC`, siteID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*VisualField
+	for rows.Next() {
+		f, err := scanVisualField(rows.Scan)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, f)
+	}
+	return out, rows.Err()
+}
+
+// DeleteVisualFieldByID lets the admin remove a mapping from EptaAdmin's
+// own UI, not only from the live site — scoped to siteID so one site's
+// admin can never delete another's field even by guessing an id.
+func (s *Store) DeleteVisualFieldByID(id, siteID int64) error {
+	_, err := s.db.Exec(`DELETE FROM visual_fields WHERE id = ? AND site_id = ?`, id, siteID)
+	return err
+}
