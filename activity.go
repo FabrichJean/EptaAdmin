@@ -69,6 +69,11 @@ const (
 	// webhook is "notify my own server of a workspace change", not "relay
 	// every anonymous pageview", and would flood a configured endpoint.
 	ActionSiteTrackEvent = "site.track_event"
+
+	ActionVisualSiteCreate        = "visual_site.create"
+	ActionVisualSiteDelete        = "visual_site.delete"
+	ActionVisualSiteKeyRegenerate = "visual_site.key_regenerate"
+	ActionVisualSiteApply         = "visual_site.apply"
 )
 
 // reversibleActions is the confirmed scope: real undo for actions on data
@@ -227,6 +232,8 @@ func (e *ActivityEntry) Describe(lang string) string {
 			return T(lang, "activity.desc.site.track_event_exit", detailString(d, "siteName"), detailString(d, "url"))
 		}
 		return T(lang, "activity.desc.site.track_event_enter", detailString(d, "siteName"), detailString(d, "url"))
+	case ActionVisualSiteCreate:
+		return T(lang, "activity.desc.visual_site.create", actor, detailString(d, "name"))
 	default:
 		return actor + " — " + e.Action
 	}

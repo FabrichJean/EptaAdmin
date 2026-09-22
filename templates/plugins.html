@@ -132,5 +132,84 @@
   const nameInput = document.getElementById("visual-name");
   const domainInput = document.getElementById("visual-domain");
   const errorBox = document.getElementById("add-visual-error");
+  const submitBtn = document.getElementById("submit-visual-btn");
+  const keyReveal = document.getElementById("visual-key-reveal");
+  const keyValue = document.getElementById("visual-key-value");
+  const snippetCode = document.getElementById("visual-snippet-code");
+  const I18N = {
+    errorRetry: "{{t .Lang "common.error_generic_retry"}}",
+    cannotContact: "{{t .Lang "datasource.cannot_contact_server"}}",
+    nameRequired: "{{t .Lang "sites.name_required"}}",
+    copyLabel: "{{t .Lang "common.copy"}}",
+    copiedLabel: "{{t .Lang "common.copied"}}",
+  };
+
+  if (addBtn && addForm) {
+    addBtn.addEventListener("click", () => {
+      addForm.classList.toggle("hidden");
+      if (!addForm.classList.contains("hidden")) nameInput?.focus();
+    });
+  }
+
+  function buildVisualSnippet(key) {
+    return `<script src="${location.origin}/static/visual.js" data-key="${key}"><\/script>`;
+  }
+
+  if (submitBtn) {
+    submitBtn.addEventListener("click", async () => {
+      const name = nameInput.value.trim();
+      const domain = domainInput.value.trim();
+      errorBox.classList.add("hidden");
+      if (!name) {
+        errorBox.textContent = I18N.nameRequired;
+        errorBox.classList.remove("hidden");
+        return;
+      }
+      try {
+        const res = await fetch(`/workspaces/${wsSelect.value}/visual-sites`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, domain }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          errorBox.textContent = body.error || I18N.errorRetry;
+          errorBox.classList.remove("hidden");
+          return;
+        }
+        addForm.classList.add("hidden");
+        nameInput.value = "";
+        domainInput.value = "";
+        keyValue.textContent = body.key;
+        snippetCode.textContent = buildVisualSnippet(body.key);
+        keyReveal.classList.remove("hidden");
+        keyReveal.dataset.pendingReload = "1";
+      } catch (e) {
+        errorBox.textContent = I18N.cannotContact;
+        errorBox.classList.remove("hidden");
+      }
+    });
+  }
+
+  const snippetCopyBtn = document.getElementById("visual-snippet-copy-btn");
+  if (snippetCopyBtn) {
+    snippetCopyBtn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(snippetCode.textContent);
+        snippetCopyBtn.textContent = I18N.copiedLabel;
+        setTimeout(() => { snippetCopyBtn.textContent = I18N.copyLabel; }, 1500);
+      } catch (e) {}
+    });
+  }
+
+  const dismissBtn = document.getElementById("visual-key-dismiss-btn");
+  if (dismissBtn) {
+    dismissBtn.addEventListener("click", () => {
+      if (keyReveal.dataset.pendingReload) { location.reload(); return; }
+      keyReveal.classList.add("hidden");
+    });
+  }
+})();
+</script>
 {{end}}
 {{template "layout" .}}
