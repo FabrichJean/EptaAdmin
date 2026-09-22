@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -71,6 +72,7 @@ type sessionSummary struct {
 	Browser    string
 	OS         string
 	Device     string
+	Country    string // ISO 3166-1 alpha-2, "" if unresolved (see lookupCountry)
 }
 
 type breakdownEntry struct {
@@ -78,6 +80,17 @@ type breakdownEntry struct {
 	Count   int
 	Percent float64
 	Color   string // only set for BrowserBreakdown, used by the Overview donut
+}
+
+// countryBreakdownEntry is one row of the map's "top countries" legend —
+// Code is the ISO 3166-1 alpha-2 id, matching a <path id="CODE"> in the
+// embedded world map SVG so the frontend can color it directly.
+type countryBreakdownEntry struct {
+	Code      string
+	Name      string
+	Count     int
+	Percent   float64
+	FillColor string // ready-to-use CSS color, server-rendered so the map has correct colors on first paint (JS only recomputes this on a range switch)
 }
 
 // donutPalette assigns a stable color to each browser breakdown slice —
@@ -127,6 +140,21 @@ func formatPercent(p float64) string {
 	return strconv.FormatFloat(float64(whole)/100, 'f', 2, 64)
 }
 
+// countryFillColor computes the world map's per-country fill, scaled by
+// visit share relative to the busiest country in the breakdown (accent
+// green, opacity 0.15–0.90). Rendered server-side so the map has correct
+// colors on first paint — the Overview tab's JS (renderCountryMap in
+// templates/tracking_dashboard.html) recomputes the exact same formula
+// when the range dropdown changes, since that path stays JS-only.
+func countryFillColor(count, maxCount int) string {
+	intensity := 0.0
+	if maxCount > 0 {
+		intensity = float64(count) / float64(maxCount)
+	}
+	opacity := 0.15 + 0.75*intensity
+	return "rgba(52, 211, 153, " + strconv.FormatFloat(opacity, 'f', 2, 64) + ")"
+}
+
 // dashboardStats is everything the Overview tab needs, computed in one
 // pass over the table's record store — see computeDashboardStats.
 type dashboardStats struct {
@@ -140,6 +168,7 @@ type dashboardStats struct {
 	BrowserBreakdown   []breakdownEntry
 	DonutGradient      string
 	TopPages           []breakdownEntry
+	CountryBreakdown   []countryBreakdownEntry
 	Sessions           []sessionSummary
 	RecentEvents       []recentEvent
 	ActivityPage       int
@@ -210,7 +239,13 @@ func computeDashboardStats(records RecordStore, cutoff time.Time, rangeLabel str
 		if !exists {
 			ua, _ := rec["user_agent"].(string)
 			browser, os, device := parseUserAgent(ua)
-			s = &sessionSummary{SessionID: sid, FirstSeen: ts, LastSeen: ts, Browser: browser, OS: os, Device: device}
+			country := ""
+			if ipStr, _ := rec["ip_public"].(string); ipStr != "" {
+				if code, ok := lookupCountry(net.ParseIP(ipStr)); ok {
+					country = code
+				}
+			}
+			s = &sessionSummary{SessionID: sid, FirstSeen: ts, LastSeen: ts, Browser: browser, OS: os, Device: device, Country: country}
 			sessions[sid] = s
 			order = append(order, sid)
 		}
@@ -331,6 +366,29 @@ func computeDashboardStats(records RecordStore, cutoff time.Time, rangeLabel str
 		topPages = topPages[:8]
 	}
 
+	countryCounts := map[string]int{}
+	for _, s := range inRangeSessions {
+		if s.Country == "" {
+			continue // unresolved (IPv6, private/loopback, or unknown range) — excluded from the map/legend rather than shown as a fake "unknown" slice
+		}
+		countryCounts[s.Country]++
+	}
+	countryBreakdownRaw := breakdownFromCounts(countryCounts, uniqueSessions)
+	maxCountryCount := 0
+	if len(countryBreakdownRaw) > 0 {
+		maxCountryCount = countryBreakdownRaw[0].Count
+	}
+	countryBreakdown := make([]countryBreakdownEntry, len(countryBreakdownRaw))
+	for i, e := range countryBreakdownRaw {
+		countryBreakdown[i] = countryBreakdownEntry{
+			Code: e.Name, Name: countryName(e.Name), Count: e.Count, Percent: e.Percent,
+			FillColor: countryFillColor(e.Count, maxCountryCount),
+		}
+	}
+	if len(countryBreakdown) > 10 {
+		countryBreakdown = countryBreakdown[:10]
+	}
+
 	summaries := make([]sessionSummary, 0, len(inRangeSessions))
 	for _, s := range inRangeSessions {
 		summaries = append(summaries, *s)
@@ -348,6 +406,7 @@ func computeDashboardStats(records RecordStore, cutoff time.Time, rangeLabel str
 		BrowserBreakdown:   browserBreakdown,
 		DonutGradient:      donutGradient,
 		TopPages:           topPages,
+		CountryBreakdown:   countryBreakdown,
 		Sessions:           summaries,
 		RecentEvents:       recentEvents,
 		ActivityPage:       activityPage,
