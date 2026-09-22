@@ -155,6 +155,62 @@
         </div>
       </div>
 
+      <div class="flex items-center justify-between gap-3 pt-4">
+        <div>
+          <h2 class="text-sm font-semibold" style="color: var(--eb-text);">{{t .Lang "sites.title"}}</h2>
+          <p class="text-xs mt-0.5" style="color: var(--eb-muted);">{{t .Lang "sites.subtitle"}}</p>
+        </div>
+        <button id="toggle-add-site-btn" type="button" class="eb-btn-primary shrink-0 rounded-full text-xs font-semibold px-4 py-2 transition-colors">+ {{t .Lang "sites.add_button"}}</button>
+      </div>
+
+      <div id="add-site-form" class="hidden eb-card rounded-xl p-4 space-y-3">
+        <div id="add-site-error" class="hidden rounded-lg text-sm px-3 py-2" style="background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: #fca5a5;"></div>
+        <div>
+          <label class="block text-xs font-medium mb-1" style="color: var(--eb-muted);" for="site-name">{{t .Lang "sites.name_label"}}</label>
+          <input id="site-name" type="text" class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1" style="color: var(--eb-muted);" for="site-domain">{{t .Lang "sites.domain_label"}}</label>
+          <input id="site-domain" type="text" placeholder="example.com" class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <button id="submit-site-btn" type="button" class="eb-btn-primary w-full rounded-lg text-sm py-2 transition-colors">{{t .Lang "common.save"}}</button>
+      </div>
+
+      <div id="site-key-reveal" class="hidden eb-card rounded-xl p-4 space-y-3" style="border: 1px solid var(--eb-accent);">
+        <p class="text-xs font-semibold" style="color: var(--eb-accent);">{{t .Lang "sites.key_shown_once"}}</p>
+        <code id="site-key-value" class="block w-full text-xs font-mono rounded px-2 py-1 break-all" style="background: var(--eb-bg); color: var(--eb-text); border: 1px solid var(--eb-border);"></code>
+        <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "sites.snippet_label"}}</p>
+        <div class="flex items-start gap-2">
+          <pre class="flex-1 w-full text-xs font-mono rounded-lg overflow-x-auto p-2" style="border: 1px solid var(--eb-border);"><code id="site-snippet-code"></code></pre>
+          <button type="button" id="site-snippet-copy-btn" class="eb-btn-secondary rounded-md text-xs px-3 py-1.5 shrink-0">{{t .Lang "common.copy"}}</button>
+        </div>
+        <button type="button" id="site-key-dismiss-btn" class="eb-btn-secondary w-full rounded-lg text-sm py-2 transition-colors">{{t .Lang "common.close"}}</button>
+      </div>
+
+      <div id="site-list" class="space-y-3">
+        {{range .TrackedSites}}
+        <div class="site-row eb-card rounded-xl p-4 flex items-center justify-between gap-4" data-id="{{.ID}}">
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <p class="text-sm font-semibold" style="color: var(--eb-text);">{{.Name}}</p>
+              {{if .Domain}}<span class="eb-badge text-xs" style="background: var(--eb-surface-2); color: var(--eb-muted);">{{.Domain}}</span>{{end}}
+              <code class="text-xs font-mono" style="color: var(--eb-muted);">{{.KeyPrefix}}…</code>
+            </div>
+            <p class="text-xs mt-1" style="color: var(--eb-muted);">
+              {{t $.Lang "sites.created_label"}} {{formatTime .CreatedAt}} · {{t $.Lang "sites.last_used_label"}}: {{if .LastUsedAt.Valid}}{{formatTime .LastUsedAt.Time}}{{else}}{{t $.Lang "sites.last_used_never"}}{{end}}
+            </p>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <a href="/workspaces/{{$.Workspace.Slug}}/sites/{{.ID}}/dashboard" class="eb-btn-secondary rounded-md text-xs px-3 py-1.5 transition-colors">{{t $.Lang "sites.view_table_link"}}</a>
+            <button type="button" class="site-delete-btn eb-icon-btn text-xs" data-id="{{.ID}}" title="{{t $.Lang "settings.webhook_delete_label"}}">✕</button>
+          </div>
+        </div>
+        {{end}}
+        {{if not .TrackedSites}}
+        <div id="site-empty-row" class="eb-card rounded-xl px-5 py-10 text-center text-sm" style="color: var(--eb-muted);">{{t .Lang "sites.empty_state"}}</div>
+        {{end}}
+      </div>
+
      </div>
     </main>
 
@@ -639,6 +695,104 @@ http_response_code(200);`,
       }
     });
   }
+
+  // --- Sites suivis (analytics tracking SDK) ---
+  const SITE_I18N = {
+    errorRetry: I18N.errorRetry,
+    cannotContact: I18N.cannotContact,
+    nameRequired: "{{t .Lang "sites.name_required"}}",
+    deleteConfirm: "{{t .Lang "sites.delete_confirm"}}",
+    copyLabel: I18N.copyLabel,
+    copiedLabel: I18N.copiedLabel,
+  };
+
+  function buildTrackSnippet(key) {
+    return `<script src="${location.origin}/static/track.js" data-key="${key}"><\/script>`;
+  }
+
+  const addSiteBtn = document.getElementById("toggle-add-site-btn");
+  const addSiteForm = document.getElementById("add-site-form");
+  const siteNameInput = document.getElementById("site-name");
+  const siteDomainInput = document.getElementById("site-domain");
+  const siteErrorBox = document.getElementById("add-site-error");
+  const submitSiteBtn = document.getElementById("submit-site-btn");
+  const siteKeyReveal = document.getElementById("site-key-reveal");
+  const siteKeyValue = document.getElementById("site-key-value");
+  const siteSnippetCode = document.getElementById("site-snippet-code");
+
+  if (addSiteBtn && addSiteForm) {
+    addSiteBtn.addEventListener("click", () => {
+      addSiteForm.classList.toggle("hidden");
+      if (!addSiteForm.classList.contains("hidden")) siteNameInput?.focus();
+    });
+  }
+
+  if (submitSiteBtn) {
+    submitSiteBtn.addEventListener("click", async () => {
+      const name = siteNameInput.value.trim();
+      const domain = siteDomainInput.value.trim();
+      siteErrorBox.classList.add("hidden");
+      if (!name) {
+        siteErrorBox.textContent = SITE_I18N.nameRequired;
+        siteErrorBox.classList.remove("hidden");
+        return;
+      }
+      try {
+        const res = await fetch(`/workspaces/${wsSlug}/sites`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, domain }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          siteErrorBox.textContent = body.error || SITE_I18N.errorRetry;
+          siteErrorBox.classList.remove("hidden");
+          return;
+        }
+        addSiteForm.classList.add("hidden");
+        siteNameInput.value = "";
+        siteDomainInput.value = "";
+        siteKeyValue.textContent = body.key;
+        siteSnippetCode.textContent = buildTrackSnippet(body.key);
+        siteKeyReveal.classList.remove("hidden");
+        siteKeyReveal.dataset.pendingReload = "1";
+      } catch (e) {
+        siteErrorBox.textContent = SITE_I18N.cannotContact;
+        siteErrorBox.classList.remove("hidden");
+      }
+    });
+  }
+
+  const siteSnippetCopyBtn = document.getElementById("site-snippet-copy-btn");
+  if (siteSnippetCopyBtn) {
+    siteSnippetCopyBtn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(siteSnippetCode.textContent);
+        siteSnippetCopyBtn.textContent = SITE_I18N.copiedLabel;
+        setTimeout(() => { siteSnippetCopyBtn.textContent = SITE_I18N.copyLabel; }, 1500);
+      } catch (e) {}
+    });
+  }
+
+  const siteKeyDismissBtn = document.getElementById("site-key-dismiss-btn");
+  if (siteKeyDismissBtn) {
+    siteKeyDismissBtn.addEventListener("click", () => {
+      if (siteKeyReveal.dataset.pendingReload) { location.reload(); return; }
+      siteKeyReveal.classList.add("hidden");
+    });
+  }
+
+  document.querySelectorAll(".site-delete-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!window.confirm(SITE_I18N.deleteConfirm)) return;
+      try {
+        const res = await fetch(`/workspaces/${wsSlug}/sites/${btn.dataset.id}`, { method: "DELETE" });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) { showToast(body.error || SITE_I18N.errorRetry); return; }
+        location.reload();
+      } catch (e) { showToast(SITE_I18N.cannotContact); }
+    });
+  });
 })();
 </script>
 {{end}}
