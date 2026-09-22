@@ -145,6 +145,14 @@
       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
       {{if not $collapsed}}{{t .Lang "nav.integration"}}{{end}}
     </a>
+    <a href="/plugins" title="{{t .Lang "nav.plugins"}}"
+      class="flex items-center {{if $collapsed}}justify-center px-0{{else}}gap-2.5 px-3{{end}} rounded-lg py-2 text-sm font-medium transition-colors"
+      style="{{if eq .ActiveNav "plugins"}}background: rgba(52,211,153,0.12); color: var(--eb-accent);{{else}}color: var(--eb-muted);{{end}}"
+      onmouseover="if(!this.dataset.active)this.style.background='var(--eb-surface-2)'" onmouseout="if(!this.dataset.active)this.style.background=''"
+      {{if eq .ActiveNav "plugins"}}data-active="true"{{end}}>
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      {{if not $collapsed}}{{t .Lang "nav.plugins"}}{{end}}
+    </a>
   </nav>
 
   {{if and .WorkspaceStorageUsedLabel (not $collapsed)}}
