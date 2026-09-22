@@ -10,7 +10,8 @@ const (
 	ColumnTypeLongText = "long_text" // free-form, multi-line — a textarea, not an <input>
 	ColumnTypeNumber   = "number"
 	ColumnTypeBoolean  = "boolean"
-	ColumnTypeImage    = "image" // a URL, normally produced by uploading a file
+	ColumnTypeImage    = "image" // a URL, normally produced by uploading an image file
+	ColumnTypeFile     = "file"  // a URL to an uploaded file of any kind (document, archive...) — like image, but no thumbnail
 	ColumnTypeJSON     = "json"  // an arbitrary nested object/array — e.g. an imported structure with no flat equivalent
 )
 
@@ -20,6 +21,7 @@ var validColumnTypes = map[string]bool{
 	ColumnTypeNumber:   true,
 	ColumnTypeBoolean:  true,
 	ColumnTypeImage:    true,
+	ColumnTypeFile:     true,
 	ColumnTypeJSON:     true,
 }
 
@@ -37,6 +39,8 @@ func ColumnTypeLabel(lang, t string) string {
 		return T(lang, "type.long_text")
 	case ColumnTypeImage:
 		return T(lang, "type.image")
+	case ColumnTypeFile:
+		return T(lang, "type.file")
 	case ColumnTypeJSON:
 		return T(lang, "type.json")
 	default:

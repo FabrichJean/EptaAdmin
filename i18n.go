@@ -148,6 +148,7 @@ var translations = map[string]map[string]string{
 		"activity.desc.value.append":                 "%s a ajouté une valeur dans « %s ».",
 		"activity.desc.value.move":                   "%s a réorganisé une valeur dans « %s ».",
 		"activity.desc.upload.image":                 "%s a téléversé une image.",
+		"activity.desc.upload.file":                  "%s a téléversé le fichier « %s ».",
 		"activity.desc.webhook.create":               "%s a créé un webhook vers « %s ».",
 		"activity.desc.webhook.delete":               "%s a supprimé le webhook vers « %s ».",
 		"activity.desc.webhook.manual_trigger":       "%s a déclenché manuellement le webhook vers « %s ».",
@@ -206,7 +207,7 @@ var translations = map[string]map[string]string{
 		"settings.no_webhooks":                "Aucun webhook pour l'instant.",
 		"settings.webhook_secret_label":       "Secret de signature",
 		"settings.webhook_secret_hint":        "Utilisez ce secret pour vérifier l'en-tête X-EptaAdmin-Signature (HMAC-SHA256 sur le corps de la requête).",
-		"settings.webhook_send_button":        "Tester",
+		"settings.webhook_send_button":        "Lancer",
 		"settings.webhook_trigger_sending":    "Envoi en cours",
 		"settings.webhook_delete_label":       "Supprimer",
 		"settings.webhook_delete_confirm":     "Supprimer ce webhook ?",
@@ -397,6 +398,7 @@ var translations = map[string]map[string]string{
 
 		"upload.unsupported_type": "Format d'image non supporté (png, jpg, jpeg, gif, webp, svg).",
 		"upload.too_large":        "Image trop volumineuse (5 Mo maximum).",
+		"upload.file_too_large":   "Fichier trop volumineux (25 Mo maximum).",
 
 		"integration.intro":                   "Le SDK JavaScript et l'API REST d'EptaAdmin permettent de lire les données de vos workspaces (colonnes et valeurs) depuis n'importe quel projet externe — un script, un backend, une étape de build frontend. L'accès est en lecture seule et respecte exactement les mêmes permissions que votre compte.",
 		"integration.tab_documentation":       "Documentation",
@@ -449,6 +451,7 @@ var translations = map[string]map[string]string{
 		"type.boolean":   "Booléen",
 		"type.long_text": "Texte long",
 		"type.image":     "Image",
+		"type.file":      "Fichier",
 		"type.json":      "JSON",
 		"type.text":      "Texte",
 
@@ -574,6 +577,7 @@ var translations = map[string]map[string]string{
 		"activity.desc.value.append":                 "%s added a value in \"%s\".",
 		"activity.desc.value.move":                   "%s reordered a value in \"%s\".",
 		"activity.desc.upload.image":                 "%s uploaded an image.",
+		"activity.desc.upload.file":                  "%s uploaded the file \"%s\".",
 		"activity.desc.webhook.create":               "%s created a webhook to \"%s\".",
 		"activity.desc.webhook.delete":               "%s deleted the webhook to \"%s\".",
 		"activity.desc.webhook.manual_trigger":       "%s manually triggered the webhook to \"%s\".",
@@ -632,7 +636,7 @@ var translations = map[string]map[string]string{
 		"settings.no_webhooks":                "No webhooks yet.",
 		"settings.webhook_secret_label":       "Signing secret",
 		"settings.webhook_secret_hint":        "Use this secret to verify the X-EptaAdmin-Signature header (HMAC-SHA256 over the request body).",
-		"settings.webhook_send_button":        "Test",
+		"settings.webhook_send_button":        "Launch",
 		"settings.webhook_trigger_sending":    "Sending",
 		"settings.webhook_delete_label":       "Delete",
 		"settings.webhook_delete_confirm":     "Delete this webhook?",
@@ -823,6 +827,7 @@ var translations = map[string]map[string]string{
 
 		"upload.unsupported_type": "Unsupported image format (png, jpg, jpeg, gif, webp, svg).",
 		"upload.too_large":        "Image too large (5 MB maximum).",
+		"upload.file_too_large":   "File too large (25 MB maximum).",
 
 		"integration.intro":                   "The EptaAdmin JavaScript SDK and REST API let you read your workspace data (columns and values) from any external project — a script, a backend, a frontend build step. Access is read-only and follows exactly the same permissions as your account.",
 		"integration.tab_documentation":       "Documentation",
@@ -875,6 +880,7 @@ var translations = map[string]map[string]string{
 		"type.boolean":   "Boolean",
 		"type.long_text": "Long text",
 		"type.image":     "Image",
+		"type.file":      "File",
 		"type.json":      "JSON",
 		"type.text":      "Text",
 

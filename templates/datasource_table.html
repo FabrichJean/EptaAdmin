@@ -138,8 +138,10 @@
     typeNumber: "{{t .Lang "type.number"}}",
     typeBoolean: "{{t .Lang "type.boolean"}}",
     typeImage: "{{t .Lang "type.image"}}",
+    typeFile: "{{t .Lang "type.file"}}",
     typeJSON: "{{t .Lang "type.json"}}",
     uploadImage: "{{t .Lang "datasource.upload_image_button"}}",
+    uploadFile: "{{t .Lang "datasource.upload_image_button"}}",
     save: "{{t .Lang "common.save"}}",
     cancel: "{{t .Lang "common.cancel"}}",
   };
@@ -242,14 +244,18 @@
     const index = parseInt(td.dataset.index, 10);
     const rawJSON = td.dataset.raw ? JSON.parse(td.dataset.raw) : null;
     function looksLikeImage(s) {
-      if (s.includes("/uploads/") || s.startsWith("data:image/")) return true;
+      if (s.startsWith("data:image/")) return true;
       return /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i.test(s.split("?")[0]);
+    }
+    function looksLikeFile(s) {
+      return s.includes("/uploads/") && !looksLikeImage(s);
     }
     let currentType = "text";
     if (typeof rawJSON === "boolean") currentType = "boolean";
     else if (typeof rawJSON === "number") currentType = "number";
     else if (rawJSON !== null && typeof rawJSON === "object") currentType = "json";
     else if (typeof rawJSON === "string" && looksLikeImage(rawJSON)) currentType = "image";
+    else if (typeof rawJSON === "string" && looksLikeFile(rawJSON)) currentType = "file";
     else if (typeof rawJSON === "string" && rawJSON.includes("\n")) currentType = "long_text";
 
     const original = td.innerHTML;
@@ -258,7 +264,7 @@
 
     const select = document.createElement("select");
     select.className = "eb-field-sm rounded px-1 py-0.5 text-xs";
-    [["text", I18N.typeText], ["long_text", I18N.typeLongText], ["number", I18N.typeNumber], ["boolean", I18N.typeBoolean], ["image", I18N.typeImage], ["json", I18N.typeJSON]].forEach(([value, label]) => {
+    [["text", I18N.typeText], ["long_text", I18N.typeLongText], ["number", I18N.typeNumber], ["boolean", I18N.typeBoolean], ["image", I18N.typeImage], ["file", I18N.typeFile], ["json", I18N.typeJSON]].forEach(([value, label]) => {
       const opt = document.createElement("option");
       opt.value = value; opt.textContent = label;
       if (value === currentType) opt.selected = true;
@@ -354,6 +360,78 @@
         valueContainer = document.createElement("div");
         valueContainer.className = "flex items-center gap-1.5";
         valueContainer.appendChild(preview);
+        valueContainer.appendChild(filenameLabel);
+        valueContainer.appendChild(valueEl);
+        valueContainer.appendChild(uploadBtn);
+        valueContainer.appendChild(fileInput);
+      } else if (type === "file") {
+        valueEl = document.createElement("input");
+        valueEl.type = "text";
+        valueEl.placeholder = "https://…";
+        valueEl.className = "eb-field-sm rounded px-1 py-0.5 text-xs w-full";
+        valueEl.value = initial === null || initial === undefined ? "" : String(initial);
+
+        const fileInput = document.createElement("input");
+        fileInput.type = "file";
+        fileInput.className = "hidden";
+
+        const uploadBtn = document.createElement("button");
+        uploadBtn.type = "button";
+        uploadBtn.textContent = I18N.uploadFile;
+        uploadBtn.className = "eb-btn-secondary rounded px-2 py-0.5 text-xs shrink-0";
+
+        const fileIcon = document.createElement("span");
+        fileIcon.className = "shrink-0";
+        fileIcon.style.color = "var(--eb-muted)";
+        fileIcon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>';
+
+        const filenameLabel = document.createElement("span");
+        filenameLabel.className = "text-xs truncate";
+        filenameLabel.style.color = "var(--eb-muted)";
+        filenameLabel.style.maxWidth = "10rem";
+
+        function fileDisplayName(url) {
+          if (!url || url.startsWith("data:")) return "";
+          const base = url.split("?")[0].split("/").pop();
+          return base.replace(/^[0-9a-f]{16}_/, "");
+        }
+        function refreshFileLabel() {
+          fileIcon.style.display = valueEl.value ? "" : "none";
+          filenameLabel.textContent = fileDisplayName(valueEl.value);
+        }
+        refreshFileLabel();
+        valueEl.addEventListener("input", refreshFileLabel);
+
+        uploadBtn.addEventListener("click", () => fileInput.click());
+        fileInput.addEventListener("change", async () => {
+          const file = fileInput.files[0];
+          if (!file) return;
+          const original = uploadBtn.textContent;
+          uploadBtn.textContent = "…";
+          uploadBtn.disabled = true;
+          try {
+            const formData = new FormData();
+            formData.append("file", file);
+            const res = await fetch(`/workspaces/${wsSlug}/uploads/file`, { method: "POST", body: formData });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              alert(body.error || I18N.errorRetry);
+              return;
+            }
+            valueEl.value = body.url;
+            refreshFileLabel();
+          } catch (e) {
+            alert(I18N.cannotContact);
+          } finally {
+            uploadBtn.textContent = original;
+            uploadBtn.disabled = false;
+            fileInput.value = "";
+          }
+        });
+
+        valueContainer = document.createElement("div");
+        valueContainer.className = "flex items-center gap-1.5";
+        valueContainer.appendChild(fileIcon);
         valueContainer.appendChild(filenameLabel);
         valueContainer.appendChild(valueEl);
         valueContainer.appendChild(uploadBtn);

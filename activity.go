@@ -49,6 +49,7 @@ const (
 	ActionValueMove        = "value.move"
 
 	ActionImageUpload = "upload.image"
+	ActionFileUpload  = "upload.file"
 
 	ActionWebhookCreate           = "webhook.create"
 	ActionWebhookDelete           = "webhook.delete"
@@ -179,6 +180,8 @@ func (e *ActivityEntry) Describe(lang string) string {
 		return T(lang, "activity.desc.value.move", actor, detailString(d, "column"))
 	case ActionImageUpload:
 		return T(lang, "activity.desc.upload.image", actor)
+	case ActionFileUpload:
+		return T(lang, "activity.desc.upload.file", actor, detailString(d, "filename"))
 	case ActionWebhookCreate:
 		return T(lang, "activity.desc.webhook.create", actor, detailString(d, "url"))
 	case ActionWebhookDelete:

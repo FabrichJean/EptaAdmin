@@ -100,6 +100,7 @@ func main() {
 	mux.HandleFunc("PATCH /workspaces/{slug}/tables/{tableSlug}/columns/{key}", app.requireAuth(app.handleUpdateTableColumn))
 	mux.HandleFunc("DELETE /workspaces/{slug}/tables/{tableSlug}/columns/{key}", app.requireAuth(app.handleDeleteTableColumn))
 	mux.HandleFunc("POST /workspaces/{slug}/uploads", app.requireAuth(app.handleUploadImage))
+	mux.HandleFunc("POST /workspaces/{slug}/uploads/file", app.requireAuth(app.handleUploadFile))
 	// Legacy browser upload URLs are redirected to signed API URLs so older
 	// frontend bundles keep working after the upload API migration.
 	mux.HandleFunc("GET /workspaces/{slug}/uploads/{filename}", app.handleLegacyUploadRedirect)

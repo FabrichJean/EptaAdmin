@@ -55,6 +55,8 @@ func uploadErrorMessage(lang string, err error) string {
 		return T(lang, "upload.unsupported_type")
 	case ErrImageTooLarge:
 		return T(lang, "upload.too_large")
+	case ErrFileTooLarge:
+		return T(lang, "upload.file_too_large")
 	default:
 		return T(lang, "common.error_generic")
 	}
@@ -105,6 +107,58 @@ func (a *App) handleUploadImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.logActivity(logActivityParams{WorkspaceID: ws.ID, UserID: currentUser.ID, Action: ActionImageUpload, Details: map[string]any{"filename": filename}})
+
+	writeJSON(w, http.StatusOK, map[string]string{"url": uploadURL(ws.Slug, filename)})
+}
+
+// handleUploadFile is the "file" column type's counterpart to
+// handleUploadImage — same shape, but accepts any file (no extension
+// whitelist) up to the larger maxGenericUploadSize.
+func (a *App) handleUploadFile(w http.ResponseWriter, r *http.Request) {
+	currentUser := userFromContext(r)
+	lang := a.resolveLang(r)
+	ws, role, ok := a.loadWorkspaceMembership(w, r, currentUser)
+	if !ok {
+		return
+	}
+	if !hasPermission(role, PermDataCreate) {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": T(lang, "common.access_denied")})
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxGenericUploadSize+1<<20)
+	if err := r.ParseMultipartForm(maxGenericUploadSize + 1<<20); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "upload.file_too_large")})
+		return
+	}
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": T(lang, "profile.avatar_upload_missing")})
+		return
+	}
+	defer file.Close()
+
+	if err := EnsureWorkspaceStorageWithinLimit(ws.ID, "", header.Size); err != nil {
+		if err == ErrWorkspaceStorageLimitExceeded {
+			writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": T(lang, "datasource.storage_limit_exceeded")})
+			return
+		}
+		log.Printf("check workspace storage limit error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		return
+	}
+
+	filename, err := SaveUploadedFile(ws.ID, header.Filename, file, header.Size)
+	if err != nil {
+		status := http.StatusBadRequest
+		if err != ErrFileTooLarge {
+			status = http.StatusInternalServerError
+			log.Printf("save uploaded file error: %v", err)
+		}
+		writeJSON(w, status, map[string]string{"error": uploadErrorMessage(lang, err)})
+		return
+	}
+	a.logActivity(logActivityParams{WorkspaceID: ws.ID, UserID: currentUser.ID, Action: ActionFileUpload, Details: map[string]any{"filename": header.Filename}})
 
 	writeJSON(w, http.StatusOK, map[string]string{"url": uploadURL(ws.Slug, filename)})
 }

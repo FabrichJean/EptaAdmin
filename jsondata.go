@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -517,6 +518,12 @@ func GridCellHTML(v any) template.HTML {
 				`<img src="` + template.HTMLEscapeString(val) + `" class="eb-thumb" style="height:1.5rem;width:1.5rem;flex-shrink:0;" alt="" />` +
 				`<span style="color: var(--eb-muted); font-size: 0.8em;">` + template.HTMLEscapeString(name) + `</span></span>`)
 		}
+		if looksLikeFile(val) {
+			name := fileDisplayName(val)
+			return template.HTML(`<a href="` + template.HTMLEscapeString(val) + `" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:0.4rem;color: var(--eb-text); text-decoration: none;">` +
+				`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color: var(--eb-muted);"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>` +
+				`<span style="text-decoration: underline; font-size: 0.9em;">` + template.HTMLEscapeString(name) + `</span></a>`)
+		}
 		r := []rune(val)
 		text := val
 		suffix := ""
@@ -579,10 +586,12 @@ func imageFilename(s string) string {
 }
 
 // looksLikeImage heuristically flags a string value as an image reference:
-// either one of our own uploaded-file URLs, a data URI, or a URL/path
-// ending in a common image extension.
+// a data:image/ URI, or a URL/path ending in a common image extension —
+// deliberately NOT just "any uploaded file", since a "file" cell's upload
+// also lives under /uploads/ and must not be mistaken for an image (see
+// looksLikeFile below).
 func looksLikeImage(s string) bool {
-	if strings.Contains(s, "/uploads/") || strings.HasPrefix(s, "data:image/") {
+	if strings.HasPrefix(s, "data:image/") {
 		return true
 	}
 	lower := strings.ToLower(s)
@@ -592,6 +601,28 @@ func looksLikeImage(s string) bool {
 		}
 	}
 	return false
+}
+
+// looksLikeFile flags a string value as a generic uploaded file reference:
+// one of our own /uploads/ URLs that isn't already recognized as an image.
+func looksLikeFile(s string) bool {
+	return strings.Contains(s, "/uploads/") && !looksLikeImage(s)
+}
+
+// uploadHexPrefix matches the random collision-safe prefix SaveUploadedFile
+// puts in front of the original filename (see uploads.go) — stripped back
+// off here so the grid shows "invoice.pdf", not "a1b2c3d4e5f6a7b8_invoice.pdf".
+var uploadHexPrefix = regexp.MustCompile(`^[0-9a-f]{16}_`)
+
+// fileDisplayName is imageFilename's counterpart for the "file" cell type:
+// same query-string/path stripping, plus removing the upload's random
+// prefix so the original filename reads cleanly.
+func fileDisplayName(s string) string {
+	name := imageFilename(s)
+	if name == "" {
+		return ""
+	}
+	return uploadHexPrefix.ReplaceAllString(name, "")
 }
 
 // ValueType reports the practical type of an already-stored value, so the
@@ -606,6 +637,9 @@ func ValueType(v any) string {
 	case string:
 		if looksLikeImage(val) {
 			return ColumnTypeImage
+		}
+		if looksLikeFile(val) {
+			return ColumnTypeFile
 		}
 		if strings.Contains(val, "\n") {
 			return ColumnTypeLongText
