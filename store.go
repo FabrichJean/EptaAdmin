@@ -186,6 +186,32 @@ func (s *Store) migrate() error {
 	);
 	CREATE INDEX IF NOT EXISTS idx_tracked_sites_workspace ON tracked_sites(workspace_id);
 
+	-- A visual site is a website embedding the visual-editing SDK (see
+	-- visual_store.go / handlers_visual.go / static/visual.js). Unlike a
+	-- tracked site (an append-only event log, a natural fit for the JSON
+	-- RecordStore every other table uses), this is current-state
+	-- key→value data — one row per edited element, upserted in place — so
+	-- it gets its own small SQL table instead of a datasource/table entry;
+	-- nothing here ever appears in the generic grid.
+	CREATE TABLE IF NOT EXISTS visual_sites (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		workspace_id INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+		name TEXT NOT NULL,
+		domain TEXT NOT NULL DEFAULT '',
+		key_prefix TEXT NOT NULL,
+		key_hash TEXT NOT NULL UNIQUE,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		last_used_at DATETIME,
+		-- Set the first time "Appliquer vers la datasource" is used (see
+		-- handleApplyVisualSiteToDataSource) — the same table is reused on
+		-- every later click so repeated syncs overwrite one snapshot rather
+		-- than creating a fresh table each time.
+		synced_table_id INTEGER REFERENCES tables(id) ON DELETE SET NULL,
+		-- Bumped every time an admin explicitly exits edit mode (see
+		-- handleVisualLogout) — an edit token embeds the generation it was
+		-- issued under (visual_signing.go), so once this changes every
+		-- previously issued link (including the one just used to log out)
+		-- stops verifying, even though it hasn't reached its normal
 	CREATE TABLE IF NOT EXISTS activity_log (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		workspace_id INTEGER REFERENCES workspaces(id) ON DELETE CASCADE,

@@ -112,3 +112,116 @@
     applyOk: "{{t .Lang "visual.apply_ok"}}",
     copyLabel: "{{t .Lang "common.copy"}}",
     copiedLabel: "{{t .Lang "common.copied"}}",
+  };
+
+  const domainDisplay = document.getElementById("domain-display");
+  const domainEditBtn = document.getElementById("domain-edit-btn");
+  const domainEditForm = document.getElementById("domain-edit-form");
+  const domainInput = document.getElementById("domain-input");
+
+  domainEditBtn.addEventListener("click", () => {
+    domainEditForm.classList.remove("hidden");
+    domainEditForm.classList.add("flex");
+    domainDisplay.classList.add("hidden");
+    domainEditBtn.classList.add("hidden");
+    domainInput.focus();
+  });
+  document.getElementById("domain-cancel-btn").addEventListener("click", () => {
+    domainInput.value = domainDisplay.textContent === "—" ? "" : domainDisplay.textContent;
+    domainEditForm.classList.add("hidden");
+    domainEditForm.classList.remove("flex");
+    domainDisplay.classList.remove("hidden");
+    domainEditBtn.classList.remove("hidden");
+  });
+  document.getElementById("domain-save-btn").addEventListener("click", async () => {
+    const domain = domainInput.value.trim();
+    try {
+      const res = await fetch(`/workspaces/${wsSlug}/visual-sites/${siteID}/domain`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { alert(body.error || I18N.errorRetry); return; }
+      domainDisplay.textContent = body.domain || "—";
+      domainEditForm.classList.add("hidden");
+      domainEditForm.classList.remove("flex");
+      domainDisplay.classList.remove("hidden");
+      domainEditBtn.classList.remove("hidden");
+    } catch (e) { alert(I18N.cannotContact); }
+  });
+
+  document.getElementById("generate-edit-link-btn").addEventListener("click", async () => {
+    try {
+      const res = await fetch(`/workspaces/${wsSlug}/visual-sites/${siteID}/edit-link`, { method: "POST" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { alert(body.error || I18N.errorRetry); return; }
+      document.getElementById("edit-link-value").textContent = body.url;
+      document.getElementById("edit-link-reveal").classList.remove("hidden");
+    } catch (e) { alert(I18N.cannotContact); }
+  });
+
+  document.getElementById("edit-link-copy-btn").addEventListener("click", async (e) => {
+    try {
+      await navigator.clipboard.writeText(document.getElementById("edit-link-value").textContent);
+      e.target.textContent = I18N.copiedLabel;
+      setTimeout(() => { e.target.textContent = I18N.copyLabel; }, 1500);
+    } catch (err) {}
+  });
+
+  document.getElementById("regenerate-key-btn").addEventListener("click", async () => {
+    if (!window.confirm(I18N.regenerateConfirm)) return;
+    try {
+      const res = await fetch(`/workspaces/${wsSlug}/visual-sites/${siteID}/regenerate-key`, { method: "POST" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { alert(body.error || I18N.errorRetry); return; }
+      document.getElementById("key-reveal-value").textContent = body.key;
+      document.getElementById("key-reveal").classList.remove("hidden");
+    } catch (e) { alert(I18N.cannotContact); }
+  });
+
+  document.getElementById("delete-site-btn").addEventListener("click", async () => {
+    if (!window.confirm(I18N.deleteConfirm)) return;
+    try {
+      const res = await fetch(`/workspaces/${wsSlug}/visual-sites/${siteID}`, { method: "DELETE" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { alert(body.error || I18N.errorRetry); return; }
+      window.location.href = "/plugins";
+    } catch (e) { alert(I18N.cannotContact); }
+  });
+
+  document.getElementById("apply-to-datasource-btn").addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    try {
+      const res = await fetch(`/workspaces/${wsSlug}/visual-sites/${siteID}/apply-to-datasource`, { method: "POST" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { alert(body.error || I18N.errorRetry); return; }
+      let link = document.getElementById("view-synced-table-link");
+      if (!link) {
+        link = document.createElement("a");
+        link.id = "view-synced-table-link";
+        link.className = "eb-btn-secondary rounded-md text-xs px-3 py-1.5 transition-colors";
+        link.textContent = I18N.viewSyncedTable;
+        btn.parentElement.insertBefore(link, btn);
+      }
+      link.href = `/workspaces/${wsSlug}/tables/${body.tableSlug}`;
+      alert(I18N.applyOk);
+    } catch (e) { alert(I18N.cannotContact); } finally { btn.disabled = false; }
+  });
+
+  document.querySelectorAll(".delete-field-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!window.confirm(I18N.deleteFieldConfirm)) return;
+      try {
+        const res = await fetch(`/workspaces/${wsSlug}/visual-sites/${siteID}/fields/${btn.dataset.id}`, { method: "DELETE" });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) { alert(body.error || I18N.errorRetry); return; }
+        btn.closest(".visual-field-row")?.remove();
+      } catch (e) { alert(I18N.cannotContact); }
+    });
+  });
+})();
+</script>
+{{end}}
+{{template "layout" .}}
