@@ -257,6 +257,7 @@
       tabBtns.forEach((b) => b.dataset.active = String(b === btn));
       panels.forEach((p) => p.classList.toggle("hidden", p.dataset.panel !== activeTab));
       if (activeTab === "realtime") startRealtimePolling();
+      if (activeTab === "overview") startOverviewPolling();
     });
   });
 
@@ -375,6 +376,21 @@
     activityPage += 1;
     fetchOverview();
   });
+
+  // --- Overview: auto-refresh while this tab is visible, so KPIs/donut/
+  // map/recent-activity stay live without the person having to touch the
+  // range dropdown — same polling pattern as the Real-time Stream tab
+  // below, just a slower interval since this recomputes the full
+  // aggregation (computeDashboardStats) rather than a cheap tail read.
+  let overviewPollTimer = null;
+  function startOverviewPolling() {
+    if (overviewPollTimer) return;
+    overviewPollTimer = setInterval(() => {
+      if (activeTab !== "overview") { clearInterval(overviewPollTimer); overviewPollTimer = null; return; }
+      fetchOverview();
+    }, 5000);
+  }
+  startOverviewPolling();
 
   // --- Real-time Stream polling ---
   let lastIndex = -1;
