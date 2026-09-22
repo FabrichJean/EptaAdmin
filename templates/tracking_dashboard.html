@@ -174,7 +174,7 @@
                   <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "dashboard.last_seen_label"}}</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody id="sessions-body">
                 {{range .Stats.Sessions}}
                 <tr style="border-bottom: 1px solid var(--eb-border);">
                   <td class="px-4 py-2 font-mono" style="color: var(--eb-text);">{{.SessionID}}</td>
@@ -189,9 +189,7 @@
               </tbody>
             </table>
           </div>
-          {{if not .Stats.Sessions}}
-          <div class="px-5 py-10 text-center text-sm" style="color: var(--eb-muted);">{{t .Lang "dashboard.no_sessions"}}</div>
-          {{end}}
+          <div id="sessions-empty" class="px-5 py-10 text-center text-sm {{if .Stats.Sessions}}hidden{{end}}" style="color: var(--eb-muted);">{{t .Lang "dashboard.no_sessions"}}</div>
         </div>
       </div>
 
@@ -258,6 +256,7 @@
       panels.forEach((p) => p.classList.toggle("hidden", p.dataset.panel !== activeTab));
       if (activeTab === "realtime") startRealtimePolling();
       if (activeTab === "overview") startOverviewPolling();
+      if (activeTab === "sessions") startSessionsPolling();
     });
   });
 
@@ -391,6 +390,43 @@
     }, 5000);
   }
   startOverviewPolling();
+
+  // --- Session Analytics: same live-refresh idea as Overview, its own
+  // independent poll (only one of the two ever actually runs, since each
+  // self-cancels the moment its tab isn't the active one) so switching
+  // straight to Sessions shows live data without visiting Overview first.
+  function renderSessions(sessions) {
+    const tbody = document.getElementById("sessions-body");
+    document.getElementById("sessions-empty").classList.toggle("hidden", sessions.length > 0);
+    tbody.innerHTML = sessions.map((s) => `<tr style="border-bottom: 1px solid var(--eb-border);">
+        <td class="px-4 py-2 font-mono" style="color: var(--eb-text);">${s.SessionID}</td>
+        <td class="px-4 py-2" style="color: var(--eb-text);">${s.Browser} / ${s.OS}</td>
+        <td class="px-4 py-2 truncate max-w-[12rem]" style="color: var(--eb-muted);">${s.EntryURL || ""}</td>
+        <td class="px-4 py-2 truncate max-w-[12rem]" style="color: var(--eb-muted);">${s.ExitURL || ""}</td>
+        <td class="px-4 py-2" style="color: var(--eb-muted);">${s.EventCount}</td>
+        <td class="px-4 py-2" style="color: var(--eb-muted);">${s.TimeOnPage ? Math.round(s.TimeOnPage) + "s" : "—"}</td>
+        <td class="px-4 py-2" style="color: var(--eb-muted);">${new Date(s.LastSeen).toLocaleString()}</td>
+      </tr>`).join("");
+  }
+
+  async function fetchSessions() {
+    try {
+      const res = await fetch(`/workspaces/${wsSlug}/sites/${siteID}/dashboard/data?range=${rangeSelect.value}`);
+      if (!res.ok) return;
+      const stats = await res.json();
+      renderSessions(stats.Sessions || []);
+    } catch (e) {}
+  }
+
+  let sessionsPollTimer = null;
+  function startSessionsPolling() {
+    if (sessionsPollTimer) return;
+    fetchSessions();
+    sessionsPollTimer = setInterval(() => {
+      if (activeTab !== "sessions") { clearInterval(sessionsPollTimer); sessionsPollTimer = null; return; }
+      fetchSessions();
+    }, 5000);
+  }
 
   // --- Real-time Stream polling ---
   let lastIndex = -1;
