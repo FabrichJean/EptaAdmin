@@ -41,3 +41,45 @@ func (a *App) generateEditToken(siteID, generation int64) (string, error) {
 	mac.Write([]byte(payload))
 	sig := hex.EncodeToString(mac.Sum(nil))
 	return base64.RawURLEncoding.EncodeToString([]byte(payload + "." + sig)), nil
+}
+
+// verifyEditToken decodes and checks a token produced by generateEditToken
+// against the given siteID and its CURRENT generation — pass the
+// generation freshly loaded from the database (not cached), since the
+// whole point is noticing when it's been bumped since the token was
+// issued.
+func (a *App) verifyEditToken(token string, siteID, generation int64) (bool, error) {
+	raw, err := base64.RawURLEncoding.DecodeString(token)
+	if err != nil {
+		return false, nil
+	}
+	parts := strings.SplitN(string(raw), ".", 4)
+	if len(parts) != 4 {
+		return false, nil
+	}
+	tokenSiteID, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil || tokenSiteID != siteID {
+		return false, nil
+	}
+	tokenGeneration, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil || tokenGeneration != generation {
+		return false, nil
+	}
+	expiry, err := strconv.ParseInt(parts[2], 10, 64)
+	if err != nil {
+		return false, nil
+	}
+	if time.Now().Unix() > expiry {
+		return false, nil
+	}
+
+	secret, err := a.visualEditSigningSecret()
+	if err != nil {
+		return false, err
+	}
+	payload := parts[0] + "." + parts[1] + "." + parts[2]
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(payload))
+	expected := hex.EncodeToString(mac.Sum(nil))
+	return hmac.Equal([]byte(expected), []byte(parts[3])), nil
+}
