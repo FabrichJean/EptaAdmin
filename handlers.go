@@ -39,6 +39,11 @@ var templateFuncs = template.FuncMap{
 	"sub":            func(a, b int) int { return a - b },
 	"add1":           func(a int) int { return a + 1 },
 	"formatTime":     func(t time.Time) string { return t.Local().Format("02/01/2006 15:04") },
+	// safeCSS marks a server-generated CSS value as trusted so html/template
+	// doesn't replace it with its "ZgotmplZ" placeholder — only ever used on
+	// values this app built itself from fixed formats (e.g. countryFillColor
+	// in tracking_stats.go), never on anything a user typed.
+	"safeCSS": func(s string) template.CSS { return template.CSS(s) },
 }
 
 func NewApp(store *Store) (*App, error) {

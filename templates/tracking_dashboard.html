@@ -14,6 +14,9 @@
   }
   .td-legend-dot { width: 0.55rem; height: 0.55rem; border-radius: 9999px; display: inline-block; flex-shrink: 0; }
   #recent-activity-prev:disabled, #recent-activity-next:disabled { opacity: 0.4; pointer-events: none; }
+  .td-world-map svg { width: 100%; height: auto; max-height: 20rem; display: block; }
+  .td-world-map path { fill: var(--eb-surface-2); stroke: var(--eb-border); stroke-width: 0.75; transition: fill 0.15s; }
+  .td-world-map path:hover { stroke: var(--eb-accent); }
 </style>
 <div class="h-full flex">
   {{template "sidebar" .}}
@@ -83,6 +86,29 @@
             <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "dashboard.no_sessions"}}</p>
             {{end}}
           </div>
+        </div>
+
+        <div class="eb-card rounded-xl p-5 space-y-3">
+          <h3 class="text-xs font-semibold uppercase tracking-wider" style="color: var(--eb-muted);">{{t .Lang "dashboard.geo_breakdown"}}</h3>
+          <div class="flex flex-wrap gap-6 items-start">
+            <div id="world-map-wrap" class="td-world-map flex-1 min-w-[280px]">
+              <style>{{range .Stats.CountryBreakdown}}#{{.Code}} { fill: {{.FillColor | safeCSS}}; }
+              {{end}}</style>
+              {{.WorldMapSVG}}
+            </div>
+            <div id="country-legend" class="w-full sm:w-56 space-y-1.5">
+              {{range .Stats.CountryBreakdown}}
+              <div class="flex items-center gap-2 text-xs">
+                <span class="flex-1 truncate" style="color: var(--eb-text);">{{.Name}}</span>
+                <span style="color: var(--eb-muted);">{{printf "%.0f" .Percent}}%</span>
+              </div>
+              {{end}}
+              {{if not .Stats.CountryBreakdown}}
+              <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "dashboard.no_sessions"}}</p>
+              {{end}}
+            </div>
+          </div>
+          <p class="text-xs"><a href="https://db-ip.com" target="_blank" rel="noopener" style="color: var(--eb-muted);">{{t .Lang "dashboard.geo_attribution"}}</a></p>
         </div>
 
         <div class="eb-card rounded-xl overflow-hidden">
@@ -235,6 +261,36 @@
   });
 
   // --- Overview: range switch ---
+  // Colors each <path id="CODE"> in the embedded world map by visit share
+  // (opacity-scaled accent green, relative to the busiest country in this
+  // breakdown) and refreshes the "top countries" legend below it. Paths
+  // with no data are left at their neutral CSS default fill.
+  function renderCountryMap(breakdown) {
+    document.querySelectorAll(".td-world-map path").forEach((path) => {
+      path.style.fill = "";
+      const title = path.querySelector("title");
+      if (title) title.remove();
+    });
+    const maxCount = breakdown.length ? breakdown[0].Count : 0;
+    breakdown.forEach((c) => {
+      const path = document.getElementById(c.Code);
+      if (!path) return;
+      const intensity = maxCount > 0 ? c.Count / maxCount : 0;
+      path.style.fill = `rgba(52, 211, 153, ${(0.15 + 0.75 * intensity).toFixed(2)})`;
+      const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
+      title.textContent = `${c.Name}: ${c.Count} (${Math.round(c.Percent)}%)`;
+      path.appendChild(title);
+    });
+
+    const countryLegend = document.getElementById("country-legend");
+    countryLegend.innerHTML = breakdown.length === 0
+      ? `<p class="text-xs" style="color: var(--eb-muted);">${I18N.noSessions}</p>`
+      : breakdown.map((c) => `<div class="flex items-center gap-2 text-xs">
+            <span class="flex-1 truncate" style="color: var(--eb-text);">${c.Name}</span>
+            <span style="color: var(--eb-muted);">${Math.round(c.Percent)}%</span>
+          </div>`).join("");
+  }
+
   function renderOverview(stats) {
     document.getElementById("kpi-total-events").textContent = stats.TotalEvents;
     document.getElementById("kpi-unique-sessions").textContent = stats.UniqueSessions;
@@ -268,6 +324,8 @@
             <span style="color: var(--eb-muted);">${Math.round(b.Percent)}%</span>
           </div>`;
         }).join("");
+
+    renderCountryMap(stats.CountryBreakdown || []);
 
     const list = document.getElementById("recent-activity-list");
     const events = stats.RecentEvents || [];
