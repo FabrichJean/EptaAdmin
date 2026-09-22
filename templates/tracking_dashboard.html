@@ -1,0 +1,382 @@
+{{define "title"}}{{.Site.Name}} — {{t .Lang "plugins.title"}} — EptaAdmin{{end}}
+{{define "content"}}
+<style>
+  .td-tab-btn { color: var(--eb-muted); border-bottom: 2px solid transparent; }
+  .td-tab-btn[data-active="true"] { color: var(--eb-accent); border-color: var(--eb-accent); }
+  .td-donut {
+    width: 9rem; height: 9rem; border-radius: 9999px;
+    background: conic-gradient({{.Stats.DonutGradient}});
+    position: relative; flex-shrink: 0;
+  }
+  .td-donut::after {
+    content: ""; position: absolute; inset: 1.5rem; border-radius: 9999px;
+    background: var(--eb-surface);
+  }
+  .td-legend-dot { width: 0.55rem; height: 0.55rem; border-radius: 9999px; display: inline-block; flex-shrink: 0; }
+  #recent-activity-prev:disabled, #recent-activity-next:disabled { opacity: 0.4; pointer-events: none; }
+</style>
+<div class="h-full flex">
+  {{template "sidebar" .}}
+
+  <div class="flex-1 min-w-0 flex flex-col">
+    {{template "header" .}}
+
+    <main class="flex-1 overflow-y-auto px-4 sm:px-8 py-10">
+     <div class="max-w-5xl mx-auto space-y-5">
+
+      <div class="flex items-center gap-1 border-b" style="border-color: var(--eb-border);">
+        <button type="button" class="td-tab-btn px-4 py-2.5 text-sm font-medium transition-colors" data-tab="overview" data-active="true">{{t .Lang "dashboard.tab_overview"}}</button>
+        <button type="button" class="td-tab-btn px-4 py-2.5 text-sm font-medium transition-colors" data-tab="realtime">{{t .Lang "dashboard.tab_realtime"}}</button>
+        <button type="button" class="td-tab-btn px-4 py-2.5 text-sm font-medium transition-colors" data-tab="sessions">{{t .Lang "dashboard.tab_sessions"}}</button>
+        <button type="button" class="td-tab-btn px-4 py-2.5 text-sm font-medium transition-colors" data-tab="settings">{{t .Lang "dashboard.tab_settings"}}</button>
+      </div>
+
+      <!-- Overview -->
+      <div class="td-panel space-y-5" data-panel="overview">
+        <div class="flex justify-end">
+          <select id="range-select" class="eb-input rounded-lg px-3 py-1.5 text-xs">
+            <option value="24h" {{if eq .Stats.Range "24h"}}selected{{end}}>{{t .Lang "dashboard.range_24h"}}</option>
+            <option value="7d" {{if eq .Stats.Range "7d"}}selected{{end}}>{{t .Lang "dashboard.range_7d"}}</option>
+            <option value="30d" {{if eq .Stats.Range "30d"}}selected{{end}}>{{t .Lang "dashboard.range_30d"}}</option>
+            <option value="all" {{if eq .Stats.Range "all"}}selected{{end}}>{{t .Lang "dashboard.range_all"}}</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <div class="eb-card rounded-xl p-4">
+            <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "dashboard.kpi_total_events"}}</p>
+            <p id="kpi-total-events" class="text-xl font-semibold mt-1" style="color: var(--eb-text);">{{.Stats.TotalEvents}}</p>
+          </div>
+          <div class="eb-card rounded-xl p-4">
+            <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "dashboard.kpi_unique_sessions"}}</p>
+            <p id="kpi-unique-sessions" class="text-xl font-semibold mt-1" style="color: var(--eb-text);">{{.Stats.UniqueSessions}}</p>
+          </div>
+          <div class="eb-card rounded-xl p-4" title="{{t .Lang "dashboard.active_now_hint"}}">
+            <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "dashboard.kpi_active_sessions"}}</p>
+            <p id="kpi-active-sessions" class="text-xl font-semibold mt-1" style="color: var(--eb-accent);">{{.Stats.ActiveSessions}}</p>
+          </div>
+          <div class="eb-card rounded-xl p-4">
+            <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "dashboard.kpi_bounce_rate"}}</p>
+            <p id="kpi-bounce-rate" class="text-xl font-semibold mt-1" style="color: var(--eb-text);">{{printf "%.0f" .Stats.BounceRatePercent}}%</p>
+          </div>
+          <div class="eb-card rounded-xl p-4">
+            <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "dashboard.kpi_top_device"}}</p>
+            <p id="kpi-top-device" class="text-xl font-semibold mt-1 truncate" style="color: var(--eb-text);">{{.Stats.TopDevice}}</p>
+          </div>
+          <div class="eb-card rounded-xl p-4">
+            <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "dashboard.kpi_top_browser"}}</p>
+            <p id="kpi-top-browser" class="text-xl font-semibold mt-1 truncate" style="color: var(--eb-text);">{{.Stats.TopBrowser}}</p>
+          </div>
+        </div>
+
+        <div class="eb-card rounded-xl p-5 flex flex-wrap items-center gap-6">
+          <div id="donut" class="td-donut"></div>
+          <div id="donut-legend" class="flex-1 min-w-[12rem] space-y-1.5">
+            {{range .Stats.BrowserBreakdown}}
+            <div class="flex items-center gap-2 text-xs">
+              <span class="td-legend-dot" style="background: {{.Color}};"></span>
+              <span class="flex-1 truncate" style="color: var(--eb-text);">{{.Name}}</span>
+              <span style="color: var(--eb-muted);">{{printf "%.0f" .Percent}}%</span>
+            </div>
+            {{end}}
+            {{if not .Stats.BrowserBreakdown}}
+            <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "dashboard.no_sessions"}}</p>
+            {{end}}
+          </div>
+        </div>
+
+        <div class="eb-card rounded-xl overflow-hidden">
+          <div class="px-5 py-3" style="border-bottom: 1px solid var(--eb-border);">
+            <h3 class="text-xs font-semibold uppercase tracking-wider" style="color: var(--eb-muted);">{{t .Lang "dashboard.recent_activity"}}</h3>
+          </div>
+          <div id="recent-activity-list">
+            {{range $i, $e := .Stats.RecentEvents}}
+            <div class="px-5 py-2.5 flex items-center justify-between gap-3 text-xs" style="{{if $i}}border-top: 1px solid var(--eb-border);{{end}}">
+              <span style="color: {{if eq $e.EventType "enter"}}var(--eb-accent){{else}}#fb923c{{end}};">{{if eq $e.EventType "enter"}}→{{else}}←{{end}} {{$e.EventType}}</span>
+              <span class="flex-1 truncate mx-3" style="color: var(--eb-text);">{{$e.URL}}</span>
+              <span style="color: var(--eb-muted);">{{$e.Browser}}</span>
+              <span style="color: var(--eb-muted);">{{formatTime $e.Timestamp}}</span>
+            </div>
+            {{end}}
+            {{if not .Stats.RecentEvents}}
+            <div class="px-5 py-8 text-center text-sm" style="color: var(--eb-muted);">{{t .Lang "dashboard.no_events"}}</div>
+            {{end}}
+          </div>
+          <div id="recent-activity-pagination" class="flex items-center justify-between px-5 py-3 {{if le .Stats.ActivityTotalPages 1}}hidden{{end}}" style="border-top: 1px solid var(--eb-border);">
+            <button type="button" id="recent-activity-prev" class="eb-btn-secondary rounded-lg text-xs font-medium px-3 py-1.5 transition-colors" {{if le .Stats.ActivityPage 1}}disabled{{end}}>{{t .Lang "activity.page_prev"}}</button>
+            <span id="recent-activity-page-indicator" class="text-xs" style="color: var(--eb-muted);">{{t .Lang "activity.page_indicator" .Stats.ActivityPage .Stats.ActivityTotalPages}}</span>
+            <button type="button" id="recent-activity-next" class="eb-btn-secondary rounded-lg text-xs font-medium px-3 py-1.5 transition-colors" {{if ge .Stats.ActivityPage .Stats.ActivityTotalPages}}disabled{{end}}>{{t .Lang "activity.page_next"}}</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Real-time Stream -->
+      <div class="td-panel hidden" data-panel="realtime">
+        <div class="eb-card rounded-xl overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--eb-border);">
+                  <th class="text-left px-4 py-2" style="color: var(--eb-muted);">ID</th>
+                  <th class="text-left px-4 py-2" style="color: var(--eb-muted);">ip_public</th>
+                  <th class="text-left px-4 py-2" style="color: var(--eb-muted);">browser / os</th>
+                  <th class="text-left px-4 py-2" style="color: var(--eb-muted);">url</th>
+                  <th class="text-left px-4 py-2" style="color: var(--eb-muted);">event_type</th>
+                  <th class="text-left px-4 py-2" style="color: var(--eb-muted);">session_id</th>
+                </tr>
+              </thead>
+              <tbody id="realtime-body"></tbody>
+            </table>
+          </div>
+          <div id="realtime-empty" class="px-5 py-10 text-center text-sm" style="color: var(--eb-muted);">{{t .Lang "dashboard.no_events"}}</div>
+        </div>
+      </div>
+
+      <!-- Session Analytics -->
+      <div class="td-panel hidden" data-panel="sessions">
+        <div class="eb-card rounded-xl overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--eb-border);">
+                  <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "dashboard.session_id_label"}}</th>
+                  <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "dashboard.kpi_top_browser"}}</th>
+                  <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "dashboard.entry_page_label"}}</th>
+                  <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "dashboard.exit_page_label"}}</th>
+                  <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "dashboard.events_count_label"}}</th>
+                  <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "dashboard.time_on_page_label"}}</th>
+                  <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "dashboard.last_seen_label"}}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{range .Stats.Sessions}}
+                <tr style="border-bottom: 1px solid var(--eb-border);">
+                  <td class="px-4 py-2 font-mono" style="color: var(--eb-text);">{{.SessionID}}</td>
+                  <td class="px-4 py-2" style="color: var(--eb-text);">{{.Browser}} / {{.OS}}</td>
+                  <td class="px-4 py-2 truncate max-w-[12rem]" style="color: var(--eb-muted);">{{.EntryURL}}</td>
+                  <td class="px-4 py-2 truncate max-w-[12rem]" style="color: var(--eb-muted);">{{.ExitURL}}</td>
+                  <td class="px-4 py-2" style="color: var(--eb-muted);">{{.EventCount}}</td>
+                  <td class="px-4 py-2" style="color: var(--eb-muted);">{{if .TimeOnPage}}{{printf "%.0f" .TimeOnPage}}s{{else}}—{{end}}</td>
+                  <td class="px-4 py-2" style="color: var(--eb-muted);">{{formatTime .LastSeen}}</td>
+                </tr>
+                {{end}}
+              </tbody>
+            </table>
+          </div>
+          {{if not .Stats.Sessions}}
+          <div class="px-5 py-10 text-center text-sm" style="color: var(--eb-muted);">{{t .Lang "dashboard.no_sessions"}}</div>
+          {{end}}
+        </div>
+      </div>
+
+      <!-- Settings -->
+      <div class="td-panel hidden space-y-4" data-panel="settings">
+        <div class="eb-card rounded-xl p-5 space-y-3">
+          <div>
+            <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "sites.domain_label"}}</p>
+            <p class="text-sm" style="color: var(--eb-text);">{{if .Site.Domain}}{{.Site.Domain}}{{else}}—{{end}}</p>
+          </div>
+          <div>
+            <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "sites.key_shown_once"}}</p>
+            <code class="text-xs font-mono" style="color: var(--eb-muted);">{{.Site.KeyPrefix}}…</code>
+          </div>
+          <div class="flex flex-wrap gap-2 pt-2">
+            <button type="button" id="regenerate-key-btn" class="eb-btn-secondary rounded-md text-xs px-3 py-1.5 transition-colors">{{t .Lang "sites.regenerate_key"}}</button>
+            <a href="/workspaces/{{.Workspace.Slug}}/tables/{{.TableSlug}}" class="eb-btn-secondary rounded-md text-xs px-3 py-1.5 transition-colors">{{t .Lang "dashboard.view_raw_table"}}</a>
+            <button type="button" id="delete-site-btn" class="rounded-md text-xs px-3 py-1.5 transition-colors" style="border: 1px solid rgba(248,113,113,0.4); color: #f87171;">{{t .Lang "settings.webhook_delete_label"}}</button>
+          </div>
+          <div id="key-reveal" class="hidden space-y-2 pt-2" style="border-top: 1px solid var(--eb-border);">
+            <p class="text-xs font-semibold" style="color: var(--eb-accent);">{{t .Lang "sites.key_shown_once"}}</p>
+            <code id="key-reveal-value" class="block w-full text-xs font-mono rounded px-2 py-1 break-all" style="background: var(--eb-bg); color: var(--eb-text); border: 1px solid var(--eb-border);"></code>
+          </div>
+        </div>
+      </div>
+
+     </div>
+    </main>
+  </div>
+</div>
+
+<script>
+(function () {
+  const wsSlug = {{.Workspace.Slug}};
+  const siteID = {{.Site.ID}};
+  const I18N = {
+    errorRetry: "{{t .Lang "common.error_generic_retry"}}",
+    cannotContact: "{{t .Lang "datasource.cannot_contact_server"}}",
+    regenerateConfirm: "{{t .Lang "sites.regenerate_key_confirm"}}",
+    deleteConfirm: "{{t .Lang "dashboard.delete_site_confirm"}}",
+    noEvents: "{{t .Lang "dashboard.no_events"}}",
+    noSessions: "{{t .Lang "dashboard.no_sessions"}}",
+    pageIndicatorTemplate: "{{t .Lang "activity.page_indicator"}}",
+  };
+  const DONUT_PALETTE = ["#34d399", "#fb923c", "#60a5fa", "#f472b6", "#c084fc", "#facc15", "#94a3b8"];
+
+  function formatPageIndicator(page, total) {
+    return I18N.pageIndicatorTemplate.replace("%d", page).replace("%d", total);
+  }
+
+  // Current "recent activity" page — reset to 1 whenever the range changes
+  // (a different range can have a different total page count, so staying
+  // on e.g. page 5 of a now-2-page list wouldn't make sense).
+  let activityPage = {{.Stats.ActivityPage}};
+
+  // --- Tabs ---
+  const tabBtns = document.querySelectorAll(".td-tab-btn");
+  const panels = document.querySelectorAll(".td-panel");
+  let activeTab = "overview";
+  tabBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      activeTab = btn.dataset.tab;
+      tabBtns.forEach((b) => b.dataset.active = String(b === btn));
+      panels.forEach((p) => p.classList.toggle("hidden", p.dataset.panel !== activeTab));
+      if (activeTab === "realtime") startRealtimePolling();
+    });
+  });
+
+  // --- Overview: range switch ---
+  function renderOverview(stats) {
+    document.getElementById("kpi-total-events").textContent = stats.TotalEvents;
+    document.getElementById("kpi-unique-sessions").textContent = stats.UniqueSessions;
+    document.getElementById("kpi-active-sessions").textContent = stats.ActiveSessions;
+    document.getElementById("kpi-bounce-rate").textContent = Math.round(stats.BounceRatePercent) + "%";
+    document.getElementById("kpi-top-device").textContent = stats.TopDevice;
+    document.getElementById("kpi-top-browser").textContent = stats.TopBrowser;
+
+    const breakdown = stats.BrowserBreakdown || [];
+    const donut = document.getElementById("donut");
+    if (breakdown.length === 0) {
+      donut.style.background = "var(--eb-border)";
+    } else {
+      let cumulative = 0;
+      const stops = breakdown.map((b, i) => {
+        const color = DONUT_PALETTE[i] || DONUT_PALETTE[DONUT_PALETTE.length - 1];
+        const start = cumulative;
+        cumulative += b.Percent;
+        return `${color} ${start.toFixed(2)}% ${cumulative.toFixed(2)}%`;
+      });
+      donut.style.background = `conic-gradient(${stops.join(", ")})`;
+    }
+    const legend = document.getElementById("donut-legend");
+    legend.innerHTML = breakdown.length === 0
+      ? `<p class="text-xs" style="color: var(--eb-muted);">${I18N.noSessions}</p>`
+      : breakdown.map((b, i) => {
+          const color = DONUT_PALETTE[i] || DONUT_PALETTE[DONUT_PALETTE.length - 1];
+          return `<div class="flex items-center gap-2 text-xs">
+            <span class="td-legend-dot" style="background: ${color};"></span>
+            <span class="flex-1 truncate" style="color: var(--eb-text);">${b.Name}</span>
+            <span style="color: var(--eb-muted);">${Math.round(b.Percent)}%</span>
+          </div>`;
+        }).join("");
+
+    const list = document.getElementById("recent-activity-list");
+    const events = stats.RecentEvents || [];
+    list.innerHTML = events.length === 0
+      ? `<div class="px-5 py-8 text-center text-sm" style="color: var(--eb-muted);">${I18N.noEvents}</div>`
+      : events.map((e, i) => {
+          const arrow = e.EventType === "enter" ? "→" : "←";
+          const color = e.EventType === "enter" ? "var(--eb-accent)" : "#fb923c";
+          const border = i ? "border-top: 1px solid var(--eb-border);" : "";
+          return `<div class="px-5 py-2.5 flex items-center justify-between gap-3 text-xs" style="${border}">
+            <span style="color: ${color};">${arrow} ${e.EventType}</span>
+            <span class="flex-1 truncate mx-3" style="color: var(--eb-text);">${e.URL || ""}</span>
+            <span style="color: var(--eb-muted);">${e.Browser || ""}</span>
+            <span style="color: var(--eb-muted);">${new Date(e.Timestamp).toLocaleString()}</span>
+          </div>`;
+        }).join("");
+
+    activityPage = stats.ActivityPage;
+    const totalPages = stats.ActivityTotalPages || 1;
+    const pagination = document.getElementById("recent-activity-pagination");
+    pagination.classList.toggle("hidden", totalPages <= 1);
+    document.getElementById("recent-activity-page-indicator").textContent = formatPageIndicator(activityPage, totalPages);
+    document.getElementById("recent-activity-prev").disabled = activityPage <= 1;
+    document.getElementById("recent-activity-next").disabled = activityPage >= totalPages;
+  }
+
+  async function fetchOverview() {
+    try {
+      const res = await fetch(`/workspaces/${wsSlug}/sites/${siteID}/dashboard/data?range=${rangeSelect.value}&activityPage=${activityPage}`);
+      if (!res.ok) return;
+      renderOverview(await res.json());
+    } catch (e) {}
+  }
+
+  const rangeSelect = document.getElementById("range-select");
+  rangeSelect.addEventListener("change", () => {
+    activityPage = 1;
+    fetchOverview();
+  });
+
+  document.getElementById("recent-activity-prev").addEventListener("click", () => {
+    if (activityPage <= 1) return;
+    activityPage -= 1;
+    fetchOverview();
+  });
+  document.getElementById("recent-activity-next").addEventListener("click", () => {
+    activityPage += 1;
+    fetchOverview();
+  });
+
+  // --- Real-time Stream polling ---
+  let lastIndex = -1;
+  let pollTimer = null;
+  function startRealtimePolling() {
+    if (pollTimer) return;
+    poll();
+    pollTimer = setInterval(poll, 2000);
+  }
+  async function poll() {
+    if (activeTab !== "realtime") { clearInterval(pollTimer); pollTimer = null; return; }
+    try {
+      const res = await fetch(`/workspaces/${wsSlug}/sites/${siteID}/events/recent?afterIndex=${lastIndex}`);
+      if (!res.ok) return;
+      const body = await res.json();
+      lastIndex = body.lastIndex;
+      const events = body.events || [];
+      if (events.length === 0) return;
+      document.getElementById("realtime-empty").classList.add("hidden");
+      const tbody = document.getElementById("realtime-body");
+      events.slice().reverse().forEach((e) => {
+        const tr = document.createElement("tr");
+        tr.style.borderBottom = "1px solid var(--eb-border)";
+        tr.innerHTML = `
+          <td class="px-4 py-2" style="color: var(--eb-muted);">${e.index}</td>
+          <td class="px-4 py-2 font-mono" style="color: var(--eb-text);">${e.ip_public || ""}</td>
+          <td class="px-4 py-2" style="color: var(--eb-text);">${e.browser || ""} / ${e.os || ""}</td>
+          <td class="px-4 py-2 truncate max-w-[16rem]" style="color: var(--eb-muted);">${e.url || ""}</td>
+          <td class="px-4 py-2" style="color: var(--eb-text);">${e.event_type || ""}</td>
+          <td class="px-4 py-2 font-mono" style="color: var(--eb-muted);">${e.session_id || ""}</td>
+        `;
+        tbody.insertBefore(tr, tbody.firstChild);
+      });
+    } catch (e) {}
+  }
+
+  // --- Settings tab actions ---
+  const regenerateBtn = document.getElementById("regenerate-key-btn");
+  regenerateBtn.addEventListener("click", async () => {
+    if (!window.confirm(I18N.regenerateConfirm)) return;
+    try {
+      const res = await fetch(`/workspaces/${wsSlug}/sites/${siteID}/regenerate-key`, { method: "POST" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { alert(body.error || I18N.errorRetry); return; }
+      document.getElementById("key-reveal-value").textContent = body.key;
+      document.getElementById("key-reveal").classList.remove("hidden");
+    } catch (e) { alert(I18N.cannotContact); }
+  });
+
+  const deleteBtn = document.getElementById("delete-site-btn");
+  deleteBtn.addEventListener("click", async () => {
+    if (!window.confirm(I18N.deleteConfirm)) return;
+    try {
+      const res = await fetch(`/workspaces/${wsSlug}/sites/${siteID}`, { method: "DELETE" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { alert(body.error || I18N.errorRetry); return; }
+      window.location.href = "/plugins";
+    } catch (e) { alert(I18N.cannotContact); }
+  });
+})();
+</script>
+{{end}}
+{{template "layout" .}}
