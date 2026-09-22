@@ -1,0 +1,114 @@
+{{define "title"}}{{.Site.Name}} — {{t .Lang "plugins.title"}} — EptaAdmin{{end}}
+{{define "content"}}
+<div class="h-full flex">
+  {{template "sidebar" .}}
+
+  <div class="flex-1 min-w-0 flex flex-col">
+    {{template "header" .}}
+
+    <main class="flex-1 overflow-y-auto px-4 sm:px-8 py-10">
+     <div class="max-w-3xl mx-auto space-y-5">
+
+      <div class="eb-card rounded-xl p-5 space-y-3">
+        <div>
+          <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "visual.domain_label"}}</p>
+          <div class="flex items-center gap-2">
+            <p id="domain-display" class="text-sm" style="color: var(--eb-text);">{{if .Site.Domain}}{{.Site.Domain}}{{else}}—{{end}}</p>
+            <button type="button" id="domain-edit-btn" class="eb-icon-btn text-xs" title="{{t $.Lang "settings.webhook_edit_url_title"}}">✎</button>
+          </div>
+          <div id="domain-edit-form" class="hidden flex items-center gap-2 mt-1">
+            <input id="domain-input" type="text" placeholder="example.com" class="eb-input rounded-lg px-2 py-1 text-xs flex-1 min-w-0" value="{{.Site.Domain}}" />
+            <button type="button" id="domain-save-btn" class="eb-icon-btn text-xs shrink-0" title="{{t $.Lang "settings.webhook_url_save"}}">✓</button>
+            <button type="button" id="domain-cancel-btn" class="eb-icon-btn text-xs shrink-0" title="{{t $.Lang "common.cancel"}}">✕</button>
+          </div>
+        </div>
+        <div>
+          <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "visual.key_shown_once"}}</p>
+          <code class="text-xs font-mono" style="color: var(--eb-muted);">{{.Site.KeyPrefix}}…</code>
+        </div>
+        <div class="flex flex-wrap gap-2 pt-2">
+          <button type="button" id="generate-edit-link-btn" class="eb-btn-primary rounded-md text-xs px-3 py-1.5 transition-colors">{{t .Lang "visual.generate_edit_link"}}</button>
+          <button type="button" id="regenerate-key-btn" class="eb-btn-secondary rounded-md text-xs px-3 py-1.5 transition-colors">{{t .Lang "sites.regenerate_key"}}</button>
+          <button type="button" id="delete-site-btn" class="rounded-md text-xs px-3 py-1.5 transition-colors" style="border: 1px solid rgba(248,113,113,0.4); color: #f87171;">{{t .Lang "settings.webhook_delete_label"}}</button>
+        </div>
+
+        <div id="edit-link-reveal" class="hidden space-y-2 pt-2" style="border-top: 1px solid var(--eb-border);">
+          <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "visual.edit_link_hint"}}</p>
+          <div class="flex items-center gap-2">
+            <code id="edit-link-value" class="flex-1 text-xs font-mono rounded px-2 py-1 break-all" style="background: var(--eb-bg); color: var(--eb-text); border: 1px solid var(--eb-border);"></code>
+            <button type="button" id="edit-link-copy-btn" class="eb-btn-secondary rounded-md text-xs px-3 py-1.5 shrink-0">{{t .Lang "common.copy"}}</button>
+          </div>
+        </div>
+
+        <div id="key-reveal" class="hidden space-y-2 pt-2" style="border-top: 1px solid var(--eb-border);">
+          <p class="text-xs font-semibold" style="color: var(--eb-accent);">{{t .Lang "visual.key_shown_once"}}</p>
+          <code id="key-reveal-value" class="block w-full text-xs font-mono rounded px-2 py-1 break-all" style="background: var(--eb-bg); color: var(--eb-text); border: 1px solid var(--eb-border);"></code>
+        </div>
+      </div>
+
+      <div class="eb-card rounded-xl overflow-hidden">
+        <div class="px-5 py-3" style="border-bottom: 1px solid var(--eb-border);">
+          <h3 class="text-xs font-semibold uppercase tracking-wider" style="color: var(--eb-muted);">{{t .Lang "visual.mapped_fields_title"}}</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead>
+              <tr style="border-bottom: 1px solid var(--eb-border);">
+                <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "visual.field_page_label"}}</th>
+                <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "visual.field_selector_label"}}</th>
+                <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "visual.field_type_label"}}</th>
+                <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "visual.field_value_label"}}</th>
+                <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "visual.field_updated_label"}}</th>
+                <th class="px-4 py-2"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {{range .Fields}}
+              <tr class="visual-field-row" data-id="{{.ID}}" style="border-bottom: 1px solid var(--eb-border);">
+                <td class="px-4 py-2 truncate max-w-[10rem]" style="color: var(--eb-muted);">{{.PageURL}}</td>
+                <td class="px-4 py-2 font-mono truncate max-w-[12rem]" style="color: var(--eb-text);">{{.Selector}}</td>
+                <td class="px-4 py-2" style="color: var(--eb-muted);">{{.ValueType}}</td>
+                <td class="px-4 py-2 truncate max-w-[12rem]" style="color: var(--eb-text);">{{.Value}}</td>
+                <td class="px-4 py-2" style="color: var(--eb-muted);">{{formatTime .UpdatedAt}}</td>
+                <td class="px-4 py-2 text-right">
+                  <button type="button" class="delete-field-btn eb-icon-btn text-xs" data-id="{{.ID}}" title="{{t $.Lang "settings.webhook_delete_label"}}">✕</button>
+                </td>
+              </tr>
+              {{end}}
+            </tbody>
+          </table>
+        </div>
+        {{if not .Fields}}
+        <div class="px-5 py-10 text-center text-sm" style="color: var(--eb-muted);">{{t .Lang "visual.mapped_fields_empty"}}</div>
+        {{end}}
+        <div class="px-5 py-4 flex flex-wrap items-center justify-between gap-3" style="border-top: 1px solid var(--eb-border);">
+          <p class="text-xs max-w-md" style="color: var(--eb-muted);">{{t .Lang "visual.apply_hint"}}</p>
+          <div class="flex items-center gap-2 shrink-0">
+            {{if .SyncedTableSlug}}
+            <a id="view-synced-table-link" href="/workspaces/{{.Workspace.Slug}}/tables/{{.SyncedTableSlug}}" class="eb-btn-secondary rounded-md text-xs px-3 py-1.5 transition-colors">{{t .Lang "visual.view_synced_table"}}</a>
+            {{end}}
+            <button type="button" id="apply-to-datasource-btn" class="eb-btn-primary rounded-md text-xs px-3 py-1.5 transition-colors">{{t .Lang "visual.apply_to_datasource"}}</button>
+          </div>
+        </div>
+      </div>
+
+     </div>
+    </main>
+  </div>
+</div>
+
+<script>
+(function () {
+  const wsSlug = {{.Workspace.Slug}};
+  const siteID = {{.Site.ID}};
+  const I18N = {
+    errorRetry: "{{t .Lang "common.error_generic_retry"}}",
+    cannotContact: "{{t .Lang "datasource.cannot_contact_server"}}",
+    domainRequired: "{{t .Lang "visual.domain_required"}}",
+    regenerateConfirm: "{{t .Lang "sites.regenerate_key_confirm"}}",
+    deleteConfirm: "{{t .Lang "visual.delete_confirm"}}",
+    deleteFieldConfirm: "{{t .Lang "visual.delete_field_confirm"}}",
+    viewSyncedTable: "{{t .Lang "visual.view_synced_table"}}",
+    applyOk: "{{t .Lang "visual.apply_ok"}}",
+    copyLabel: "{{t .Lang "common.copy"}}",
+    copiedLabel: "{{t .Lang "common.copied"}}",
