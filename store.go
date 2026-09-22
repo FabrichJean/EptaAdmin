@@ -212,6 +212,27 @@ func (s *Store) migrate() error {
 		-- issued under (visual_signing.go), so once this changes every
 		-- previously issued link (including the one just used to log out)
 		-- stops verifying, even though it hasn't reached its normal
+		-- expiry yet.
+		token_generation INTEGER NOT NULL DEFAULT 0
+	);
+	CREATE INDEX IF NOT EXISTS idx_visual_sites_workspace ON visual_sites(workspace_id);
+
+	-- One row per edited element on the client site: page_url + selector
+	-- (a structural CSS path, see static/visual.js's cssPath) identifies
+	-- "this element", value_type says whether value is plain text or an
+	-- uploaded file's public URL.
+	CREATE TABLE IF NOT EXISTS visual_fields (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		site_id INTEGER NOT NULL REFERENCES visual_sites(id) ON DELETE CASCADE,
+		page_url TEXT NOT NULL,
+		selector TEXT NOT NULL,
+		value_type TEXT NOT NULL DEFAULT 'text',
+		value TEXT NOT NULL DEFAULT '',
+		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		UNIQUE (site_id, page_url, selector)
+	);
+	CREATE INDEX IF NOT EXISTS idx_visual_fields_lookup ON visual_fields(site_id, page_url);
+
 	CREATE TABLE IF NOT EXISTS activity_log (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		workspace_id INTEGER REFERENCES workspaces(id) ON DELETE CASCADE,
@@ -247,6 +268,11 @@ func (s *Store) migrate() error {
 		// this column needs a constant placeholder here, fixed up for real
 		// by backfillWebhookUpdatedAt below.
 		`ALTER TABLE webhooks ADD COLUMN updated_at DATETIME NOT NULL DEFAULT '1970-01-01 00:00:00'`,
+		// visual_sites already existed (without this column) on any install
+		// that created a visual site before "Appliquer vers la datasource"
+		// was added — CREATE TABLE IF NOT EXISTS above wouldn't retrofit it.
+		`ALTER TABLE visual_sites ADD COLUMN synced_table_id INTEGER REFERENCES tables(id) ON DELETE SET NULL`,
+		`ALTER TABLE visual_sites ADD COLUMN token_generation INTEGER NOT NULL DEFAULT 0`,
 	} {
 		if _, err := s.db.Exec(alter); err != nil {
 			if !strings.Contains(err.Error(), "duplicate column name") {
