@@ -45,6 +45,77 @@
         <div class="eb-card rounded-xl px-5 py-10 text-center text-sm" style="color: var(--eb-muted);">{{t .Lang "plugins.empty"}}</div>
         {{end}}
       </section>
+
+      <section class="space-y-3 pt-4">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <div class="h-10 w-10 rounded-lg flex items-center justify-center shrink-0" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h20v14H2z"/><path d="M8 21h8M12 17v4"/></svg>
+            </div>
+            <div class="min-w-0">
+              <h2 class="text-sm font-semibold" style="color: var(--eb-text);">{{t .Lang "plugins.integration_visual"}}</h2>
+              <p class="text-xs mt-0.5" style="color: var(--eb-muted);">{{t .Lang "plugins.integration_visual_desc"}}</p>
+            </div>
+          </div>
+          {{if .ManageableWorkspaces}}
+          <button type="button" id="toggle-add-visual-btn" class="eb-btn-primary shrink-0 rounded-full text-xs font-semibold px-4 py-2 transition-colors">{{t .Lang "plugins.add_visual_site"}}</button>
+          {{end}}
+        </div>
+
+        <div id="add-visual-form" class="hidden eb-card rounded-xl p-4 space-y-3">
+          <div id="add-visual-error" class="hidden rounded-lg text-sm px-3 py-2" style="background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: #fca5a5;"></div>
+          <div>
+            <label class="block text-xs font-medium mb-1" style="color: var(--eb-muted);">{{t .Lang "nav.workspaces"}}</label>
+            <select id="visual-workspace-select" class="eb-input w-full rounded-lg px-3 py-2 text-sm">
+              {{range .ManageableWorkspaces}}<option value="{{.Slug}}">{{.Name}}</option>{{end}}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium mb-1" style="color: var(--eb-muted);">{{t .Lang "visual.name_label"}}</label>
+            <input id="visual-name" type="text" class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium mb-1" style="color: var(--eb-muted);">{{t .Lang "visual.domain_label"}}</label>
+            <input id="visual-domain" type="text" placeholder="example.com" class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <button type="button" id="submit-visual-btn" class="eb-btn-primary w-full rounded-lg text-sm py-2 transition-colors">{{t .Lang "common.save"}}</button>
+        </div>
+
+        <div id="visual-key-reveal" class="hidden eb-card rounded-xl p-4 space-y-3" style="border: 1px solid var(--eb-accent);">
+          <p class="text-xs font-semibold" style="color: var(--eb-accent);">{{t .Lang "visual.key_shown_once"}}</p>
+          <code id="visual-key-value" class="block w-full text-xs font-mono rounded px-2 py-1 break-all" style="background: var(--eb-bg); color: var(--eb-text); border: 1px solid var(--eb-border);"></code>
+          <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "visual.snippet_label"}}</p>
+          <div class="flex items-start gap-2">
+            <pre class="flex-1 w-full text-xs font-mono rounded-lg overflow-x-auto p-2" style="border: 1px solid var(--eb-border);"><code id="visual-snippet-code"></code></pre>
+            <button type="button" id="visual-snippet-copy-btn" class="eb-btn-secondary rounded-md text-xs px-3 py-1.5 shrink-0">{{t .Lang "common.copy"}}</button>
+          </div>
+          <button type="button" id="visual-key-dismiss-btn" class="eb-btn-secondary w-full rounded-lg text-sm py-2 transition-colors">{{t .Lang "common.close"}}</button>
+        </div>
+
+        {{range .VisualGroups}}
+        {{if .Sites}}
+        <div class="eb-card rounded-xl overflow-hidden">
+          <div class="px-5 py-3" style="border-bottom: 1px solid var(--eb-border);">
+            <p class="text-xs font-semibold truncate" style="color: var(--eb-muted);">{{.Workspace.Name}}</p>
+          </div>
+          {{$ws := .Workspace}}
+          {{range $i, $site := .Sites}}
+          <a href="/workspaces/{{$ws.Slug}}/visual-sites/{{$site.ID}}/dashboard" class="flex items-center justify-between gap-3 px-5 py-3 transition-colors plugin-site-row" style="{{if $i}}border-top: 1px solid var(--eb-border);{{end}}">
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-medium truncate" style="color: var(--eb-text);">{{$site.Name}}</p>
+              {{if $site.Domain}}<p class="text-xs mt-0.5 truncate" style="color: var(--eb-muted);">{{$site.Domain}}</p>{{end}}
+            </div>
+            <span class="text-xs font-medium shrink-0" style="color: var(--eb-accent);">{{t $.Lang "plugins.view_dashboard"}} →</span>
+          </a>
+          {{end}}
+        </div>
+        {{end}}
+        {{end}}
+
+        {{if not .HasAnyVisualSites}}
+        <div class="eb-card rounded-xl px-5 py-10 text-center text-sm" style="color: var(--eb-muted);">{{t .Lang "plugins.visual_empty"}}</div>
+        {{end}}
+      </section>
      </div>
     </main>
   </div>
@@ -53,5 +124,13 @@
 <style>
   .plugin-site-row:hover { background: var(--eb-surface-2); }
 </style>
+<script>
+(function () {
+  const addBtn = document.getElementById("toggle-add-visual-btn");
+  const addForm = document.getElementById("add-visual-form");
+  const wsSelect = document.getElementById("visual-workspace-select");
+  const nameInput = document.getElementById("visual-name");
+  const domainInput = document.getElementById("visual-domain");
+  const errorBox = document.getElementById("add-visual-error");
 {{end}}
 {{template "layout" .}}

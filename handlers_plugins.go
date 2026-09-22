@@ -67,15 +67,26 @@ func (a *App) handleGlobalPlugins(w http.ResponseWriter, r *http.Request) {
 
 		visualSites, err := a.store.ListVisualSites(ws.ID)
 		if err != nil {
+			log.Printf("list visual sites error: %v", err)
+			http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
+			return
+		}
+		if len(visualSites) > 0 {
+			hasAnyVisualSites = true
+		}
+		visualGroups = append(visualGroups, visualPluginGroup{Workspace: ws, Sites: visualSites})
 	}
 
 	a.render(w, r, "plugins.html", map[string]any{
-		"CurrentUser": currentUser,
-		"ActiveNav":   "plugins",
-		"PageTitle":   T(lang, "plugins.title"),
-		"Groups":      groups,
-		"HasAnySites": hasAnySites,
-		"HeaderTitle": T(lang, "plugins.title"),
-		"HeaderIcon":  "puzzle",
+		"CurrentUser":          currentUser,
+		"ActiveNav":            "plugins",
+		"PageTitle":            T(lang, "plugins.title"),
+		"Groups":               groups,
+		"HasAnySites":          hasAnySites,
+		"VisualGroups":         visualGroups,
+		"HasAnyVisualSites":    hasAnyVisualSites,
+		"ManageableWorkspaces": manageableWorkspaces,
+		"HeaderTitle":          T(lang, "plugins.title"),
+		"HeaderIcon":           "puzzle",
 	})
 }
