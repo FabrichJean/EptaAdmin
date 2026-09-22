@@ -1,0 +1,57 @@
+{{define "title"}}{{t .Lang "plugins.title"}} — EptaAdmin{{end}}
+{{define "content"}}
+<div class="h-full flex">
+  {{template "sidebar" .}}
+
+  <div class="flex-1 min-w-0 flex flex-col">
+    {{template "header" .}}
+
+    <main class="flex-1 overflow-y-auto px-4 sm:px-8 py-10">
+     <div class="max-w-3xl mx-auto space-y-6">
+      <p class="text-sm" style="color: var(--eb-muted);">{{t .Lang "plugins.subtitle"}}</p>
+
+      <section class="space-y-3">
+        <div class="flex items-center gap-3">
+          <div class="h-10 w-10 rounded-lg flex items-center justify-center shrink-0" style="background: rgba(52,211,153,0.15); color: var(--eb-accent);">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          </div>
+          <div class="min-w-0">
+            <h2 class="text-sm font-semibold" style="color: var(--eb-text);">{{t .Lang "plugins.integration_tracking"}}</h2>
+            <p class="text-xs mt-0.5" style="color: var(--eb-muted);">{{t .Lang "plugins.integration_tracking_desc"}}</p>
+          </div>
+        </div>
+
+        {{range .Groups}}
+        {{if .Sites}}
+        <div class="eb-card rounded-xl overflow-hidden">
+          <div class="px-5 py-3" style="border-bottom: 1px solid var(--eb-border);">
+            <p class="text-xs font-semibold truncate" style="color: var(--eb-muted);">{{.Workspace.Name}}</p>
+          </div>
+          {{$ws := .Workspace}}
+          {{range $i, $site := .Sites}}
+          <a href="/workspaces/{{$ws.Slug}}/sites/{{$site.ID}}/dashboard" class="flex items-center justify-between gap-3 px-5 py-3 transition-colors plugin-site-row" style="{{if $i}}border-top: 1px solid var(--eb-border);{{end}}">
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-medium truncate" style="color: var(--eb-text);">{{$site.Name}}</p>
+              {{if $site.Domain}}<p class="text-xs mt-0.5 truncate" style="color: var(--eb-muted);">{{$site.Domain}}</p>{{end}}
+            </div>
+            <span class="text-xs font-medium shrink-0" style="color: var(--eb-accent);">{{t $.Lang "plugins.view_dashboard"}} →</span>
+          </a>
+          {{end}}
+        </div>
+        {{end}}
+        {{end}}
+
+        {{if not .HasAnySites}}
+        <div class="eb-card rounded-xl px-5 py-10 text-center text-sm" style="color: var(--eb-muted);">{{t .Lang "plugins.empty"}}</div>
+        {{end}}
+      </section>
+     </div>
+    </main>
+  </div>
+</div>
+
+<style>
+  .plugin-site-row:hover { background: var(--eb-surface-2); }
+</style>
+{{end}}
+{{template "layout" .}}
