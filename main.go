@@ -61,6 +61,17 @@ func main() {
 	// browsers, which is why it's placed under /api/v1/ (see withAPICORS
 	// below, which grants it cross-origin access same as the read-only API).
 	mux.HandleFunc("POST /api/v1/track", app.handleTrackCollect)
+	// Public visual-editing API — same trust model as /api/v1/track (a
+	// site's own public key, no session/Authorization header), plus a
+	// short-lived signed token (see visual_signing.go) for the write
+	// endpoints only. handleVisualListFields is what makes an edit show
+	// up for every visitor, not just the admin who made it.
+	mux.HandleFunc("GET /api/v1/visual/fields", app.handleVisualListFields)
+	mux.HandleFunc("POST /api/v1/visual/fields", app.handleVisualSaveField)
+	mux.HandleFunc("DELETE /api/v1/visual/fields", app.handleVisualDeleteField)
+	mux.HandleFunc("POST /api/v1/visual/upload", app.handleVisualUpload)
+	mux.HandleFunc("POST /api/v1/visual/verify", app.handleVisualVerifyToken)
+	mux.HandleFunc("POST /api/v1/visual/logout", app.handleVisualLogout)
 	mux.HandleFunc("GET /workspaces", app.requireAuth(app.handleWorkspacesPage))
 	mux.HandleFunc("GET /activity", app.requireAuth(app.handleGlobalActivity))
 	mux.HandleFunc("GET /api/search", app.requireAuth(app.handleGlobalSearch))
@@ -83,6 +94,8 @@ func main() {
 	mux.HandleFunc("GET /workspaces/{slug}/sites/{id}/dashboard/data", app.requireAuth(app.handleTrackingDashboardData))
 	mux.HandleFunc("GET /workspaces/{slug}/sites/{id}/events/recent", app.requireAuth(app.handleTrackingRecentEvents))
 	mux.HandleFunc("GET /plugins", app.requireAuth(app.handleGlobalPlugins))
+	mux.HandleFunc("POST /workspaces/{slug}/visual-sites", app.requireAuth(app.handleCreateVisualSite))
+	mux.HandleFunc("DELETE /workspaces/{slug}/visual-sites/{id}", app.requireAuth(app.handleDeleteVisualSite))
 	// Public callback a webhook receiver posts real-time progress updates
 	// to — see webhooks.go's progressUrl convention. No session auth: the
 	// external server calling this isn't a logged-in browser. Guarded only
