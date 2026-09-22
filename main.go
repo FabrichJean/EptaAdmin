@@ -64,11 +64,13 @@ func main() {
 	// Public visual-editing API — same trust model as /api/v1/track (a
 	// site's own public key, no session/Authorization header), plus a
 	// short-lived signed token (see visual_signing.go) for the write
-	// endpoints only. handleVisualListFields is what makes an edit show
-	// up for every visitor, not just the admin who made it.
-	mux.HandleFunc("GET /api/v1/visual/fields", app.handleVisualListFields)
-	mux.HandleFunc("POST /api/v1/visual/fields", app.handleVisualSaveField)
-	mux.HandleFunc("DELETE /api/v1/visual/fields", app.handleVisualDeleteField)
+	// endpoints. Unlike an earlier version of this feature, there is no
+	// "list fields" endpoint here: edits land directly in the same
+	// datasource table the site already reads via the public read-only
+	// API (handlers_api.go) — the site's own next fetch sees them, no
+	// separate apply step needed.
+	mux.HandleFunc("POST /api/v1/visual/write", app.handleVisualWriteCell)
+	mux.HandleFunc("POST /api/v1/visual/clear", app.handleVisualClearCell)
 	mux.HandleFunc("POST /api/v1/visual/upload", app.handleVisualUpload)
 	mux.HandleFunc("POST /api/v1/visual/verify", app.handleVisualVerifyToken)
 	mux.HandleFunc("POST /api/v1/visual/logout", app.handleVisualLogout)
@@ -98,10 +100,8 @@ func main() {
 	mux.HandleFunc("DELETE /workspaces/{slug}/visual-sites/{id}", app.requireAuth(app.handleDeleteVisualSite))
 	mux.HandleFunc("POST /workspaces/{slug}/visual-sites/{id}/regenerate-key", app.requireAuth(app.handleRegenerateVisualSiteKey))
 	mux.HandleFunc("PATCH /workspaces/{slug}/visual-sites/{id}/domain", app.requireAuth(app.handleUpdateVisualSiteDomain))
-	mux.HandleFunc("POST /workspaces/{slug}/visual-sites/{id}/apply-to-datasource", app.requireAuth(app.handleApplyVisualSiteToDataSource))
 	mux.HandleFunc("POST /workspaces/{slug}/visual-sites/{id}/edit-link", app.requireAuth(app.handleGenerateVisualEditLink))
 	mux.HandleFunc("GET /workspaces/{slug}/visual-sites/{id}/dashboard", app.requireAuth(app.handleVisualSiteDashboard))
-	mux.HandleFunc("DELETE /workspaces/{slug}/visual-sites/{id}/fields/{fieldID}", app.requireAuth(app.handleDeleteVisualFieldFromDashboard))
 	// Public callback a webhook receiver posts real-time progress updates
 	// to — see webhooks.go's progressUrl convention. No session auth: the
 	// external server calling this isn't a logged-in browser. Guarded only
@@ -169,10 +169,9 @@ func withAPICORS(next http.Handler) http.Handler {
 				w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 			} else if strings.HasPrefix(r.URL.Path, "/api/v1/visual/") {
 				// Same body-only auth story as tracking (key/token travel in
-				// the JSON body or multipart form, never a header), but the
-				// visual SDK also needs GET (read overrides) and DELETE
-				// (unlink a field) alongside POST.
-				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+				// the JSON body or multipart form, never a header) — every
+				// visual endpoint is a POST (write/clear/upload/verify/logout).
+				w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 				w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 			} else {
 				w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
