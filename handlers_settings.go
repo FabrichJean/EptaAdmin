@@ -77,12 +77,28 @@ func (a *App) handleSettingsPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	rawSites, err := a.store.ListTrackedSites(ws.ID)
+	if err != nil {
+		log.Printf("list tracked sites error: %v", err)
+		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
+		return
+	}
+	sites := make([]trackedSiteView, 0, len(rawSites))
+	for _, site := range rawSites {
+		tableSlug := ""
+		if t, err := a.store.GetTable(site.TableID); err == nil && t != nil {
+			tableSlug = t.Slug
+		}
+		sites = append(sites, trackedSiteView{TrackedSite: site, TableSlug: tableSlug})
+	}
+
 	a.render(w, r, "settings.html", map[string]any{
-		"CurrentUser": currentUser,
-		"ActiveNav":   "workspaces",
-		"PageTitle":   T(lang, "settings.title"),
-		"Workspace":   ws,
-		"Webhooks":    webhooks,
+		"CurrentUser":  currentUser,
+		"ActiveNav":    "workspaces",
+		"PageTitle":    T(lang, "settings.title"),
+		"Workspace":    ws,
+		"Webhooks":     webhooks,
+		"TrackedSites": sites,
 		"Breadcrumb": []Breadcrumb{
 			{Label: T(lang, "nav.workspaces"), URL: "/workspaces"},
 			{Label: ws.Name, URL: "/workspaces/" + ws.Slug},
