@@ -92,6 +92,7 @@ func main() {
 	mux.HandleFunc("POST /workspaces/{slug}/sites", app.requireAuth(app.handleCreateTrackedSite))
 	mux.HandleFunc("DELETE /workspaces/{slug}/sites/{id}", app.requireAuth(app.handleDeleteTrackedSite))
 	mux.HandleFunc("POST /workspaces/{slug}/sites/{id}/regenerate-key", app.requireAuth(app.handleRegenerateTrackedSiteKey))
+	mux.HandleFunc("POST /workspaces/{slug}/sites/{id}/reset-data", app.requireAuth(app.handleResetTrackedSiteData))
 	mux.HandleFunc("GET /workspaces/{slug}/sites/{id}/dashboard", app.requireAuth(app.handleTrackingDashboard))
 	mux.HandleFunc("GET /workspaces/{slug}/sites/{id}/dashboard/data", app.requireAuth(app.handleTrackingDashboardData))
 	mux.HandleFunc("GET /workspaces/{slug}/sites/{id}/events/recent", app.requireAuth(app.handleTrackingRecentEvents))
