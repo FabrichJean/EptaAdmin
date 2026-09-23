@@ -9,6 +9,8 @@
     <main class="flex-1 overflow-y-auto px-4 sm:px-8 py-10">
      <div class="max-w-3xl mx-auto space-y-5">
 
+      <span class="eb-badge text-xs" style="background: rgba(251,146,60,0.15); color: var(--eb-warn);" title="{{t .Lang "plugins.experimental_hint"}}">{{t .Lang "plugins.experimental_badge"}}</span>
+
       <div class="eb-card rounded-xl p-5 space-y-3">
         <div>
           <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "visual.domain_label"}}</p>
@@ -46,50 +48,9 @@
         </div>
       </div>
 
-      <div class="eb-card rounded-xl overflow-hidden">
-        <div class="px-5 py-3" style="border-bottom: 1px solid var(--eb-border);">
-          <h3 class="text-xs font-semibold uppercase tracking-wider" style="color: var(--eb-muted);">{{t .Lang "visual.mapped_fields_title"}}</h3>
-        </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-xs">
-            <thead>
-              <tr style="border-bottom: 1px solid var(--eb-border);">
-                <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "visual.field_page_label"}}</th>
-                <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "visual.field_selector_label"}}</th>
-                <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "visual.field_type_label"}}</th>
-                <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "visual.field_value_label"}}</th>
-                <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "visual.field_updated_label"}}</th>
-                <th class="px-4 py-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {{range .Fields}}
-              <tr class="visual-field-row" data-id="{{.ID}}" style="border-bottom: 1px solid var(--eb-border);">
-                <td class="px-4 py-2 truncate max-w-[10rem]" style="color: var(--eb-muted);">{{.PageURL}}</td>
-                <td class="px-4 py-2 font-mono truncate max-w-[12rem]" style="color: var(--eb-text);">{{.Selector}}</td>
-                <td class="px-4 py-2" style="color: var(--eb-muted);">{{.ValueType}}</td>
-                <td class="px-4 py-2 truncate max-w-[12rem]" style="color: var(--eb-text);">{{.Value}}</td>
-                <td class="px-4 py-2" style="color: var(--eb-muted);">{{formatTime .UpdatedAt}}</td>
-                <td class="px-4 py-2 text-right">
-                  <button type="button" class="delete-field-btn eb-icon-btn text-xs" data-id="{{.ID}}" title="{{t $.Lang "settings.webhook_delete_label"}}">✕</button>
-                </td>
-              </tr>
-              {{end}}
-            </tbody>
-          </table>
-        </div>
-        {{if not .Fields}}
-        <div class="px-5 py-10 text-center text-sm" style="color: var(--eb-muted);">{{t .Lang "visual.mapped_fields_empty"}}</div>
-        {{end}}
-        <div class="px-5 py-4 flex flex-wrap items-center justify-between gap-3" style="border-top: 1px solid var(--eb-border);">
-          <p class="text-xs max-w-md" style="color: var(--eb-muted);">{{t .Lang "visual.apply_hint"}}</p>
-          <div class="flex items-center gap-2 shrink-0">
-            {{if .SyncedTableSlug}}
-            <a id="view-synced-table-link" href="/workspaces/{{.Workspace.Slug}}/tables/{{.SyncedTableSlug}}" class="eb-btn-secondary rounded-md text-xs px-3 py-1.5 transition-colors">{{t .Lang "visual.view_synced_table"}}</a>
-            {{end}}
-            <button type="button" id="apply-to-datasource-btn" class="eb-btn-primary rounded-md text-xs px-3 py-1.5 transition-colors">{{t .Lang "visual.apply_to_datasource"}}</button>
-          </div>
-        </div>
+      <div class="eb-card rounded-xl p-5 space-y-2">
+        <h3 class="text-xs font-semibold uppercase tracking-wider" style="color: var(--eb-muted);">{{t .Lang "visual.how_it_works_title"}}</h3>
+        <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "visual.how_it_works_body"}}</p>
       </div>
 
      </div>
@@ -107,9 +68,6 @@
     domainRequired: "{{t .Lang "visual.domain_required"}}",
     regenerateConfirm: "{{t .Lang "sites.regenerate_key_confirm"}}",
     deleteConfirm: "{{t .Lang "visual.delete_confirm"}}",
-    deleteFieldConfirm: "{{t .Lang "visual.delete_field_confirm"}}",
-    viewSyncedTable: "{{t .Lang "visual.view_synced_table"}}",
-    applyOk: "{{t .Lang "visual.apply_ok"}}",
     copyLabel: "{{t .Lang "common.copy"}}",
     copiedLabel: "{{t .Lang "common.copied"}}",
   };
@@ -190,37 +148,6 @@
     } catch (e) { alert(I18N.cannotContact); }
   });
 
-  document.getElementById("apply-to-datasource-btn").addEventListener("click", async (e) => {
-    const btn = e.currentTarget;
-    btn.disabled = true;
-    try {
-      const res = await fetch(`/workspaces/${wsSlug}/visual-sites/${siteID}/apply-to-datasource`, { method: "POST" });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) { alert(body.error || I18N.errorRetry); return; }
-      let link = document.getElementById("view-synced-table-link");
-      if (!link) {
-        link = document.createElement("a");
-        link.id = "view-synced-table-link";
-        link.className = "eb-btn-secondary rounded-md text-xs px-3 py-1.5 transition-colors";
-        link.textContent = I18N.viewSyncedTable;
-        btn.parentElement.insertBefore(link, btn);
-      }
-      link.href = `/workspaces/${wsSlug}/tables/${body.tableSlug}`;
-      alert(I18N.applyOk);
-    } catch (e) { alert(I18N.cannotContact); } finally { btn.disabled = false; }
-  });
-
-  document.querySelectorAll(".delete-field-btn").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      if (!window.confirm(I18N.deleteFieldConfirm)) return;
-      try {
-        const res = await fetch(`/workspaces/${wsSlug}/visual-sites/${siteID}/fields/${btn.dataset.id}`, { method: "DELETE" });
-        const body = await res.json().catch(() => ({}));
-        if (!res.ok) { alert(body.error || I18N.errorRetry); return; }
-        btn.closest(".visual-field-row")?.remove();
-      } catch (e) { alert(I18N.cannotContact); }
-    });
-  });
 })();
 </script>
 {{end}}
