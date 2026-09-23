@@ -53,7 +53,10 @@
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h20v14H2z"/><path d="M8 21h8M12 17v4"/></svg>
             </div>
             <div class="min-w-0">
-              <h2 class="text-sm font-semibold" style="color: var(--eb-text);">{{t .Lang "plugins.integration_visual"}}</h2>
+              <div class="flex items-center gap-2 flex-wrap">
+                <h2 class="text-sm font-semibold" style="color: var(--eb-text);">{{t .Lang "plugins.integration_visual"}}</h2>
+                <span class="eb-badge text-xs" style="background: rgba(251,146,60,0.15); color: var(--eb-warn);" title="{{t .Lang "plugins.experimental_hint"}}">{{t .Lang "plugins.experimental_badge"}}</span>
+              </div>
               <p class="text-xs mt-0.5" style="color: var(--eb-muted);">{{t .Lang "plugins.integration_visual_desc"}}</p>
             </div>
           </div>
