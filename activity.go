@@ -63,6 +63,7 @@ const (
 	ActionSiteCreate        = "site.create"
 	ActionSiteDelete        = "site.delete"
 	ActionSiteKeyRegenerate = "site.key_regenerate"
+	ActionSiteDataReset     = "site.data_reset"
 	// ActionSiteTrackEvent fires once per visitor enter/exit event — high
 	// volume by design (see handleTrackCollect), which is why logActivity
 	// excludes it from also firing the workspace's outbound webhooks: a
@@ -223,6 +224,8 @@ func (e *ActivityEntry) Describe(lang string) string {
 		return T(lang, "activity.desc.site.delete", actor, detailString(d, "name"))
 	case ActionSiteKeyRegenerate:
 		return T(lang, "activity.desc.site.key_regenerate", actor, detailString(d, "name"))
+	case ActionSiteDataReset:
+		return T(lang, "activity.desc.site.data_reset", actor, detailString(d, "name"))
 	case ActionSiteTrackEvent:
 		// No actor: this is an anonymous visitor, not a signed-in account —
 		// unlike every other entry, the sentence deliberately doesn't start

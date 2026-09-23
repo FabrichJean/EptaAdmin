@@ -175,6 +175,56 @@ func (a *App) handleDeleteTrackedSite(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+// handleResetTrackedSiteData wipes every recorded event for a tracked
+// site back to an empty table — the site, its key, and its column schema
+// are all left untouched, only the collected rows are gone. Deliberately
+// not reversible (unlike a grid value edit/delete, there's no single
+// activity entry to undo a bulk wipe against), so this is logged but not
+// added to reversibleActions.
+func (a *App) handleResetTrackedSiteData(w http.ResponseWriter, r *http.Request) {
+	currentUser := userFromContext(r)
+	lang := a.resolveLang(r)
+	ws, role, ok := a.loadWorkspaceMembership(w, r, currentUser)
+	if !ok {
+		return
+	}
+	if !hasPermission(role, PermSettingsManage) {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": T(lang, "common.access_denied")})
+		return
+	}
+	site, ok := a.loadTrackedSiteInWorkspace(w, r, ws)
+	if !ok {
+		return
+	}
+	t, err := a.store.GetTable(site.TableID)
+	if err != nil || t == nil {
+		log.Printf("get tracked site table error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		return
+	}
+
+	dataWriteMu.Lock()
+	defer dataWriteMu.Unlock()
+
+	fresh, err := a.store.GetTable(t.ID)
+	if err != nil || fresh == nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Une erreur est survenue."})
+		return
+	}
+	if err := SaveRecordStore(fresh.StoragePath, RecordStore{}); err != nil {
+		log.Printf("reset tracked site data error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": T(lang, "datasource.write_error")})
+		return
+	}
+	if _, err := a.store.BumpTableVersion(fresh.ID, fresh.Version); err != nil {
+		log.Printf("bump table version error: %v", err)
+	}
+
+	a.logActivity(logActivityParams{WorkspaceID: ws.ID, TableID: fresh.ID, UserID: currentUser.ID, Action: ActionSiteDataReset, Details: map[string]any{"name": site.Name}})
+
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
 // clientIP resolves the visitor's IP for the ingestion endpoint: honors
 // X-Forwarded-For (first entry) for deployments sitting behind a reverse
 // proxy, falling back to the raw connection address. The browser SDK never
