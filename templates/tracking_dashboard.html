@@ -214,6 +214,10 @@
             <code id="key-reveal-value" class="block w-full text-xs font-mono rounded px-2 py-1 break-all" style="background: var(--eb-bg); color: var(--eb-text); border: 1px solid var(--eb-border);"></code>
           </div>
         </div>
+
+        <div class="text-right">
+          <button type="button" id="reset-data-btn" class="text-xs transition-opacity" style="color: var(--eb-muted); opacity: 0.35;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.35">{{t .Lang "dashboard.reset_data_link"}}</button>
+        </div>
       </div>
 
      </div>
@@ -230,6 +234,7 @@
     cannotContact: "{{t .Lang "datasource.cannot_contact_server"}}",
     regenerateConfirm: "{{t .Lang "sites.regenerate_key_confirm"}}",
     deleteConfirm: "{{t .Lang "dashboard.delete_site_confirm"}}",
+    resetDataConfirm: "{{t .Lang "dashboard.reset_data_confirm"}}",
     noEvents: "{{t .Lang "dashboard.no_events"}}",
     noSessions: "{{t .Lang "dashboard.no_sessions"}}",
     pageIndicatorTemplate: "{{t .Lang "activity.page_indicator"}}",
@@ -484,6 +489,17 @@
       const body = await res.json().catch(() => ({}));
       if (!res.ok) { alert(body.error || I18N.errorRetry); return; }
       window.location.href = "/plugins";
+    } catch (e) { alert(I18N.cannotContact); }
+  });
+
+  const resetDataBtn = document.getElementById("reset-data-btn");
+  resetDataBtn.addEventListener("click", async () => {
+    if (!window.confirm(I18N.resetDataConfirm)) return;
+    try {
+      const res = await fetch(`/workspaces/${wsSlug}/sites/${siteID}/reset-data`, { method: "POST" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { alert(body.error || I18N.errorRetry); return; }
+      location.reload();
     } catch (e) { alert(I18N.cannotContact); }
   });
 })();
