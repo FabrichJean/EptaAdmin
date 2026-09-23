@@ -79,7 +79,7 @@ var translations = map[string]map[string]string{
 	"fr": {
 		"nav.dashboard":                      "Tableau de bord",
 		"nav.workspaces":                     "Workspaces",
-		"nav.integration":                    "Intégration",
+		"nav.integration":                    "API",
 		"nav.plugins":                        "Plugins",
 		"nav.developer_section":              "Développeur",
 		"nav.profile":                        "Mon profil",
@@ -162,6 +162,7 @@ var translations = map[string]map[string]string{
 		"activity.desc.site.create":                  "%s a ajouté le site suivi « %s ».",
 		"activity.desc.site.delete":                  "%s a supprimé le site suivi « %s ».",
 		"activity.desc.site.key_regenerate":          "%s a régénéré la clé du site suivi « %s ».",
+		"activity.desc.site.data_reset":              "%s a réinitialisé les données collectées du site suivi « %s ».",
 		"activity.desc.site.track_event_enter":       "Nouvelle visite sur « %s » : %s",
 		"activity.desc.site.track_event_exit":        "Fin de visite sur « %s » : %s",
 		"activity.desc.visual_site.create":           "%s a ajouté le site visuel « %s ».",
@@ -315,6 +316,9 @@ var translations = map[string]map[string]string{
 		"dashboard.first_seen_label":    "Première vue",
 		"dashboard.last_seen_label":     "Dernière vue",
 		"dashboard.delete_site_confirm": "Supprimer ce site suivi ? La clé cessera de fonctionner immédiatement.",
+		"dashboard.reset_data_link":     "Réinitialiser les données collectées",
+		"dashboard.reset_data_confirm":  "Supprimer définitivement TOUS les events collectés pour ce site ? Le site, sa clé et sa configuration restent intacts — seules les données sont effacées. Cette action est irréversible.",
+		"dashboard.reset_data_ok":       "Données réinitialisées.",
 		"dashboard.view_raw_table":      "Voir la table brute",
 
 		"common.copy":   "Copier",
@@ -597,7 +601,7 @@ var translations = map[string]map[string]string{
 	"en": {
 		"nav.dashboard":                      "Dashboard",
 		"nav.workspaces":                     "Workspaces",
-		"nav.integration":                    "Integration",
+		"nav.integration":                    "API",
 		"nav.plugins":                        "Plugins",
 		"nav.developer_section":              "Developer",
 		"nav.profile":                        "My profile",
@@ -680,6 +684,7 @@ var translations = map[string]map[string]string{
 		"activity.desc.site.create":                  "%s added the tracked site \"%s\".",
 		"activity.desc.site.delete":                  "%s deleted the tracked site \"%s\".",
 		"activity.desc.site.key_regenerate":          "%s regenerated the key for the tracked site \"%s\".",
+		"activity.desc.site.data_reset":              "%s reset the collected data for the tracked site \"%s\".",
 		"activity.desc.site.track_event_enter":       "New visit on \"%s\": %s",
 		"activity.desc.site.track_event_exit":        "Visit ended on \"%s\": %s",
 		"activity.desc.visual_site.create":           "%s added the visual site \"%s\".",
@@ -833,6 +838,9 @@ var translations = map[string]map[string]string{
 		"dashboard.first_seen_label":    "First Seen",
 		"dashboard.last_seen_label":     "Last Seen",
 		"dashboard.delete_site_confirm": "Delete this tracked site? Its key will stop working immediately.",
+		"dashboard.reset_data_link":     "Reset collected data",
+		"dashboard.reset_data_confirm":  "Permanently delete ALL collected events for this site? The site, its key, and its configuration stay intact — only the data is erased. This cannot be undone.",
+		"dashboard.reset_data_ok":       "Data reset.",
 		"dashboard.view_raw_table":      "View raw table",
 
 		"common.copy":   "Copy",
