@@ -1,0 +1,76 @@
+{{define "title"}}CRM+ — EptaAdmin{{end}}
+{{define "content"}}
+<div class="h-full flex">
+  {{template "sidebar" .}}
+
+  <div class="flex-1 min-w-0 flex flex-col">
+    {{template "header" .}}
+
+    <main class="flex-1 overflow-y-auto px-4 sm:px-8 py-10">
+     <div class="max-w-4xl mx-auto">
+      <p class="mb-6" style="color: var(--eb-muted);">{{t .Lang "crm.subtitle"}}</p>
+
+      <div class="flex items-center justify-end gap-3 mb-8">
+        <button id="toggle-add-crm-team-btn" type="button" class="eb-btn-primary shrink-0 rounded-xl text-sm font-semibold px-5 py-3.5 transition-colors">+ {{t .Lang "crm.new_team_button"}}</button>
+      </div>
+
+      <div id="add-crm-team-form" class="hidden eb-card rounded-xl p-5 mb-8 space-y-3">
+        {{if .Error}}
+        <div class="rounded-lg text-sm px-3 py-2" style="background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: #fca5a5;">{{.Error}}</div>
+        {{end}}
+        <form method="POST" action="/crm" class="flex items-end gap-3">
+          <div class="flex-1">
+            <label class="block text-xs font-medium mb-1" style="color: var(--eb-muted);" for="name">{{t .Lang "crm.team_name_label"}}</label>
+            <input id="name" name="name" type="text" required value="{{.Name}}" placeholder="Blog &amp; Projects"
+              class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <button type="submit" class="eb-btn-primary rounded-lg text-sm px-4 py-2 transition-colors shrink-0">{{t .Lang "crm.create_team_button"}}</button>
+        </form>
+      </div>
+
+      <h2 class="text-sm font-semibold mb-3" style="color: var(--eb-text);">{{t .Lang "crm.your_teams"}}</h2>
+
+      {{if .CRMTeams}}
+      <div class="grid gap-3 sm:grid-cols-2">
+        {{range .CRMTeams}}
+        <a href="/crm/{{.Slug}}"
+          class="flex items-center gap-3 rounded-xl px-4 py-3 transition-colors eb-card"
+          onmouseover="this.style.borderColor='var(--eb-border-strong)'" onmouseout="this.style.borderColor='var(--eb-border)'">
+          <div class="h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0" style="background: {{columnColorHex .Name}}26; color: {{columnColorHex .Name}};">
+            {{slice .Name 0 1}}
+          </div>
+          <div class="min-w-0">
+            <p class="text-sm font-semibold truncate" style="color: var(--eb-text);">{{.Name}}</p>
+            <p class="text-xs truncate" style="color: var(--eb-muted);">{{.RoleLabel $.Lang}}</p>
+          </div>
+        </a>
+        {{end}}
+      </div>
+      {{else}}
+      <div class="eb-card rounded-xl px-5 py-10 text-center text-sm" style="color: var(--eb-muted);">
+        {{t .Lang "crm.empty_state"}}
+      </div>
+      {{end}}
+     </div>
+    </main>
+
+    <script>
+    (function () {
+      const addBtn = document.getElementById("toggle-add-crm-team-btn");
+      const addForm = document.getElementById("add-crm-team-form");
+      if (addBtn && addForm) {
+        addBtn.addEventListener("click", () => {
+          addForm.classList.toggle("hidden");
+          if (!addForm.classList.contains("hidden")) {
+            const input = addForm.querySelector("input");
+            if (input) input.focus();
+          }
+        });
+      }
+      {{if .Error}}addForm?.classList.remove("hidden");{{end}}
+    })();
+    </script>
+  </div>
+</div>
+{{end}}
+{{template "layout" .}}

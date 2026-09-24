@@ -1,0 +1,1645 @@
+{{define "title"}}{{.Entity.Name}} — {{.CRMTeam.Name}} — EptaAdmin{{end}}
+{{define "content"}}
+<div class="h-full flex">
+  {{template "sidebar" .}}
+
+  <div class="flex-1 min-w-0 flex flex-col">
+    {{template "header" .}}
+
+    <main class="flex-1 overflow-y-auto px-4 sm:px-8 py-10">
+     <div class="max-w-5xl mx-auto">
+
+      <div class="flex items-center justify-between gap-3 mb-6">
+        <p class="text-sm" style="color: var(--eb-muted);">{{t .Lang "crm.editor_hint"}}</p>
+        <div class="flex items-center gap-3 shrink-0">
+          <span id="crm-save-status" class="text-xs" style="color: var(--eb-muted);"></span>
+          {{if .CanEdit}}
+          <input id="crm-import-input" type="file" accept="application/json" class="hidden" />
+          <button id="crm-import-btn" type="button" class="eb-btn-secondary rounded-lg text-sm px-4 py-2 transition-colors">{{t .Lang "crm.import_button"}}</button>
+          {{end}}
+          <button id="crm-export-btn" type="button" class="eb-btn-secondary rounded-lg text-sm px-4 py-2 transition-colors">{{t .Lang "crm.export_button"}}</button>
+          {{if .CanEdit}}
+          <button id="crm-save-btn" type="button" class="eb-btn-primary rounded-lg text-sm px-4 py-2 transition-colors">{{t .Lang "crm.save_button"}}</button>
+          {{end}}
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 mb-4">
+        <button id="crm-view-data-btn" type="button" class="crm-view-tab-btn" data-view="data">{{t .Lang "crm.view_data_tab"}}</button>
+        <button id="crm-view-design-btn" type="button" class="crm-view-tab-btn" data-view="design">
+          {{t .Lang "crm.view_design_tab"}}
+          <span id="crm-design-badge" class="eb-chip text-[0.65rem]" style="{{if not .Entity.DesignHTML}}display:none;{{end}} color: var(--eb-accent);">{{t .Lang "crm.design_applied_badge"}}</span>
+        </button>
+      </div>
+
+      <div id="crm-data-view">
+        <div class="flex gap-4 items-start flex-wrap lg:flex-nowrap">
+          <div class="flex-1 min-w-0 w-full">
+            <div class="eb-card rounded-xl overflow-hidden">
+              <div class="flex items-center gap-2 px-4 py-3" style="border-bottom: 1px solid var(--eb-border);">
+                <span class="crm-icon" style="color: var(--eb-accent);">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>
+                </span>
+                <span class="text-sm font-bold uppercase tracking-wide" style="color: var(--eb-text);">{{.Entity.Name}}</span>
+                <span class="eb-chip text-[0.65rem]">id: {{.Entity.Slug}}</span>
+              </div>
+              <div id="crm-tree-root" class="px-3 py-3"></div>
+              {{if .CanEdit}}
+              <div class="px-3 pb-3">
+                <button id="crm-add-root-field-btn" type="button" class="crm-add-btn">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                  {{t .Lang "crm.add_field_button"}}
+                </button>
+              </div>
+              {{end}}
+            </div>
+          </div>
+
+          {{if .CanEdit}}
+          <div id="crm-detail-panel" class="hidden w-full lg:w-80 shrink-0 eb-card rounded-xl p-4"></div>
+          {{end}}
+        </div>
+      </div>
+
+      <div id="crm-design-view" class="hidden eb-card rounded-xl overflow-hidden">
+        <div class="flex items-center justify-between gap-3 px-4 py-3" style="border-bottom: 1px solid var(--eb-border);">
+          <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "crm.design_hint"}}</p>
+          {{if .CanEdit}}
+          <div class="flex items-center gap-2 shrink-0">
+            <button id="crm-design-choose-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors">{{t .Lang "crm.design_choose_button"}}</button>
+            <div id="crm-design-applied-actions" class="flex items-center gap-2" style="{{if not .Entity.DesignHTML}}display:none;{{end}}">
+              <button id="crm-design-edit-toggle-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors">{{t .Lang "crm.design_edit_enable_button"}}</button>
+              <button id="crm-design-add-item-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors">{{t .Lang "crm.design_add_item_button"}}</button>
+              <button id="crm-design-refresh-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors">{{t .Lang "crm.design_refresh_button"}}</button>
+              <button id="crm-design-regenerate-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors">{{t .Lang "crm.design_regenerate_button"}}</button>
+              <button id="crm-design-remove-btn" type="button" class="rounded-lg text-xs px-3 py-1.5 transition-colors" style="color: #f87171; border: 1px solid rgba(248,113,113,0.3);">{{t .Lang "crm.design_remove_button"}}</button>
+            </div>
+          </div>
+          {{end}}
+        </div>
+
+        <div class="px-4 py-4">
+          {{if .CanEdit}}
+          <div id="crm-design-form" style="{{if .Entity.DesignHTML}}display:none;{{end}}">
+            <label class="block text-xs font-medium mb-1" style="color: var(--eb-muted);">{{t .Lang "crm.design_description_label"}}</label>
+            <textarea id="crm-design-description" rows="3" class="eb-input w-full rounded-lg px-3 py-2 text-sm mb-3">{{.Entity.DesignPrompt}}</textarea>
+            <label class="block text-xs font-medium mb-1" style="color: var(--eb-muted);">{{t .Lang "crm.design_image_label"}}</label>
+            <input id="crm-design-image" type="file" accept="image/*" class="text-xs mb-3" />
+            <div class="flex items-center gap-3">
+              <button id="crm-design-generate-btn" type="button" class="eb-btn-primary rounded-lg text-sm px-4 py-2 transition-colors">{{t .Lang "crm.design_generate_button"}}</button>
+              <input id="crm-design-import-input" type="file" accept=".html,text/html" class="hidden" />
+              <button id="crm-design-import-btn" type="button" class="eb-btn-secondary rounded-lg text-sm px-4 py-2 transition-colors">{{t .Lang "crm.design_import_button"}}</button>
+              <span id="crm-design-status" class="text-xs" style="color: var(--eb-muted);"></span>
+            </div>
+          </div>
+
+          <div id="crm-design-draft-actions" class="hidden items-center gap-3 mb-3">
+            <button id="crm-design-apply-btn" type="button" class="eb-btn-primary rounded-lg text-sm px-4 py-2 transition-colors">{{t .Lang "crm.design_apply_button"}}</button>
+            <button id="crm-design-discard-btn" type="button" class="eb-btn-secondary rounded-lg text-sm px-4 py-2 transition-colors">{{t .Lang "crm.design_discard_button"}}</button>
+          </div>
+          {{end}}
+
+          <div id="crm-design-preview-backdrop" class="crm-design-preview-backdrop"></div>
+          <div id="crm-design-preview-wrap" class="hidden">
+            <div class="flex items-center justify-end mb-2">
+              <button id="crm-design-maxheight-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors">{{t .Lang "crm.design_maxheight_button"}}</button>
+            </div>
+            <iframe id="crm-design-preview" class="w-full rounded-lg" style="height: 70vh; border: 1px solid var(--eb-border); background: #0a0a0b;" sandbox="allow-scripts"></iframe>
+          </div>
+        </div>
+      </div>
+
+     </div>
+    </main>
+  </div>
+</div>
+
+{{if .CanEdit}}
+<div id="crm-md-editor-backdrop" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0,0,0,0.6);">
+  <div class="eb-card rounded-xl w-full flex flex-col" style="max-width: 56rem; height: 85vh;">
+    <div class="px-5 py-4 flex items-center justify-between shrink-0" style="border-bottom: 1px solid var(--eb-border);">
+      <h2 class="text-sm font-semibold" style="color: var(--eb-text);">{{t .Lang "crm.markdown_editor_title"}}</h2>
+      <button id="crm-md-editor-close-btn" type="button" class="eb-icon-btn text-lg leading-none shrink-0">✕</button>
+    </div>
+    <div class="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2">
+      <textarea id="crm-md-editor-textarea" class="w-full h-full p-4 text-xs font-mono resize-none outline-none" style="background: var(--eb-bg); color: var(--eb-text); border-right: 1px solid var(--eb-border);" spellcheck="false"></textarea>
+      <div id="crm-md-editor-preview" class="w-full h-full p-4 overflow-y-auto text-sm eb-markdown-preview" style="color: var(--eb-text);"></div>
+    </div>
+    <div class="px-5 py-4 flex items-center justify-end gap-2 shrink-0" style="border-top: 1px solid var(--eb-border);">
+      <button id="crm-md-editor-cancel-btn" type="button" class="eb-btn-secondary rounded-lg text-sm px-4 py-2 transition-colors">{{t .Lang "common.cancel"}}</button>
+      <button id="crm-md-editor-save-btn" type="button" class="eb-btn-primary rounded-lg text-sm px-4 py-2 transition-colors">{{t .Lang "common.save"}}</button>
+    </div>
+  </div>
+</div>
+
+<div id="crm-design-library-backdrop" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0,0,0,0.6);">
+  <div class="eb-card rounded-xl w-full flex flex-col" style="max-width: 34rem; max-height: 80vh;">
+    <div class="px-5 py-4 flex items-center justify-between shrink-0" style="border-bottom: 1px solid var(--eb-border);">
+      <h2 class="text-sm font-semibold" style="color: var(--eb-text);">{{t .Lang "crm.design_library_title"}}</h2>
+      <button id="crm-design-library-close-btn" type="button" class="eb-icon-btn text-lg leading-none shrink-0">✕</button>
+    </div>
+    <div id="crm-design-library-list" class="flex-1 overflow-y-auto px-2 py-2"></div>
+  </div>
+</div>
+{{end}}
+
+<style>
+  .crm-tree-children { position: relative; margin-left: 20px; }
+  .crm-tree-row-wrap { position: relative; }
+  .crm-tree-children > .crm-tree-row-wrap::before {
+    content: ""; position: absolute; left: -14px; top: 0; height: 17px; width: 14px;
+    border-left: 1px solid var(--eb-border); border-bottom: 1px solid var(--eb-border); border-radius: 0 0 0 4px;
+  }
+  .crm-tree-children > .crm-tree-row-wrap::after {
+    content: ""; position: absolute; left: -14px; top: 0; bottom: 0; width: 0;
+    border-left: 1px solid var(--eb-border);
+  }
+  .crm-tree-children > .crm-tree-row-wrap:last-child::after { bottom: calc(100% - 17px); }
+
+  .crm-row { display: flex; align-items: center; gap: 8px; padding: 6px 6px; border-radius: 8px; }
+  .crm-row:hover { background: var(--eb-surface-2); }
+  .crm-row.crm-row-selected { background: var(--eb-surface-2); outline: 1px solid var(--eb-accent); }
+  .crm-chevron-btn { display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; flex-shrink: 0; color: var(--eb-muted); transition: transform 0.15s; }
+  .crm-row-icon-btn { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 6px; color: var(--eb-muted); flex-shrink: 0; transition: color 0.15s, background-color 0.15s; }
+  .crm-row-icon-btn:hover { background: var(--eb-surface-2); }
+  .crm-type-badge { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; flex-shrink: 0; border-radius: 4px; padding: 2px 6px; }
+  .crm-index-chip { font-size: 0.65rem; font-weight: 600; color: var(--eb-muted); background: var(--eb-surface-2); border-radius: 4px; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .crm-add-btn {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 500;
+    color: var(--eb-accent); border: 1px dashed var(--eb-border-strong); border-radius: 8px; padding: 6px 10px;
+    background: transparent; transition: background-color 0.15s;
+  }
+  .crm-add-btn:hover { background: var(--eb-surface-2); }
+  .crm-view-tab-btn {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 500;
+    border-radius: 8px; padding: 7px 14px; border: 1px solid var(--eb-border); background: transparent;
+    color: var(--eb-muted); transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .crm-view-tab-btn:hover { background: var(--eb-surface-2); }
+  .crm-view-tab-btn[data-active="true"] { background: rgba(52,211,153,0.12); color: var(--eb-accent); border-color: rgba(52,211,153,0.3); }
+  .crm-type-menu { position: absolute; z-index: 30; width: 190px; border-radius: 10px; padding: 4px; }
+  .crm-type-menu-item { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 6px 8px; border-radius: 6px; font-size: 0.8rem; color: var(--eb-text); }
+  .crm-type-menu-item:hover { background: var(--eb-surface-2); }
+  .crm-type-glyph { display: flex; align-items: center; justify-content: center; width: 18px; height: 18px; flex-shrink: 0; }
+
+  .crm-toggle-switch { display: inline-flex; align-items: center; cursor: pointer; }
+  .crm-toggle-switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .crm-toggle-track { display: inline-block; width: 34px; height: 20px; border-radius: 9999px; background: var(--eb-border-strong); position: relative; transition: background-color 0.15s; flex-shrink: 0; }
+  .crm-toggle-knob { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 9999px; background: #fff; transition: transform 0.15s; }
+  .crm-toggle-switch input:checked + .crm-toggle-track { background: var(--eb-accent); }
+  .crm-toggle-switch input:checked + .crm-toggle-track .crm-toggle-knob { transform: translateX(14px); }
+  .crm-toggle-switch input:disabled + .crm-toggle-track { opacity: 0.5; cursor: not-allowed; }
+
+  .eb-markdown-preview h1, .eb-markdown-preview h2, .eb-markdown-preview h3 { font-weight: 600; margin: 0.75em 0 0.35em; color: var(--eb-text); }
+  .eb-markdown-preview h1 { font-size: 1.35em; }
+  .eb-markdown-preview h2 { font-size: 1.2em; }
+  .eb-markdown-preview h3 { font-size: 1.05em; }
+  .eb-markdown-preview p { margin: 0.5em 0; }
+  .eb-markdown-preview ul, .eb-markdown-preview ol { margin: 0.5em 0; padding-left: 1.5em; }
+  .eb-markdown-preview li { margin: 0.15em 0; }
+  .eb-markdown-preview a { color: var(--eb-accent); }
+  .eb-markdown-preview blockquote { margin: 0.5em 0; padding-left: 0.75em; border-left: 3px solid var(--eb-border); color: var(--eb-muted); }
+  .eb-markdown-preview code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.85em; background: var(--eb-surface-2); padding: 0.1em 0.35em; border-radius: 0.25em; }
+  .eb-markdown-preview pre { background: var(--eb-surface-2); padding: 0.75em; border-radius: 0.5em; overflow-x: auto; }
+  .eb-markdown-preview pre code { background: none; padding: 0; }
+  .eb-markdown-preview img { max-width: 100%; }
+  .crm-md-mini-preview { max-height: 8rem; overflow: hidden; }
+  /* Max-height mode is a real fixed-position overlay covering nearly the
+     whole viewport, not just a taller element in the normal document flow
+     — that way the effect is immediate and unambiguous, with no need to
+     also scroll the outer page to see the difference. */
+  #crm-design-preview-wrap.crm-design-preview-max {
+    position: fixed; top: 16px; left: 16px; right: 16px; bottom: 16px;
+    z-index: 100; background: var(--eb-surface); border: 1px solid var(--eb-border-strong);
+    border-radius: 12px; padding: 12px; display: flex; flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  }
+  #crm-design-preview-wrap.crm-design-preview-max #crm-design-preview {
+    flex: 1 1 auto; height: auto !important; min-height: 0;
+  }
+  .crm-design-preview-backdrop {
+    display: none; position: fixed; inset: 0; z-index: 99; background: rgba(0,0,0,0.7);
+  }
+  .crm-design-preview-backdrop.crm-design-preview-backdrop-visible { display: block; }
+</style>
+
+<script>
+(function () {
+  const teamSlug = {{.CRMTeam.Slug}};
+  const entitySlug = {{.Entity.Slug}};
+  const canEdit = {{.CanEdit}};
+
+  const I18N = {
+    saved: {{t .Lang "crm.saved"}},
+    saveError: {{t .Lang "crm.save_error"}},
+    uploadError: {{t .Lang "crm.upload_error"}},
+    keyPlaceholder: {{t .Lang "crm.key_placeholder"}},
+    unnamedField: {{t .Lang "crm.unnamed_field"}},
+    addFieldButton: {{t .Lang "crm.add_field_button"}},
+    addElementButton: {{t .Lang "crm.add_element_button"}},
+    fieldDetailsTitle: {{t .Lang "crm.field_details_title"}},
+    fieldTypeLabel: {{t .Lang "crm.field_type_label"}},
+    fieldKeyNameLabel: {{t .Lang "crm.field_key_name_label"}},
+    fieldValueLabel: {{t .Lang "crm.field_value_label"}},
+    propertiesSection: {{t .Lang "crm.properties_section"}},
+    requiredLabel: {{t .Lang "crm.required_label"}},
+    readOnlyLabel: {{t .Lang "crm.readonly_label"}},
+    orderLabel: {{t .Lang "crm.order_label"}},
+    deleteFieldButton: {{t .Lang "crm.delete_field_button"}},
+    closePanel: {{t .Lang "crm.close_panel"}},
+    noFields: {{t .Lang "crm.empty_list"}},
+    elementsLabel: {{t .Lang "crm.elements_label"}},
+    fieldsLabel: {{t .Lang "crm.fields_label"}},
+    typeChangeConfirm: {{t .Lang "crm.type_change_confirm"}},
+    deleteFieldConfirm: {{t .Lang "crm.delete_field_confirm"}},
+    yes: {{t .Lang "crm.boolean_yes"}},
+    no: {{t .Lang "crm.boolean_no"}},
+    clearImageButton: {{t .Lang "crm.clear_image_button"}},
+    typeText: {{t .Lang "crm.type_text"}},
+    typeImage: {{t .Lang "crm.type_image"}},
+    typeList: {{t .Lang "crm.type_list"}},
+    typeObject: {{t .Lang "crm.type_object"}},
+    typeNumber: {{t .Lang "crm.type_number"}},
+    typeBoolean: {{t .Lang "crm.type_boolean"}},
+    typeMarkdown: {{t .Lang "crm.type_markdown"}},
+    markdownEditButton: {{t .Lang "crm.markdown_edit_button"}},
+    markdownEmptyPlaceholder: {{t .Lang "crm.markdown_empty_placeholder"}},
+    importInvalid: {{t .Lang "crm.import_invalid"}},
+    importConfirmOverwrite: {{t .Lang "crm.import_confirm_overwrite"}},
+    importSuccess: {{t .Lang "crm.import_success"}},
+    designGenerating: {{t .Lang "crm.design_generating"}},
+    designGenerateButton: {{t .Lang "crm.design_generate_button"}},
+    designDescriptionRequired: {{t .Lang "crm.design_description_required"}},
+    designRemoveConfirm: {{t .Lang "crm.design_remove_confirm"}},
+    designNoData: {{t .Lang "crm.design_no_data"}},
+    designLibraryEmpty: {{t .Lang "crm.design_library_empty"}},
+    designUseButton: {{t .Lang "crm.design_use_button"}},
+    designDeleteButton: {{t .Lang "crm.design_delete_button"}},
+    designDeleteConfirm: {{t .Lang "crm.design_delete_confirm"}},
+    designImportSuccess: {{t .Lang "crm.design_import_success"}},
+    designEditEnableButton: {{t .Lang "crm.design_edit_enable_button"}},
+    designEditDisableButton: {{t .Lang "crm.design_edit_disable_button"}},
+    designEditedHint: {{t .Lang "crm.design_edited_hint"}},
+    designAddItemNeedsExisting: {{t .Lang "crm.design_add_item_needs_existing"}},
+    designMaxheightButton: {{t .Lang "crm.design_maxheight_button"}},
+    designMinheightButton: {{t .Lang "crm.design_minheight_button"}},
+  };
+
+  // Icons: consistent stroke-style SVGs, except the "text"/"number" type
+  // glyphs which are just bold letters (matches the target mockup).
+  const ICONS = {
+    chevron: '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>',
+    pencil: '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>',
+    trash: '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>',
+    grip: '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="5" r="1.3"/><circle cx="9" cy="12" r="1.3"/><circle cx="9" cy="19" r="1.3"/><circle cx="15" cy="5" r="1.3"/><circle cx="15" cy="12" r="1.3"/><circle cx="15" cy="19" r="1.3"/></svg>',
+    close: '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
+    image: '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>',
+    list: '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>',
+    object: '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 16-9 5-9-5V8l9-5 9 5Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>',
+    boolean: '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="5" width="22" height="14" rx="7"/><circle cx="16" cy="12" r="3"/></svg>',
+    database: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>',
+  };
+
+  // TYPE_META drives every part of the tree that depends on a node's
+  // type: badge color/label, whether it has children vs a scalar value,
+  // and (for "list" specifically) whether its children get numbered
+  // chips — an "object"'s children are named fields, a "list"'s are
+  // repeated, positionally-numbered elements.
+  const TYPE_META = {
+    text:    { label: I18N.typeText,    color: "#34d399", glyph: "T", hasChildren: false },
+    image:   { label: I18N.typeImage,   color: "#a78bfa", glyph: ICONS.image, hasChildren: false },
+    list:    { label: I18N.typeList,    color: "#60a5fa", glyph: ICONS.list, hasChildren: true, numbered: true },
+    object:  { label: I18N.typeObject,  color: "#f472b6", glyph: ICONS.object, hasChildren: true, numbered: false },
+    number:  { label: I18N.typeNumber,  color: "#fbbf24", glyph: "#", hasChildren: false },
+    boolean: { label: I18N.typeBoolean, color: "#38bdf8", glyph: ICONS.boolean, hasChildren: false },
+    markdown:{ label: I18N.typeMarkdown, color: "#fb923c", glyph: "M", hasChildren: false },
+  };
+  const TYPE_ORDER = ["text", "markdown", "image", "list", "object", "number", "boolean"];
+
+  let tree;
+  try {
+    tree = JSON.parse({{.Entity.ContentJSON}});
+    if (!Array.isArray(tree)) tree = [];
+  } catch (e) {
+    tree = [];
+  }
+
+  const root = document.getElementById("crm-tree-root");
+  const detailPanel = document.getElementById("crm-detail-panel");
+  const collapsed = new WeakSet();
+  let selectedNode = null; // the node object currently shown in the side panel
+
+  function makeNode(type) {
+    const meta = TYPE_META[type];
+    const node = { type: type, key: "", required: false, readOnly: false, order: 0 };
+    if (meta.hasChildren) node.children = [];
+    else node.value = type === "boolean" ? false : "";
+    return node;
+  }
+
+  // renumberTree writes an explicit 1-based "order" field onto every node,
+  // matching its actual position among its siblings — kept authoritative
+  // by recomputing it on every render rather than editing it by hand, so
+  // it can never drift from the array position that already determines
+  // real ordering (dragging/the Ordre field only ever move array
+  // elements; this just makes that order visible/exploitable directly in
+  // the saved JSON, e.g. for API consumers).
+  function renumberTree(list) {
+    list.forEach((node, i) => {
+      node.order = i + 1;
+      if (TYPE_META[node.type].hasChildren && Array.isArray(node.children)) {
+        renumberTree(node.children);
+      }
+    });
+  }
+
+  function resetNodeForType(node, newType) {
+    const meta = TYPE_META[newType];
+    node.type = newType;
+    if (meta.hasChildren) {
+      delete node.value;
+      if (!Array.isArray(node.children)) node.children = [];
+    } else {
+      delete node.children;
+      node.value = newType === "boolean" ? false : "";
+    }
+  }
+
+  function nodeHasContent(node) {
+    if (TYPE_META[node.type].hasChildren) return Array.isArray(node.children) && node.children.length > 0;
+    return !!node.value;
+  }
+
+  function valuePreview(node) {
+    const meta = TYPE_META[node.type];
+    if (meta.hasChildren) {
+      const n = Array.isArray(node.children) ? node.children.length : 0;
+      return n + " " + (node.type === "list" ? I18N.elementsLabel : I18N.fieldsLabel);
+    }
+    if (node.type === "boolean") return node.value ? I18N.yes : I18N.no;
+    if (node.type === "image") return node.value ? "" : "—";
+    const s = (node.value || "").toString();
+    return s ? ('"' + (s.length > 40 ? s.slice(0, 40) + "…" : s) + '"') : "—";
+  }
+
+  function renderAll() {
+    renumberTree(tree);
+    root.innerHTML = "";
+    renderChildren(tree, root, 0, null);
+    if (selectedNode) {
+      const idx = selectedNode.siblings.indexOf(selectedNode.node);
+      if (idx === -1) {
+        closeDetailPanel();
+      } else {
+        renderDetailPanel(selectedNode.node, selectedNode.siblings, idx);
+      }
+    }
+  }
+
+  function renderChildren(list, container, depth, parentType) {
+    container.classList.add("crm-tree-children");
+    if (!list.length) {
+      const empty = document.createElement("p");
+      empty.className = "text-xs py-1.5";
+      empty.style.color = "var(--eb-muted)";
+      empty.textContent = I18N.noFields;
+      container.appendChild(empty);
+    }
+    list.forEach((node, i) => {
+      const wrap = document.createElement("div");
+      wrap.className = "crm-tree-row-wrap";
+      wrap.appendChild(buildRow(node, list, i, depth, parentType));
+
+      const meta = TYPE_META[node.type];
+      if (meta.hasChildren) {
+        if (!Array.isArray(node.children)) node.children = [];
+        const indent = document.createElement("div");
+        indent.className = "pl-5";
+        if (!collapsed.has(node)) {
+          const childContainer = document.createElement("div");
+          renderChildren(node.children, childContainer, depth + 1, node.type);
+          indent.appendChild(childContainer);
+          if (canEdit) indent.appendChild(buildAddChildRow(node));
+        }
+        wrap.appendChild(indent);
+      }
+      container.appendChild(wrap);
+    });
+  }
+
+  function buildRow(node, siblings, index, depth, parentType) {
+    const meta = TYPE_META[node.type];
+    const row = document.createElement("div");
+    row.className = "crm-row";
+    if (selectedNode && selectedNode.node === node) row.classList.add("crm-row-selected");
+
+    if (meta.hasChildren) {
+      const chev = document.createElement("button");
+      chev.type = "button";
+      chev.className = "crm-chevron-btn";
+      chev.innerHTML = ICONS.chevron;
+      chev.style.transform = collapsed.has(node) ? "rotate(0deg)" : "rotate(90deg)";
+      chev.addEventListener("click", () => {
+        if (collapsed.has(node)) collapsed.delete(node); else collapsed.add(node);
+        renderAll();
+      });
+      row.appendChild(chev);
+    } else {
+      const spacer = document.createElement("span");
+      spacer.style.width = "16px";
+      spacer.style.flexShrink = "0";
+      row.appendChild(spacer);
+    }
+
+    if (parentType === "list") {
+      const chip = document.createElement("span");
+      chip.className = "crm-index-chip";
+      chip.textContent = String(index + 1);
+      row.appendChild(chip);
+    }
+
+    const badge = document.createElement("span");
+    badge.className = "crm-type-badge";
+    badge.style.color = meta.color;
+    badge.style.background = meta.color + "1a";
+    badge.textContent = node.type;
+    row.appendChild(badge);
+
+    const keyLabel = document.createElement("span");
+    keyLabel.className = "text-sm font-medium truncate";
+    keyLabel.style.color = node.key ? "var(--eb-text)" : "var(--eb-muted)";
+    keyLabel.style.maxWidth = "140px";
+    keyLabel.textContent = node.key || I18N.unnamedField;
+    row.appendChild(keyLabel);
+
+    const preview = document.createElement("span");
+    preview.className = "text-xs truncate flex-1 min-w-0";
+    preview.style.color = "var(--eb-muted)";
+    preview.textContent = valuePreview(node);
+    row.appendChild(preview);
+
+    if (node.type === "image" && node.value) {
+      const thumb = document.createElement("img");
+      thumb.src = node.value;
+      thumb.className = "h-5 w-5 rounded object-cover shrink-0";
+      row.appendChild(thumb);
+    }
+
+    if (canEdit) {
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "crm-row-icon-btn";
+      editBtn.innerHTML = ICONS.pencil;
+      editBtn.title = I18N.fieldDetailsTitle;
+      editBtn.addEventListener("click", () => { selectNode(node, siblings); });
+      row.appendChild(editBtn);
+
+      const delBtn = document.createElement("button");
+      delBtn.type = "button";
+      delBtn.className = "crm-row-icon-btn";
+      delBtn.innerHTML = ICONS.trash;
+      delBtn.style.color = "#f87171";
+      delBtn.title = I18N.deleteFieldButton;
+      delBtn.addEventListener("click", () => {
+        if (nodeHasContent(node) && !confirm(I18N.deleteFieldConfirm)) return;
+        siblings.splice(index, 1);
+        if (selectedNode && selectedNode.node === node) closeDetailPanel();
+        renderAll();
+      });
+      row.appendChild(delBtn);
+
+      const grip = document.createElement("span");
+      grip.className = "crm-row-icon-btn";
+      grip.style.cursor = "grab";
+      grip.innerHTML = ICONS.grip;
+      row.appendChild(grip);
+
+      row.draggable = true;
+      row.addEventListener("dragstart", (e) => {
+        dragState = { siblings: siblings, index: index };
+        e.dataTransfer.effectAllowed = "move";
+      });
+      row.addEventListener("dragover", (e) => { if (dragState && dragState.siblings === siblings) e.preventDefault(); });
+      row.addEventListener("drop", (e) => {
+        if (!dragState || dragState.siblings !== siblings) return;
+        e.preventDefault();
+        const from = dragState.index;
+        const to = index;
+        dragState = null;
+        if (from === to) return;
+        const [moved] = siblings.splice(from, 1);
+        siblings.splice(to, 0, moved);
+        renderAll();
+      });
+    }
+
+    return row;
+  }
+
+  let dragState = null;
+
+  function buildAddChildRow(node) {
+    const wrap = document.createElement("div");
+    wrap.className = "py-1";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "crm-add-btn";
+    btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>' +
+      (node.type === "list" ? I18N.addElementButton : I18N.addFieldButton);
+    btn.addEventListener("click", (e) => {
+      openTypeMenu(btn, (type) => {
+        node.children.push(makeNode(type));
+        renderAll();
+      });
+      e.stopPropagation();
+    });
+    wrap.appendChild(btn);
+    return wrap;
+  }
+
+  let openMenuEl = null;
+  function closeTypeMenu() {
+    if (openMenuEl) { openMenuEl.remove(); openMenuEl = null; }
+  }
+
+  function openTypeMenu(anchorBtn, onPick) {
+    closeTypeMenu();
+    const menu = document.createElement("div");
+    menu.className = "crm-type-menu eb-card";
+    TYPE_ORDER.forEach((type) => {
+      const meta = TYPE_META[type];
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "crm-type-menu-item";
+      const glyph = document.createElement("span");
+      glyph.className = "crm-type-glyph";
+      glyph.style.color = meta.color;
+      if (meta.glyph === "T" || meta.glyph === "#" || meta.glyph === "M") {
+        glyph.textContent = meta.glyph;
+        glyph.style.fontWeight = "700";
+        glyph.style.fontSize = "0.75rem";
+      } else {
+        glyph.innerHTML = meta.glyph;
+      }
+      item.appendChild(glyph);
+      const label = document.createElement("span");
+      label.textContent = meta.label;
+      item.appendChild(label);
+      item.addEventListener("click", () => {
+        closeTypeMenu();
+        onPick(type);
+      });
+      menu.appendChild(item);
+    });
+    document.body.appendChild(menu);
+    const rect = anchorBtn.getBoundingClientRect();
+    menu.style.top = (window.scrollY + rect.bottom + 4) + "px";
+    menu.style.left = (window.scrollX + rect.left) + "px";
+    openMenuEl = menu;
+    setTimeout(() => {
+      document.addEventListener("click", function onDocClick(e) {
+        if (!menu.contains(e.target)) {
+          closeTypeMenu();
+          document.removeEventListener("click", onDocClick);
+        }
+      });
+    }, 0);
+  }
+
+  // ---- Side panel ----
+
+  // selectedNode stores only {node, siblings} — never an index. An index
+  // captured at selection time goes stale the moment any OTHER sibling in
+  // the same array is deleted or dragged to a new position (this used to
+  // be cached here and silently desynced, corrupting the tree if the
+  // panel's Ordre field was then used: it would splice out whatever
+  // sibling now happened to sit at the stale position, not the node
+  // actually being edited). Every consumer below derives the current
+  // index fresh via siblings.indexOf(node) instead.
+  function selectNode(node, siblings) {
+    selectedNode = { node: node, siblings: siblings };
+    detailPanel.classList.remove("hidden");
+    renderAll();
+  }
+
+  function closeDetailPanel() {
+    selectedNode = null;
+    detailPanel.classList.add("hidden");
+    detailPanel.innerHTML = "";
+  }
+
+  function fieldLabel(text) {
+    const label = document.createElement("p");
+    label.className = "text-[0.65rem] font-medium uppercase tracking-wide mt-3 mb-1";
+    label.style.color = "var(--eb-muted);";
+    label.textContent = text;
+    return label;
+  }
+
+  function toggleSwitch(checked, disabled, onChange) {
+    const label = document.createElement("label");
+    label.className = "crm-toggle-switch";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = !!checked;
+    input.disabled = !!disabled;
+    input.addEventListener("change", () => onChange(input.checked));
+    const track = document.createElement("span");
+    track.className = "crm-toggle-track";
+    track.innerHTML = '<span class="crm-toggle-knob"></span>';
+    label.appendChild(input);
+    label.appendChild(track);
+    return label;
+  }
+
+  // ---- Markdown ----
+
+  function renderMarkdownInto(container, raw) {
+    if (!raw) {
+      container.textContent = I18N.markdownEmptyPlaceholder;
+      container.style.color = "var(--eb-muted)";
+      return;
+    }
+    container.style.color = "";
+    if (window.marked && window.DOMPurify) {
+      container.innerHTML = DOMPurify.sanitize(marked.parse(raw));
+    } else {
+      container.textContent = raw;
+    }
+  }
+
+  const mdBackdrop = document.getElementById("crm-md-editor-backdrop");
+  const mdTextarea = document.getElementById("crm-md-editor-textarea");
+  const mdPreview = document.getElementById("crm-md-editor-preview");
+  let mdEditingNode = null;
+
+  function openMarkdownEditor(node) {
+    if (!mdBackdrop) return;
+    mdEditingNode = node;
+    mdTextarea.value = node.value || "";
+    renderMarkdownInto(mdPreview, mdTextarea.value);
+    mdBackdrop.classList.remove("hidden");
+    mdTextarea.focus();
+  }
+
+  function closeMarkdownEditor() {
+    if (!mdBackdrop) return;
+    mdBackdrop.classList.add("hidden");
+    mdEditingNode = null;
+  }
+
+  if (mdTextarea) {
+    mdTextarea.addEventListener("input", () => renderMarkdownInto(mdPreview, mdTextarea.value));
+    document.getElementById("crm-md-editor-close-btn").addEventListener("click", closeMarkdownEditor);
+    document.getElementById("crm-md-editor-cancel-btn").addEventListener("click", closeMarkdownEditor);
+    document.getElementById("crm-md-editor-save-btn").addEventListener("click", () => {
+      if (mdEditingNode) mdEditingNode.value = mdTextarea.value;
+      closeMarkdownEditor();
+      renderAll();
+    });
+  }
+
+  function renderDetailPanel(node, siblings, index) {
+    if (!detailPanel) return;
+    detailPanel.innerHTML = "";
+    const meta = TYPE_META[node.type];
+
+    const header = document.createElement("div");
+    header.className = "flex items-center justify-between mb-3";
+    const headerLeft = document.createElement("div");
+    headerLeft.className = "flex items-center gap-2 min-w-0";
+    const badge = document.createElement("span");
+    badge.className = "crm-type-badge";
+    badge.style.color = meta.color;
+    badge.style.background = meta.color + "1a";
+    badge.textContent = node.type;
+    headerLeft.appendChild(badge);
+    const title = document.createElement("span");
+    title.className = "text-sm font-semibold truncate";
+    title.style.color = "var(--eb-text)";
+    title.textContent = node.key || I18N.unnamedField;
+    headerLeft.appendChild(title);
+    header.appendChild(headerLeft);
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "crm-row-icon-btn shrink-0";
+    closeBtn.innerHTML = ICONS.close;
+    closeBtn.title = I18N.closePanel;
+    closeBtn.addEventListener("click", closeDetailPanel);
+    header.appendChild(closeBtn);
+    detailPanel.appendChild(header);
+
+    detailPanel.appendChild(fieldLabel(I18N.fieldTypeLabel));
+    const typeSelect = document.createElement("select");
+    typeSelect.className = "eb-input w-full rounded-lg px-2 py-1.5 text-sm";
+    TYPE_ORDER.forEach((t) => {
+      const opt = document.createElement("option");
+      opt.value = t;
+      opt.textContent = TYPE_META[t].label;
+      if (t === node.type) opt.selected = true;
+      typeSelect.appendChild(opt);
+    });
+    typeSelect.disabled = !canEdit || node.readOnly;
+    typeSelect.addEventListener("change", () => {
+      const newType = typeSelect.value;
+      if (newType === node.type) return;
+      if (nodeHasContent(node) && !confirm(I18N.typeChangeConfirm)) {
+        typeSelect.value = node.type;
+        return;
+      }
+      resetNodeForType(node, newType);
+      renderAll();
+    });
+    detailPanel.appendChild(typeSelect);
+
+    detailPanel.appendChild(fieldLabel(I18N.fieldKeyNameLabel));
+    const keyInput = document.createElement("input");
+    keyInput.type = "text";
+    keyInput.value = node.key || "";
+    keyInput.placeholder = I18N.keyPlaceholder;
+    keyInput.disabled = !canEdit || node.readOnly;
+    keyInput.className = "eb-input w-full rounded-lg px-2 py-1.5 text-sm";
+    // "input" only updates the model and the panel's own header — it must
+    // NOT call renderAll() here: that tears down and rebuilds the whole
+    // panel (including this very input), which drops focus after every
+    // keystroke. The tree row (and everything else) catches up on blur.
+    keyInput.addEventListener("input", () => {
+      node.key = keyInput.value;
+      title.textContent = keyInput.value || I18N.unnamedField;
+    });
+    keyInput.addEventListener("blur", renderAll);
+    detailPanel.appendChild(keyInput);
+
+    if (!meta.hasChildren) {
+      detailPanel.appendChild(fieldLabel(I18N.fieldValueLabel));
+      if (node.type === "text") {
+        const textarea = document.createElement("textarea");
+        textarea.rows = 3;
+        textarea.className = "eb-input w-full rounded-lg px-2 py-1.5 text-sm";
+        textarea.value = node.value || "";
+        textarea.disabled = !canEdit || node.readOnly;
+        textarea.addEventListener("input", () => { node.value = textarea.value; });
+        textarea.addEventListener("blur", renderAll);
+        detailPanel.appendChild(textarea);
+      } else if (node.type === "markdown") {
+        const mdWrap = document.createElement("div");
+        mdWrap.className = "space-y-2";
+        const preview = document.createElement("div");
+        preview.className = "eb-markdown-preview crm-md-mini-preview text-xs rounded-lg px-2 py-1.5";
+        preview.style.background = "var(--eb-surface-2)";
+        renderMarkdownInto(preview, node.value);
+        mdWrap.appendChild(preview);
+        if (canEdit && !node.readOnly) {
+          const editBtn = document.createElement("button");
+          editBtn.type = "button";
+          editBtn.className = "eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors";
+          editBtn.textContent = I18N.markdownEditButton;
+          editBtn.addEventListener("click", () => { openMarkdownEditor(node); });
+          mdWrap.appendChild(editBtn);
+        }
+        detailPanel.appendChild(mdWrap);
+      } else if (node.type === "number") {
+        const numInput = document.createElement("input");
+        numInput.type = "number";
+        numInput.className = "eb-input w-full rounded-lg px-2 py-1.5 text-sm";
+        numInput.value = node.value || "";
+        numInput.disabled = !canEdit || node.readOnly;
+        numInput.addEventListener("input", () => { node.value = numInput.value; });
+        numInput.addEventListener("blur", renderAll);
+        detailPanel.appendChild(numInput);
+      } else if (node.type === "boolean") {
+        const wrap = document.createElement("div");
+        wrap.className = "flex items-center gap-2";
+        wrap.appendChild(toggleSwitch(node.value, !canEdit || node.readOnly, (checked) => { node.value = checked; renderAll(); }));
+        const stateLabel = document.createElement("span");
+        stateLabel.className = "text-xs";
+        stateLabel.style.color = "var(--eb-muted)";
+        stateLabel.textContent = node.value ? I18N.yes : I18N.no;
+        wrap.appendChild(stateLabel);
+        detailPanel.appendChild(wrap);
+      } else if (node.type === "image") {
+        const imgWrap = document.createElement("div");
+        imgWrap.className = "space-y-2";
+        if (node.value) {
+          const img = document.createElement("img");
+          img.src = node.value;
+          img.className = "max-h-32 rounded w-full object-cover";
+          imgWrap.appendChild(img);
+        }
+        if (canEdit && !node.readOnly) {
+          const row = document.createElement("div");
+          row.className = "flex items-center gap-2";
+          const input = document.createElement("input");
+          input.type = "file";
+          input.accept = "image/*";
+          input.className = "text-xs flex-1 min-w-0";
+          input.addEventListener("change", () => {
+            const file = input.files[0];
+            if (!file) return;
+            const form = new FormData();
+            form.append("file", file);
+            fetch("/crm/" + teamSlug + "/uploads", { method: "POST", body: form })
+              .then((res) => (res.ok ? res.json() : Promise.reject()))
+              .then((data) => { node.value = data.url; renderAll(); })
+              .catch(() => alert(I18N.uploadError));
+          });
+          row.appendChild(input);
+          if (node.value) {
+            const clearBtn = document.createElement("button");
+            clearBtn.type = "button";
+            clearBtn.className = "text-xs shrink-0";
+            clearBtn.style.color = "#f87171";
+            clearBtn.textContent = I18N.clearImageButton;
+            clearBtn.addEventListener("click", () => { node.value = ""; renderAll(); });
+            row.appendChild(clearBtn);
+          }
+          imgWrap.appendChild(row);
+        }
+        detailPanel.appendChild(imgWrap);
+      }
+    } else {
+      const info = document.createElement("p");
+      info.className = "text-xs mt-1";
+      info.style.color = "var(--eb-muted)";
+      info.textContent = valuePreview(node);
+      detailPanel.appendChild(info);
+    }
+
+    const propsHeader = document.createElement("button");
+    propsHeader.type = "button";
+    propsHeader.className = "flex items-center gap-1.5 mt-4 mb-2 text-xs font-semibold uppercase tracking-wide";
+    propsHeader.style.color = "var(--eb-muted)";
+    const propsChevron = document.createElement("span");
+    propsChevron.innerHTML = ICONS.chevron;
+    propsChevron.style.display = "inline-flex";
+    propsChevron.style.transform = "rotate(90deg)";
+    propsHeader.appendChild(propsChevron);
+    const propsLabel = document.createElement("span");
+    propsLabel.textContent = I18N.propertiesSection;
+    propsHeader.appendChild(propsLabel);
+    const propsBody = document.createElement("div");
+    propsBody.className = "space-y-3";
+    propsHeader.addEventListener("click", () => {
+      const showing = propsBody.style.display !== "none";
+      propsBody.style.display = showing ? "none" : "";
+      propsChevron.style.transform = showing ? "rotate(0deg)" : "rotate(90deg)";
+    });
+    detailPanel.appendChild(propsHeader);
+
+    const requiredRow = document.createElement("div");
+    requiredRow.className = "flex items-center justify-between";
+    const requiredText = document.createElement("span");
+    requiredText.className = "text-sm";
+    requiredText.style.color = "var(--eb-text)";
+    requiredText.textContent = I18N.requiredLabel;
+    requiredRow.appendChild(requiredText);
+    requiredRow.appendChild(toggleSwitch(node.required, !canEdit, (checked) => { node.required = checked; }));
+    propsBody.appendChild(requiredRow);
+
+    const readOnlyRow = document.createElement("div");
+    readOnlyRow.className = "flex items-center justify-between";
+    const readOnlyText = document.createElement("span");
+    readOnlyText.className = "text-sm";
+    readOnlyText.style.color = "var(--eb-text)";
+    readOnlyText.textContent = I18N.readOnlyLabel;
+    readOnlyRow.appendChild(readOnlyText);
+    readOnlyRow.appendChild(toggleSwitch(node.readOnly, !canEdit, (checked) => { node.readOnly = checked; renderAll(); }));
+    propsBody.appendChild(readOnlyRow);
+
+    const orderRow = document.createElement("div");
+    orderRow.className = "flex items-center justify-between";
+    const orderText = document.createElement("span");
+    orderText.className = "text-sm";
+    orderText.style.color = "var(--eb-text)";
+    orderText.textContent = I18N.orderLabel;
+    orderRow.appendChild(orderText);
+    const orderInput = document.createElement("input");
+    orderInput.type = "number";
+    orderInput.min = "1";
+    orderInput.max = String(siblings.length);
+    orderInput.value = String(index + 1);
+    orderInput.disabled = !canEdit || siblings.length < 2;
+    orderInput.className = "eb-input rounded-lg px-2 py-1 text-sm";
+    orderInput.style.width = "64px";
+    orderInput.addEventListener("change", () => {
+      const current = siblings.indexOf(node);
+      if (current === -1) { renderAll(); return; }
+      let target = parseInt(orderInput.value, 10) - 1;
+      if (isNaN(target)) target = current;
+      target = Math.max(0, Math.min(siblings.length - 1, target));
+      if (target === current) { renderAll(); return; }
+      const [moved] = siblings.splice(current, 1);
+      siblings.splice(target, 0, moved);
+      renderAll();
+    });
+    orderRow.appendChild(orderInput);
+    propsBody.appendChild(orderRow);
+
+    detailPanel.appendChild(propsBody);
+
+    if (canEdit) {
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "w-full rounded-lg text-sm py-2 mt-5 transition-colors";
+      deleteBtn.style.color = "#f87171";
+      deleteBtn.style.border = "1px solid rgba(248,113,113,0.3)";
+      deleteBtn.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;justify-content:center;">' + ICONS.trash + '<span>' + I18N.deleteFieldButton + '</span></span>';
+      deleteBtn.addEventListener("click", () => {
+        if (nodeHasContent(node) && !confirm(I18N.deleteFieldConfirm)) return;
+        siblings.splice(index, 1);
+        closeDetailPanel();
+        renderAll();
+      });
+      detailPanel.appendChild(deleteBtn);
+    }
+  }
+
+  renderAll();
+
+  const addRootBtn = document.getElementById("crm-add-root-field-btn");
+  if (addRootBtn) {
+    addRootBtn.addEventListener("click", () => {
+      openTypeMenu(addRootBtn, (type) => {
+        tree.push(makeNode(type));
+        renderAll();
+      });
+    });
+  }
+
+  const saveBtn = document.getElementById("crm-save-btn");
+  const saveStatus = document.getElementById("crm-save-status");
+  if (saveBtn) {
+    saveBtn.addEventListener("click", () => {
+      saveStatus.textContent = "";
+      fetch("/crm/" + teamSlug + "/" + entitySlug, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(tree),
+      })
+        .then((res) => (res.ok ? res.json() : Promise.reject()))
+        .then(() => { saveStatus.textContent = I18N.saved; })
+        .catch(() => { saveStatus.textContent = I18N.saveError; });
+    });
+  }
+
+  // ---- Export / import ----
+  // Both operate purely on the in-memory tree (no server round trip):
+  // export downloads exactly what's currently shown, including unsaved
+  // edits; import replaces the in-memory tree, which still requires
+  // clicking "Enregistrer" to persist — consistent with the whole-tree,
+  // nothing-saved-until-you-click-Save model used everywhere else here.
+
+  const exportBtn = document.getElementById("crm-export-btn");
+  if (exportBtn) {
+    exportBtn.addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(tree, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = entitySlug + ".json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  // Recursively checks that every node has a type this editor understands
+  // — an unrecognized "type" would crash renderNode (TYPE_META[node.type]
+  // is undefined), so an imported file gets validated before it ever
+  // replaces the in-memory tree.
+  function validateImportedTree(list) {
+    if (!Array.isArray(list)) return false;
+    return list.every((node) => {
+      if (!node || typeof node !== "object" || !TYPE_META[node.type]) return false;
+      if (TYPE_META[node.type].hasChildren) return validateImportedTree(node.children || []);
+      return true;
+    });
+  }
+
+  const importBtn = document.getElementById("crm-import-btn");
+  const importInput = document.getElementById("crm-import-input");
+  if (importBtn && importInput) {
+    importBtn.addEventListener("click", () => importInput.click());
+    importInput.addEventListener("change", () => {
+      const file = importInput.files[0];
+      importInput.value = "";
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        let parsed;
+        try {
+          parsed = JSON.parse(reader.result);
+        } catch (e) {
+          alert(I18N.importInvalid);
+          return;
+        }
+        if (!validateImportedTree(parsed)) {
+          alert(I18N.importInvalid);
+          return;
+        }
+        if (tree.length && !confirm(I18N.importConfirmOverwrite)) return;
+        tree.length = 0;
+        tree.push(...parsed);
+        closeDetailPanel();
+        renderAll();
+        saveStatus.textContent = I18N.importSuccess;
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  // ---- Design (AI-generated custom rendering) ----
+  // Private to EptaAdmin — not a public page. The generated document never
+  // receives data via server-side template substitution: it's expected to
+  // read window.__CRM_ENTITY_DATA__ (injected below, straight into the
+  // iframe's srcdoc) itself, in its own inline <script>. That keeps this
+  // entirely safe regardless of what the model outputs — nothing it writes
+  // can execute as a Go template action.
+  (function () {
+    let appliedDesignHTML = {{.Entity.DesignHTML}};
+    let draftDesignHTML = null;
+    let draftDesignID = null;
+
+    const badge = document.getElementById("crm-design-badge");
+    const appliedActions = document.getElementById("crm-design-applied-actions");
+    const form = document.getElementById("crm-design-form");
+    const draftActions = document.getElementById("crm-design-draft-actions");
+    const preview = document.getElementById("crm-design-preview");
+    const previewWrap = document.getElementById("crm-design-preview-wrap");
+    const previewBackdrop = document.getElementById("crm-design-preview-backdrop");
+    const maxHeightBtn = document.getElementById("crm-design-maxheight-btn");
+    const descriptionInput = document.getElementById("crm-design-description");
+    const imageInput = document.getElementById("crm-design-image");
+    const generateBtn = document.getElementById("crm-design-generate-btn");
+    const designStatus = document.getElementById("crm-design-status");
+    const refreshBtn = document.getElementById("crm-design-refresh-btn");
+    const regenerateBtn = document.getElementById("crm-design-regenerate-btn");
+    const removeBtn = document.getElementById("crm-design-remove-btn");
+    const editToggleBtn = document.getElementById("crm-design-edit-toggle-btn");
+    const addItemBtn = document.getElementById("crm-design-add-item-btn");
+    const applyBtn = document.getElementById("crm-design-apply-btn");
+    const discardBtn = document.getElementById("crm-design-discard-btn");
+    const chooseBtn = document.getElementById("crm-design-choose-btn");
+    const importBtn = document.getElementById("crm-design-import-btn");
+    const importInput = document.getElementById("crm-design-import-input");
+    const libraryBackdrop = document.getElementById("crm-design-library-backdrop");
+    const libraryList = document.getElementById("crm-design-library-list");
+    const libraryCloseBtn = document.getElementById("crm-design-library-close-btn");
+    if (!preview) return; // page rendered without edit rights: nothing interactive to wire
+
+    // A visible error handler (so a bug in the AI-generated JS shows up as
+    // readable text instead of a silent blank iframe — sandbox="allow-scripts"
+    // without allow-same-origin means the parent page can't inspect the
+    // iframe's console/errors itself, so the iframe has to report its own).
+    // JSON.stringify's output is escaped ("<" -> "<") before being
+    // embedded: without this, any entity text value that happens to contain
+    // the literal characters "</script>" would prematurely close this
+    // injected <script> tag when the browser's HTML parser reads it,
+    // corrupting everything after it (including the design's own markup).
+    function injectedDataScript() {
+      // Every piece of text below goes through JSON.stringify (never
+      // hand-spliced into quotes) so nothing — an apostrophe in a
+      // translation string, a "</script>" substring inside an entity's own
+      // text value — can break out of this injected script and corrupt the
+      // rest of the document.
+      const escapeForScript = (s) => JSON.stringify(s).replace(/</g, "\\u003c");
+      const dataJSON = escapeForScript(tree);
+      const errorPrefixJSON = escapeForScript("Erreur JS dans le design généré :\n");
+      const noDataHTMLJSON = escapeForScript('<p style="color:#6b7280;padding:16px;font:13px sans-serif;">' + I18N.designNoData + "</p>");
+      return "<script>\n" +
+        "console.log('[crm-design][preview] data injected, items=' + " + dataJSON + ".length);\n" +
+        "window.__CRM_ENTITY_DATA__ = " + dataJSON + ";\n" +
+        "window.addEventListener('error', function (e) {\n" +
+        "  console.error('[crm-design][preview] runtime error:', e.message, e);\n" +
+        "  var pre = document.createElement('pre');\n" +
+        "  pre.style.cssText = 'color:#b91c1c;background:#fff;padding:16px;white-space:pre-wrap;font:12px monospace;';\n" +
+        "  pre.textContent = " + errorPrefixJSON + " + (e.message || e);\n" +
+        "  document.body.innerHTML = '';\n" +
+        "  document.body.appendChild(pre);\n" +
+        "});\n" +
+        "document.addEventListener('DOMContentLoaded', function () {\n" +
+        "  console.log('[crm-design][preview] DOMContentLoaded, body text length=' + document.body.textContent.trim().length);\n" +
+        "  if (!document.body.textContent.trim()) {\n" +
+        "    console.warn('[crm-design][preview] nothing rendered — showing no-data message');\n" +
+        "    document.body.innerHTML = " + noDataHTMLJSON + ";\n" +
+        "  }\n" +
+        "});\n" +
+        "<" + "/script>\n" +
+        editBridgeScript;
+    }
+
+    // ---- In-place editing bridge ----
+    // Static JS (no server-side interpolation needed — it only reads
+    // window.__CRM_ENTITY_DATA__, already injected above) that runs INSIDE
+    // the sandboxed iframe. It never gets allow-same-origin (the parent
+    // still can't reach into the iframe's DOM directly, same security
+    // posture as before) — instead it talks to the parent exclusively via
+    // postMessage, the standard safe channel for a sandboxed frame. Editing
+    // is matched by exact rendered text === a leaf value in the tree
+    // (type "text"/"number" only — the same "match by exact text, once
+    // per value" technique already proven for the Visuel plugin's
+    // findEditable), so it works with whatever arbitrary markup a
+    // generated or imported design happens to produce, without needing
+    // that design to cooperate or add any special markup itself.
+    const editBridgeScript = "<script>\n" +
+      "(function () {\n" +
+      "  var editModeOn = false;\n" +
+      "  var currentEl = null;\n" +
+      "  function buildIndex() {\n" +
+      "    var index = {};\n" +
+      "    function walk(list, path) {\n" +
+      "      if (!Array.isArray(list)) return;\n" +
+      "      list.forEach(function (node, i) {\n" +
+      "        var nodePath = path.concat(i);\n" +
+      "        if (node && (node.type === 'text' || node.type === 'number') && node.value !== '' && node.value !== undefined && node.value !== null) {\n" +
+      "          var key = String(node.value);\n" +
+      "          if (!index[key]) index[key] = [];\n" +
+      "          index[key].push(nodePath);\n" +
+      "        }\n" +
+      "        if (node && Array.isArray(node.children)) walk(node.children, nodePath.concat('children'));\n" +
+      "      });\n" +
+      "    }\n" +
+      "    walk(window.__CRM_ENTITY_DATA__ || [], []);\n" +
+      "    return index;\n" +
+      "  }\n" +
+      "  function markEditable() {\n" +
+      "    var index = buildIndex();\n" +
+      "    var all = document.body.querySelectorAll('*');\n" +
+      "    for (var i = 0; i < all.length; i++) {\n" +
+      "      var el = all[i];\n" +
+      "      if (el.children.length > 0) continue;\n" +
+      "      if (el.closest && el.closest('[data-crm-edit-path]')) continue;\n" +
+      "      var text = (el.textContent || '').trim();\n" +
+      "      if (!text || !index[text] || !index[text].length) continue;\n" +
+      "      var path = index[text].shift();\n" +
+      "      el.setAttribute('data-crm-edit-path', JSON.stringify(path));\n" +
+      "      el.classList.add('crm-editable');\n" +
+      "    }\n" +
+      "  }\n" +
+      "  function selectAllText(el) {\n" +
+      "    var range = document.createRange();\n" +
+      "    range.selectNodeContents(el);\n" +
+      "    var sel = window.getSelection();\n" +
+      "    sel.removeAllRanges();\n" +
+      "    sel.addRange(range);\n" +
+      "  }\n" +
+      "  function startEdit(el) {\n" +
+      "    currentEl = el;\n" +
+      "    el.setAttribute('contenteditable', 'true');\n" +
+      "    el.focus();\n" +
+      "    selectAllText(el);\n" +
+      "  }\n" +
+      "  function commitEdit(el) {\n" +
+      "    el.removeAttribute('contenteditable');\n" +
+      "    var pathAttr = el.getAttribute('data-crm-edit-path');\n" +
+      "    if (!pathAttr) return;\n" +
+      "    try {\n" +
+      "      var path = JSON.parse(pathAttr);\n" +
+      "      window.parent.postMessage({ source: 'crm-design-edit', path: path, value: el.textContent }, '*');\n" +
+      "    } catch (e) { console.error('[crm-design][preview] edit commit error:', e); }\n" +
+      "  }\n" +
+      "  document.addEventListener('click', function (e) {\n" +
+      "    if (!editModeOn) return;\n" +
+      "    var el = e.target.closest && e.target.closest('[data-crm-edit-path]');\n" +
+      "    if (!el || el === currentEl) return;\n" +
+      "    if (currentEl) commitEdit(currentEl);\n" +
+      "    e.preventDefault();\n" +
+      "    e.stopPropagation();\n" +
+      "    startEdit(el);\n" +
+      "  }, true);\n" +
+      "  document.addEventListener('focusout', function (e) {\n" +
+      "    if (currentEl && e.target === currentEl) { commitEdit(currentEl); currentEl = null; }\n" +
+      "  }, true);\n" +
+      "  window.addEventListener('message', function (e) {\n" +
+      "    if (!e.data || e.data.source !== 'crm-design-set-edit-mode') return;\n" +
+      "    editModeOn = !!e.data.enabled;\n" +
+      "    document.body.classList.toggle('crm-edit-mode', editModeOn);\n" +
+      "    if (editModeOn) markEditable();\n" +
+      "  });\n" +
+      "  var style = document.createElement('style');\n" +
+      "  style.textContent = '.crm-edit-mode .crm-editable{outline:1px dashed #34d399;outline-offset:2px;cursor:text;}" +
+      ".crm-edit-mode .crm-editable:hover{background:rgba(52,211,153,0.12);}" +
+      "[contenteditable=\"true\"]{outline:2px solid #34d399 !important;background:rgba(52,211,153,0.08);}';\n" +
+      "  document.head.appendChild(style);\n" +
+      "  console.log('[crm-design][preview] edit bridge ready');\n" +
+      "})();\n" +
+      "<" + "/script>\n";
+
+    // Every step below logs to the browser console with a "[crm-design]"
+    // prefix, matching the server's own "[crm-design]" log lines (see
+    // handlers_crm_design.go) — so a failure or a slow generation can be
+    // traced from either side using the same marker.
+    function dlog(...args) { console.log("[crm-design]", ...args); }
+    function derror(...args) { console.error("[crm-design]", ...args); }
+
+    function renderPreview(html) {
+      dlog("rendering preview, html_len=" + (html ? html.length : 0) + ", data_items=" + tree.length);
+      preview.srcdoc = injectedDataScript() + html;
+      previewWrap.classList.remove("hidden");
+    }
+
+    function showAppliedState() {
+      badge.style.display = appliedDesignHTML ? "" : "none";
+      if (appliedActions) appliedActions.style.display = appliedDesignHTML ? "" : "none";
+      if (form) form.style.display = appliedDesignHTML ? "none" : "";
+      if (draftActions) draftActions.classList.add("hidden");
+      draftDesignHTML = null;
+      if (appliedDesignHTML) {
+        dlog("showing applied design, html_len=" + appliedDesignHTML.length);
+        renderPreview(appliedDesignHTML);
+      } else {
+        dlog("no design applied — default tree view active");
+        previewWrap.classList.add("hidden");
+        preview.srcdoc = "";
+      }
+    }
+
+    if (maxHeightBtn) {
+      function setMaxHeight(isMax) {
+        previewWrap.classList.toggle("crm-design-preview-max", isMax);
+        previewBackdrop.classList.toggle("crm-design-preview-backdrop-visible", isMax);
+        maxHeightBtn.textContent = isMax ? I18N.designMinheightButton : I18N.designMaxheightButton;
+        dlog("preview height toggled, max=" + isMax);
+      }
+      maxHeightBtn.addEventListener("click", () => {
+        setMaxHeight(!previewWrap.classList.contains("crm-design-preview-max"));
+      });
+      previewBackdrop.addEventListener("click", () => setMaxHeight(false));
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && previewWrap.classList.contains("crm-design-preview-max")) setMaxHeight(false);
+      });
+    }
+
+    if (refreshBtn) {
+      refreshBtn.addEventListener("click", () => {
+        dlog("manual refresh requested");
+        renderPreview(appliedDesignHTML);
+      });
+    }
+
+    // ---- In-place editing (parent side) ----
+    // The iframe never gets DOM access to the parent or vice versa — all
+    // communication is postMessage, matched by node "path" (an array of
+    // indices: [i0, "children", i1, "children", i2, ...] descending from
+    // the tree root), computed identically on both sides by walking the
+    // same window.__CRM_ENTITY_DATA__/tree structure.
+    let editModeOn = false;
+
+    function getNodeByPath(path) {
+      let cursor = tree;
+      for (let i = 0; i < path.length; i++) {
+        if (cursor == null) return null;
+        cursor = cursor[path[i]];
+      }
+      return cursor;
+    }
+
+    window.addEventListener("message", (e) => {
+      if (!preview || e.source !== preview.contentWindow) return;
+      if (!e.data || e.data.source !== "crm-design-edit") return;
+      const node = getNodeByPath(e.data.path);
+      if (!node || (node.type !== "text" && node.type !== "number")) {
+        derror("edit message: path did not resolve to an editable node", e.data.path);
+        return;
+      }
+      dlog("edit: path=" + JSON.stringify(e.data.path) + " old=" + JSON.stringify(node.value) + " new=" + JSON.stringify(e.data.value));
+      node.value = e.data.value;
+      renderAll();
+      designStatus.textContent = I18N.designEditedHint;
+    });
+
+    if (editToggleBtn) {
+      editToggleBtn.addEventListener("click", () => {
+        editModeOn = !editModeOn;
+        editToggleBtn.textContent = editModeOn ? I18N.designEditDisableButton : I18N.designEditEnableButton;
+        dlog("edit mode toggled, on=" + editModeOn);
+        if (preview.contentWindow) {
+          preview.contentWindow.postMessage({ source: "crm-design-set-edit-mode", enabled: editModeOn }, "*");
+        }
+      });
+    }
+
+    // Deep-clones the first root-level item as a starting point for a new
+    // one (same field shape the design already knows how to render), blanks
+    // its leaf values so it reads as empty rather than a duplicate, and
+    // re-renders the preview — unlike a text edit, a brand new item is a
+    // new DOM node the design's own script has to create, so this does
+    // need a full iframe reload (renderPreview), not just an in-place edit.
+    function blankLeafValues(node) {
+      if (Array.isArray(node.children)) {
+        node.children.forEach(blankLeafValues);
+      } else if (node.type === "boolean") {
+        node.value = false;
+      } else if (node.type === "number") {
+        node.value = "";
+      } else {
+        node.value = "";
+      }
+    }
+    if (addItemBtn) {
+      addItemBtn.addEventListener("click", () => {
+        if (!tree.length) {
+          designStatus.textContent = I18N.designAddItemNeedsExisting;
+          return;
+        }
+        const clone = JSON.parse(JSON.stringify(tree[0]));
+        blankLeafValues(clone);
+        tree.push(clone);
+        dlog("add item: cloned structure of tree[0], new length=" + tree.length);
+        renderAll();
+        if (appliedDesignHTML) renderPreview(appliedDesignHTML);
+        designStatus.textContent = I18N.designEditedHint;
+      });
+    }
+
+    if (regenerateBtn) {
+      regenerateBtn.addEventListener("click", () => {
+        dlog("regenerate requested — reopening form");
+        appliedActions.style.display = "none";
+        form.style.display = "";
+      });
+    }
+
+    if (removeBtn) {
+      removeBtn.addEventListener("click", () => {
+        if (!confirm(I18N.designRemoveConfirm)) return;
+        dlog("clearing design — DELETE", "/crm/" + teamSlug + "/entities/" + entitySlug + "/design");
+        fetch("/crm/" + teamSlug + "/entities/" + entitySlug + "/design", { method: "DELETE" })
+          .then((res) => { dlog("clear response status=" + res.status); return res.ok ? res.json() : Promise.reject(res.status); })
+          .then(() => {
+            dlog("design cleared");
+            appliedDesignHTML = "";
+            showAppliedState();
+            if (window.crmSetDesignView) window.crmSetDesignView("data");
+          })
+          .catch((err) => {
+            derror("clear failed:", err);
+            designStatus.textContent = I18N.saveError;
+          });
+      });
+    }
+
+    if (generateBtn) {
+      generateBtn.addEventListener("click", () => {
+        const description = (descriptionInput.value || "").trim();
+        if (!description) {
+          designStatus.textContent = I18N.designDescriptionRequired;
+          return;
+        }
+        const hasImage = !!imageInput.files[0];
+        const startedAt = Date.now();
+        let elapsedTimer = null;
+        designStatus.textContent = I18N.designGenerating;
+        generateBtn.disabled = true;
+        elapsedTimer = setInterval(() => {
+          designStatus.textContent = I18N.designGenerating + " (" + Math.round((Date.now() - startedAt) / 1000) + "s)";
+        }, 1000);
+
+        dlog("generate: starting — description_len=" + description.length + " has_image=" + hasImage);
+        const form2 = new FormData();
+        form2.append("description", description);
+        if (hasImage) form2.append("image", imageInput.files[0]);
+        fetch("/crm/" + teamSlug + "/entities/" + entitySlug + "/design/generate", { method: "POST", body: form2 })
+          .then((res) => {
+            dlog("generate: response status=" + res.status + " after " + Math.round((Date.now() - startedAt) / 1000) + "s");
+            return res.json().then((body) => ({ ok: res.ok, body }));
+          })
+          .then(({ ok, body }) => {
+            clearInterval(elapsedTimer);
+            generateBtn.disabled = false;
+            if (!ok) {
+              derror("generate: server error:", body.error);
+              designStatus.textContent = body.error || I18N.saveError;
+              return;
+            }
+            dlog("generate: success, design_id=" + body.id + ", html_len=" + (body.html ? body.html.length : 0));
+            designStatus.textContent = "";
+            draftDesignID = body.id;
+            draftDesignHTML = body.html;
+            form.style.display = "none";
+            draftActions.classList.remove("hidden");
+            renderPreview(draftDesignHTML);
+            if (window.crmSetDesignView) window.crmSetDesignView("design");
+          })
+          .catch((err) => {
+            clearInterval(elapsedTimer);
+            generateBtn.disabled = false;
+            derror("generate: network/parse error:", err);
+            designStatus.textContent = I18N.saveError;
+          });
+      });
+    }
+
+    // Importing a hand-written or previously exported HTML file skips
+    // NVIDIA entirely but still lands in the same team library, and reuses
+    // the exact same draft-preview-then-apply flow a generation goes
+    // through — draftDesignID/draftDesignHTML are what "Appliquer" reads.
+    if (importBtn && importInput) {
+      importBtn.addEventListener("click", () => importInput.click());
+      importInput.addEventListener("change", () => {
+        const file = importInput.files[0];
+        importInput.value = "";
+        if (!file) return;
+        dlog("design import: starting — filename=" + file.name + " size=" + file.size);
+        designStatus.textContent = I18N.designGenerating;
+        const form2 = new FormData();
+        form2.append("file", file);
+        fetch("/crm/" + teamSlug + "/designs/import", { method: "POST", body: form2 })
+          .then((res) => {
+            dlog("design import: response status=" + res.status);
+            return res.json().then((body) => ({ ok: res.ok, body }));
+          })
+          .then(({ ok, body }) => {
+            if (!ok) {
+              derror("design import: server error:", body.error);
+              designStatus.textContent = body.error || I18N.saveError;
+              return;
+            }
+            dlog("design import: success, design_id=" + body.id + ", html_len=" + (body.html ? body.html.length : 0));
+            designStatus.textContent = I18N.designImportSuccess;
+            draftDesignID = body.id;
+            draftDesignHTML = body.html;
+            form.style.display = "none";
+            draftActions.classList.remove("hidden");
+            renderPreview(draftDesignHTML);
+            if (window.crmSetDesignView) window.crmSetDesignView("design");
+          })
+          .catch((err) => {
+            derror("design import: network/parse error:", err);
+            designStatus.textContent = I18N.saveError;
+          });
+      });
+    }
+
+    // Shared by "Appliquer" (applies the just-generated draft) and the
+    // library picker's "Utiliser" (applies a previously saved one) — both
+    // are just POSTing a designId, since every generation is already
+    // persisted to the team's library (see handleGenerateCRMEntityDesign).
+    function applyDesignById(designId, onDone) {
+      dlog("apply: design_id=" + designId);
+      fetch("/crm/" + teamSlug + "/entities/" + entitySlug + "/design", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ designId: designId }),
+      })
+        .then((res) => { dlog("apply: response status=" + res.status); return res.ok ? res.json() : res.json().then((b) => Promise.reject(b.error || res.status)); })
+        .then((body) => {
+          dlog("apply: saved, name=" + body.name);
+          appliedDesignHTML = body.html;
+          draftDesignHTML = null;
+          draftDesignID = null;
+          if (draftActions) draftActions.classList.add("hidden");
+          showAppliedState();
+          if (window.crmSetDesignView) window.crmSetDesignView("design");
+          if (onDone) onDone();
+        })
+        .catch((err) => {
+          derror("apply failed:", err);
+          designStatus.textContent = typeof err === "string" ? err : I18N.saveError;
+        });
+    }
+
+    if (applyBtn) {
+      applyBtn.addEventListener("click", () => {
+        if (!draftDesignID) return;
+        applyDesignById(draftDesignID);
+      });
+    }
+
+    if (discardBtn) {
+      discardBtn.addEventListener("click", () => {
+        dlog("draft discarded");
+        draftDesignHTML = null;
+        draftDesignID = null;
+        draftActions.classList.add("hidden");
+        showAppliedState();
+      });
+    }
+
+    // ---- Design library picker ----
+
+    function closeLibrary() { libraryBackdrop.classList.add("hidden"); }
+
+    function renderLibraryList(designs) {
+      libraryList.innerHTML = "";
+      if (!designs.length) {
+        const empty = document.createElement("p");
+        empty.className = "text-sm px-3 py-6 text-center";
+        empty.style.color = "var(--eb-muted)";
+        empty.textContent = I18N.designLibraryEmpty;
+        libraryList.appendChild(empty);
+        return;
+      }
+      designs.forEach((d) => {
+        const row = document.createElement("div");
+        row.className = "flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg";
+        row.style.borderBottom = "1px solid var(--eb-border)";
+        const left = document.createElement("div");
+        left.className = "min-w-0";
+        const name = document.createElement("p");
+        name.className = "text-sm font-medium truncate";
+        name.style.color = "var(--eb-text)";
+        name.textContent = d.name || "(" + d.id + ")";
+        const date = document.createElement("p");
+        date.className = "text-xs";
+        date.style.color = "var(--eb-muted)";
+        date.textContent = d.createdAt;
+        left.appendChild(name);
+        left.appendChild(date);
+        row.appendChild(left);
+        const actions = document.createElement("div");
+        actions.className = "flex items-center gap-2 shrink-0";
+        const useBtn = document.createElement("button");
+        useBtn.type = "button";
+        useBtn.className = "eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors";
+        useBtn.textContent = I18N.designUseButton;
+        useBtn.addEventListener("click", () => applyDesignById(d.id, closeLibrary));
+        actions.appendChild(useBtn);
+        const deleteBtn = document.createElement("button");
+        deleteBtn.type = "button";
+        deleteBtn.className = "crm-row-icon-btn";
+        deleteBtn.style.color = "#f87171";
+        deleteBtn.title = I18N.designDeleteButton;
+        deleteBtn.innerHTML = ICONS.trash;
+        deleteBtn.addEventListener("click", () => {
+          if (!confirm(I18N.designDeleteConfirm)) return;
+          dlog("deleting design_id=" + d.id);
+          fetch("/crm/" + teamSlug + "/designs/" + d.id, { method: "DELETE" })
+            .then((res) => (res.ok ? res.json() : Promise.reject(res.status)))
+            .then(() => {
+              dlog("design deleted, id=" + d.id);
+              row.remove();
+              if (!libraryList.children.length) renderLibraryList([]);
+            })
+            .catch((err) => derror("delete design failed:", err));
+        });
+        actions.appendChild(deleteBtn);
+        row.appendChild(actions);
+        libraryList.appendChild(row);
+      });
+    }
+
+    if (chooseBtn) {
+      chooseBtn.addEventListener("click", () => {
+        dlog("opening design library");
+        libraryBackdrop.classList.remove("hidden");
+        libraryList.innerHTML = "";
+        fetch("/crm/" + teamSlug + "/designs")
+          .then((res) => (res.ok ? res.json() : Promise.reject(res.status)))
+          .then((designs) => { dlog("library loaded, count=" + designs.length); renderLibraryList(designs); })
+          .catch((err) => {
+            derror("library load failed:", err);
+            libraryList.innerHTML = "";
+            const errEl = document.createElement("p");
+            errEl.className = "text-sm px-3 py-6 text-center";
+            errEl.style.color = "#f87171";
+            errEl.textContent = I18N.saveError;
+            libraryList.appendChild(errEl);
+          });
+      });
+      libraryCloseBtn.addEventListener("click", closeLibrary);
+      libraryBackdrop.addEventListener("click", (e) => { if (e.target === libraryBackdrop) closeLibrary(); });
+    }
+
+    showAppliedState();
+  })();
+
+  // ---- Data / Rendu view toggle ----
+  // The tree editor and the custom design are two mutually-exclusive views
+  // of the same entity, not a stacked pair — applying a design replaces
+  // what the "main" area shows, with the tree still reachable (to keep
+  // editing the underlying data) via the "Données" tab.
+  (function () {
+    const dataBtn = document.getElementById("crm-view-data-btn");
+    const designBtn = document.getElementById("crm-view-design-btn");
+    const dataView = document.getElementById("crm-data-view");
+    const designView = document.getElementById("crm-design-view");
+    if (!dataBtn || !designBtn) return;
+
+    function setView(view) {
+      dlogGlobal("view: switched to " + view);
+      dataView.classList.toggle("hidden", view !== "data");
+      designView.classList.toggle("hidden", view !== "design");
+      dataBtn.dataset.active = String(view === "data");
+      designBtn.dataset.active = String(view === "design");
+    }
+    function dlogGlobal(msg) { console.log("[crm-design]", msg); }
+
+    dataBtn.addEventListener("click", () => setView("data"));
+    designBtn.addEventListener("click", () => setView("design"));
+    // Exposed so the design IIFE above can jump here the moment a draft is
+    // generated or a design gets applied — the point of replacing the main
+    // view is that you see the result right away, not after an extra click.
+    window.crmSetDesignView = setView;
+
+    setView({{if .Entity.DesignHTML}}"design"{{else}}"data"{{end}});
+  })();
+})();
+</script>
+{{if .CanEdit}}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+{{end}}
+{{end}}
+{{template "layout" .}}

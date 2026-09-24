@@ -1,0 +1,86 @@
+{{define "title"}}{{.CRMTeam.Name}} — CRM+ — EptaAdmin{{end}}
+{{define "content"}}
+<div class="h-full flex">
+  {{template "sidebar" .}}
+
+  <div class="flex-1 min-w-0 flex flex-col">
+    {{template "header" .}}
+
+    <main class="flex-1 overflow-y-auto px-4 sm:px-8 py-10">
+     <div class="max-w-4xl mx-auto">
+
+      <div class="flex items-center justify-between gap-3 mb-6">
+        <a href="/crm/{{.CRMTeam.Slug}}/members" class="text-sm hover:underline" style="color: var(--eb-accent);">{{t .Lang "crm.members_title"}}</a>
+        {{if .CanManageData}}
+        <button id="toggle-add-entity-btn" type="button" class="eb-btn-primary shrink-0 rounded-xl text-sm font-semibold px-5 py-3 transition-colors">+ {{t .Lang "crm.new_entity_button"}}</button>
+        {{end}}
+      </div>
+
+      {{if .CanManageData}}
+      <div id="add-entity-form" class="hidden eb-card rounded-xl p-5 mb-8 space-y-3">
+        {{if .EntityError}}
+        <div class="rounded-lg text-sm px-3 py-2" style="background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: #fca5a5;">{{.EntityError}}</div>
+        {{end}}
+        <form method="POST" action="/crm/{{.CRMTeam.Slug}}/entities" class="flex items-end gap-3">
+          <div class="flex-1">
+            <label class="block text-xs font-medium mb-1" style="color: var(--eb-muted);" for="name">{{t .Lang "crm.entity_name_label"}}</label>
+            <input id="name" name="name" type="text" required placeholder="Blog"
+              class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <button type="submit" class="eb-btn-primary rounded-lg text-sm px-4 py-2 transition-colors shrink-0">{{t .Lang "crm.create_entity_button"}}</button>
+        </form>
+      </div>
+      {{end}}
+
+      <h2 class="text-sm font-semibold mb-3" style="color: var(--eb-text);">{{t .Lang "crm.entities_title"}}</h2>
+
+      {{if .Entities}}
+      <div class="eb-card rounded-xl overflow-hidden">
+        {{range $i, $e := .Entities}}
+        <div class="px-5 py-3 flex items-center justify-between gap-3" style="{{if $i}}border-top: 1px solid var(--eb-border);{{end}}">
+          <a href="/crm/{{$.CRMTeam.Slug}}/{{$e.Slug}}" class="text-sm font-medium truncate hover:underline" style="color: var(--eb-text);">{{$e.Name}}</a>
+          {{if $.CanManageData}}
+          <form method="POST" action="/crm/{{$.CRMTeam.Slug}}/entities/{{$e.Slug}}" class="entity-delete-form" onsubmit="return false;">
+            <button type="button" class="entity-delete-btn text-xs" data-slug="{{$e.Slug}}" style="color: #f87171;">{{t $.Lang "crm.delete_entity_button"}}</button>
+          </form>
+          {{end}}
+        </div>
+        {{end}}
+      </div>
+      {{else}}
+      <div class="eb-card rounded-xl px-5 py-10 text-center text-sm" style="color: var(--eb-muted);">
+        {{t .Lang "crm.no_entities"}}
+      </div>
+      {{end}}
+     </div>
+    </main>
+
+    <script>
+    (function () {
+      const addBtn = document.getElementById("toggle-add-entity-btn");
+      const addForm = document.getElementById("add-entity-form");
+      if (addBtn && addForm) {
+        addBtn.addEventListener("click", () => {
+          addForm.classList.toggle("hidden");
+          if (!addForm.classList.contains("hidden")) {
+            const input = addForm.querySelector("input");
+            if (input) input.focus();
+          }
+        });
+      }
+      {{if .EntityError}}addForm?.classList.remove("hidden");{{end}}
+
+      const teamSlug = {{.CRMTeam.Slug}};
+      document.querySelectorAll(".entity-delete-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          if (!confirm("{{t .Lang "crm.delete_entity_confirm"}}")) return;
+          fetch("/crm/" + teamSlug + "/entities/" + btn.dataset.slug, { method: "DELETE" })
+            .then(() => window.location.reload());
+        });
+      });
+    })();
+    </script>
+  </div>
+</div>
+{{end}}
+{{template "layout" .}}

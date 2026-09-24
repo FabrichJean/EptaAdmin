@@ -108,6 +108,14 @@
       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
       {{if not $collapsed}}{{t .Lang "nav.workspaces"}}{{end}}
     </a>
+    <a href="/crm" title="{{t .Lang "nav.crm"}}"
+      class="flex items-center {{if $collapsed}}justify-center px-0{{else}}gap-2.5 px-3{{end}} rounded-lg py-2 text-sm font-medium transition-colors"
+      style="{{if eq .ActiveNav "crm"}}background: rgba(52,211,153,0.12); color: var(--eb-accent);{{else}}color: var(--eb-muted);{{end}}"
+      onmouseover="if(!this.dataset.active)this.style.background='var(--eb-surface-2)'" onmouseout="if(!this.dataset.active)this.style.background=''"
+      {{if eq .ActiveNav "crm"}}data-active="true"{{end}}>
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v4H4z"/><path d="M4 12h10v8H4z"/><path d="M18 12h2v8h-2z"/></svg>
+      {{if not $collapsed}}{{t .Lang "nav.crm"}}{{end}}
+    </a>
     {{if .CanAccessMembers}}
     <a href="/members" title="{{t .Lang "nav.members"}}"
       class="flex items-center {{if $collapsed}}justify-center px-0{{else}}gap-2.5 px-3{{end}} rounded-lg py-2 text-sm font-medium transition-colors"
