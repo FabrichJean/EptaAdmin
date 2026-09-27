@@ -65,14 +65,22 @@
         <div class="flex items-center justify-between gap-3 px-4 py-3" style="border-bottom: 1px solid var(--eb-border);">
           <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "crm.design_hint"}}</p>
           {{if .CanEdit}}
-          <div class="flex items-center gap-2 shrink-0">
-            <button id="crm-design-choose-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors">{{t .Lang "crm.design_choose_button"}}</button>
-            <div id="crm-design-applied-actions" class="flex items-center gap-2" style="{{if not .Entity.DesignHTML}}display:none;{{end}}">
-              <button id="crm-design-edit-toggle-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors">{{t .Lang "crm.design_edit_enable_button"}}</button>
-              <button id="crm-design-add-item-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors">{{t .Lang "crm.design_add_item_button"}}</button>
-              <button id="crm-design-refresh-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors">{{t .Lang "crm.design_refresh_button"}}</button>
-              <button id="crm-design-regenerate-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors">{{t .Lang "crm.design_regenerate_button"}}</button>
-              <button id="crm-design-remove-btn" type="button" class="rounded-lg text-xs px-3 py-1.5 transition-colors" style="color: #f87171; border: 1px solid rgba(248,113,113,0.3);">{{t .Lang "crm.design_remove_button"}}</button>
+          <div class="relative shrink-0">
+            <button id="crm-design-actions-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors inline-flex items-center gap-1.5">
+              {{t .Lang "crm.design_actions_button"}}
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div id="crm-design-actions-menu" class="hidden absolute right-0 mt-2 w-60 rounded-lg py-1 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4); z-index: 10;">
+              <button id="crm-design-choose-btn" type="button" class="block w-full text-left px-3 py-2 text-sm transition-colors hover:bg-white/5" style="color: var(--eb-text);">{{t .Lang "crm.design_choose_button"}}</button>
+              <div id="crm-design-applied-actions" style="{{if not .Entity.DesignHTML}}display:none;{{end}}">
+                <div class="my-1" style="border-top: 1px solid var(--eb-border);"></div>
+                <button id="crm-design-edit-toggle-btn" type="button" class="block w-full text-left px-3 py-2 text-sm transition-colors hover:bg-white/5" style="color: var(--eb-text);">{{t .Lang "crm.design_edit_enable_button"}}</button>
+                <button id="crm-design-add-item-btn" type="button" class="block w-full text-left px-3 py-2 text-sm transition-colors hover:bg-white/5" style="color: var(--eb-text);">{{t .Lang "crm.design_add_item_button"}}</button>
+                <button id="crm-design-refresh-btn" type="button" class="block w-full text-left px-3 py-2 text-sm transition-colors hover:bg-white/5" style="color: var(--eb-text);">{{t .Lang "crm.design_refresh_button"}}</button>
+                <button id="crm-design-regenerate-btn" type="button" class="block w-full text-left px-3 py-2 text-sm transition-colors hover:bg-white/5" style="color: var(--eb-text);">{{t .Lang "crm.design_regenerate_button"}}</button>
+                <div class="my-1" style="border-top: 1px solid var(--eb-border);"></div>
+                <button id="crm-design-remove-btn" type="button" class="block w-full text-left px-3 py-2 text-sm transition-colors hover:bg-white/5" style="color: #f87171;">{{t .Lang "crm.design_remove_button"}}</button>
+              </div>
             </div>
           </div>
           {{end}}
@@ -1087,6 +1095,25 @@
     const libraryList = document.getElementById("crm-design-library-list");
     const libraryCloseBtn = document.getElementById("crm-design-library-close-btn");
     if (!preview) return; // page rendered without edit rights: nothing interactive to wire
+
+    // Design toolbar actions live behind a single dropdown (crm-design-
+    // actions-btn) instead of a cluttered row of buttons — same open/close
+    // pattern as the header's user menu (templates/layout.html): toggle on
+    // click, close on any outside click or once an action inside is picked.
+    (function () {
+      const actionsBtn = document.getElementById("crm-design-actions-btn");
+      const actionsMenu = document.getElementById("crm-design-actions-menu");
+      if (!actionsBtn || !actionsMenu) return;
+      actionsBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        actionsMenu.classList.toggle("hidden");
+      });
+      actionsMenu.addEventListener("click", (e) => {
+        const target = e.target.closest("button");
+        if (target) actionsMenu.classList.add("hidden");
+      });
+      document.addEventListener("click", () => actionsMenu.classList.add("hidden"));
+    })();
 
     // A visible error handler (so a bug in the AI-generated JS shows up as
     // readable text instead of a silent blank iframe — sandbox="allow-scripts"
