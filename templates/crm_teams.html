@@ -33,17 +33,23 @@
       {{if .CRMTeams}}
       <div class="grid gap-3 sm:grid-cols-2">
         {{range .CRMTeams}}
-        <a href="/crm/{{.Slug}}"
-          class="flex items-center gap-3 rounded-xl px-4 py-3 transition-colors eb-card"
-          onmouseover="this.style.borderColor='var(--eb-border-strong)'" onmouseout="this.style.borderColor='var(--eb-border)'">
-          <div class="h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0" style="background: {{columnColorHex .Name}}26; color: {{columnColorHex .Name}};">
-            {{slice .Name 0 1}}
-          </div>
-          <div class="min-w-0">
-            <p class="text-sm font-semibold truncate" style="color: var(--eb-text);">{{.Name}}</p>
-            <p class="text-xs truncate" style="color: var(--eb-muted);">{{.RoleLabel $.Lang}}</p>
-          </div>
-        </a>
+        <div class="relative group">
+          <a href="/crm/{{.Slug}}"
+            class="flex items-center gap-3 rounded-xl px-4 py-3 transition-colors eb-card"
+            onmouseover="this.style.borderColor='var(--eb-border-strong)'" onmouseout="this.style.borderColor='var(--eb-border)'">
+            <div class="h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0" style="background: {{columnColorHex .Name}}26; color: {{columnColorHex .Name}};">
+              {{slice .Name 0 1}}
+            </div>
+            <div class="min-w-0">
+              <p class="text-sm font-semibold truncate" style="color: var(--eb-text);">{{.Name}}</p>
+              <p class="text-xs truncate" style="color: var(--eb-muted);">{{.RoleLabel $.Lang}}</p>
+            </div>
+          </a>
+          {{if eq .Role "owner"}}
+          <button type="button" class="crm-team-rename-btn absolute top-2 right-2 h-6 w-6 hidden group-hover:flex items-center justify-center rounded text-sm leading-none eb-icon-btn-ok"
+            data-team-slug="{{.Slug}}" data-team-name="{{.Name}}" title="{{t $.Lang "crm.rename_team_button"}}">✎</button>
+          {{end}}
+        </div>
         {{end}}
       </div>
       {{else}}
@@ -68,6 +74,10 @@
         });
       }
       {{if .Error}}addForm?.classList.remove("hidden");{{end}}
+
+      document.querySelectorAll(".crm-team-rename-btn").forEach((btn) => {
+        btn.addEventListener("click", async (e) => {
+          e.preventDefault();
     })();
     </script>
   </div>
