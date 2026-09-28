@@ -1216,6 +1216,15 @@
       // data (window.__CRM_ENTITY_DATA__, injected once per load) instead
       // of the parent's live `tree` — used by the floating copy icon
       // below to resolve a marked element back to the value it should
+      // copy, entirely locally (no round trip to the parent needed).
+      "  function getNodeByPath(path) {\n" +
+      "    var cursor = window.__CRM_ENTITY_DATA__ || [];\n" +
+      "    for (var i = 0; i < path.length; i++) {\n" +
+      "      if (cursor == null) return null;\n" +
+      "      cursor = cursor[path[i]];\n" +
+      "    }\n" +
+      "    return cursor;\n" +
+      "  }\n" +
       // stripMarkdown is a deliberately crude markdown-to-plain-text
       // converter — good enough to compare against rendered text, not to
       // actually render anything (that's the generated design's own job,
@@ -1409,6 +1418,7 @@
       "    editModeOn = !!e.data.enabled;\n" +
       "    document.body.classList.toggle('crm-edit-mode', editModeOn);\n" +
       "    if (editModeOn) { markEditable(); } else if (observer) { observer.disconnect(); }\n" +
+      "    if (!editModeOn && copyIcon) { copyIcon.style.display = 'none'; copyIconTarget = null; }\n" +
       "  });\n" +
       // renderPreview (parent side) reloads this whole document via
       // srcdoc on every edit that can't be applied in place (a markdown
@@ -1433,6 +1443,27 @@
       "    if (!e.data || e.data.source !== 'crm-design-restore-scroll') return;\n" +
       "    window.scrollTo(e.data.x || 0, e.data.y || 0);\n" +
       "  });\n" +
+      // Floating "copy" icon: hovering any bordered editable element in
+      // edit mode reveals a small button pinned to its top-right corner
+      // (positioned via getBoundingClientRect, not a real child of the
+      // design's own markup — never risks disturbing its layout) that
+      // copies that field's raw value to the clipboard in one click,
+      // without first having to click into it. Resolves the value
+      // straight from window.__CRM_ENTITY_DATA__ via getNodeByPath, and
+      // copies with the legacy execCommand('copy') path specifically
+      // because it runs synchronously inside the real click's own user
+      // gesture — navigator.clipboard.writeText can silently fail in a
+      // sandboxed iframe without an explicit 'clipboard-write' Permissions
+      // Policy grant, which this iframe's sandbox="allow-scripts" doesn't.\n" +
+      // copyIcon itself is created lazily (on first hover of an editable
+      // element, via ensureCopyIcon) rather than eagerly here at the top
+      // of the script — this whole bridge script runs as soon as its own
+      // <script> tag is parsed, which is BEFORE the design's own <body>
+      // (its markup comes after this script in the injected srcdoc) has
+      // been reached by the browser's HTML parser. document.body is null
+      // at that point; an unguarded document.body.appendChild(copyIcon)
+      // here throws synchronously and aborts the rest of this IIFE — a
+      // real, previously-hit bug: everything textually after the throw
       "  var style = document.createElement('style');\n" +
       "  style.textContent = '.crm-edit-mode .crm-editable{outline:1px dashed #34d399;outline-offset:2px;cursor:text;}" +
       ".crm-edit-mode .crm-editable:hover{background:rgba(52,211,153,0.12);}" +
