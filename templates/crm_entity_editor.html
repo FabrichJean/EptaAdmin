@@ -1588,6 +1588,59 @@
         return;
       }
       dlog("opening markdown editor from preview click, path=" + JSON.stringify(e.data.path));
+      openMarkdownEditor(node);
+    });
+
+    // A click on an <img> matched to an "image" field (see
+    // markImageEditable) reuses the exact same upload flow as the
+    // "Données" tab's own image field (POST to /crm/{team}/uploads,
+    // store the returned URL) via one hidden, lazily-created <input
+    // type="file"> — there's no dedicated "image editor" UI to open,
+    // unlike markdown, so this goes straight to the file picker.
+    let designImageInput = null;
+    let designImageTargetNode = null;
+    function ensureDesignImageInput() {
+      if (designImageInput) return designImageInput;
+      designImageInput = document.createElement("input");
+      designImageInput.type = "file";
+      designImageInput.accept = "image/*";
+      designImageInput.style.display = "none";
+      designImageInput.addEventListener("change", () => {
+        const file = designImageInput.files[0];
+        designImageInput.value = "";
+        const node = designImageTargetNode;
+        designImageTargetNode = null;
+        if (!file || !node) return;
+        const form = new FormData();
+        form.append("file", file);
+        fetch("/crm/" + teamSlug + "/uploads", { method: "POST", body: form })
+          .then((res) => (res.ok ? res.json() : Promise.reject()))
+          .then((data) => {
+            node.value = data.url;
+            renderAll();
+            designStatus.textContent = I18N.designEditedHint;
+            try {
+              if (appliedDesignHTML && typeof renderPreview === "function") renderPreview(appliedDesignHTML);
+            } catch (e3) { /* design preview not initialized on this page */ }
+          })
+          .catch(() => alert(I18N.uploadError));
+      });
+      document.body.appendChild(designImageInput);
+      return designImageInput;
+    }
+    window.addEventListener("message", (e) => {
+      if (!preview || e.source !== preview.contentWindow) return;
+      if (!e.data || e.data.source !== "crm-design-edit-image") return;
+      const node = getNodeByPath(e.data.path);
+      if (!node || node.type !== "image") {
+        derror("edit-image message: path did not resolve to an image node", e.data.path);
+        return;
+      }
+      dlog("opening image picker from preview click, path=" + JSON.stringify(e.data.path));
+      designImageTargetNode = node;
+      ensureDesignImageInput().click();
+    });
+
     if (editToggleBtn) {
       editToggleBtn.addEventListener("click", () => {
         editModeOn = !editModeOn;
@@ -1599,21 +1652,48 @@
       });
     }
 
+    // Self-contained placeholder image (an inline SVG data URI, never a
+    // network request) so a freshly added "image" field shows an obvious
+    // "this needs a real picture" box in the preview instead of a broken
+    // image icon or nothing at all — same purpose as the text/markdown
+    // placeholders below, replaced the moment the user uploads a real
+    // file (see the image upload flow in the detail panel / preview
+    // click handler, both of which just overwrite node.value).
+    function placeholderImageDataURL() {
+      const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">' +
+        '<rect width="400" height="300" fill="#27272a"/>' +
+        '<g fill="none" stroke="#a78bfa" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">' +
+        '<rect x="100" y="85" width="200" height="140" rx="12"/>' +
+        '<circle cx="152" cy="133" r="16"/>' +
+        '<path d="M100 195 L165 145 L215 183 L255 145 L300 190"/>' +
+        '</g>' +
+        '</svg>';
+      return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+    }
     // Deep-clones the first root-level item as a starting point for a new
-    // one (same field shape the design already knows how to render), blanks
-    // its leaf values so it reads as empty rather than a duplicate, and
-    // re-renders the preview — unlike a text edit, a brand new item is a
-    // new DOM node the design's own script has to create, so this does
-    // need a full iframe reload (renderPreview), not just an in-place edit.
-    function blankLeafValues(node) {
+    // one (same field shape the design already knows how to render), fills
+    // its leaf values with placeholder content instead of leaving them
+    // blank — an empty string/0 routinely renders as literally nothing in
+    // an AI-generated design (no box, no outline), which made a freshly
+    // added item look like the click did nothing; visible placeholder
+    // content means there's always something on screen to click and edit.
+    // Then re-renders the preview — unlike a text edit, a brand new item
+    // is a new DOM node the design's own script has to create, so this
+    // does need a full iframe reload (renderPreview), not just an
+    // in-place edit.
+    function defaultLeafValues(node) {
       if (Array.isArray(node.children)) {
-        node.children.forEach(blankLeafValues);
+        node.children.forEach(defaultLeafValues);
       } else if (node.type === "boolean") {
         node.value = false;
       } else if (node.type === "number") {
-        node.value = "";
+        node.value = 0;
+      } else if (node.type === "markdown") {
+        node.value = I18N.designAddItemDefaultMarkdown;
+      } else if (node.type === "image") {
+        node.value = placeholderImageDataURL();
       } else {
-        node.value = "";
+        node.value = I18N.designAddItemDefaultText;
       }
     }
     if (addItemBtn) {
@@ -1623,7 +1703,7 @@
           return;
         }
         const clone = JSON.parse(JSON.stringify(tree[0]));
-        blankLeafValues(clone);
+        defaultLeafValues(clone);
         tree.push(clone);
         dlog("add item: cloned structure of tree[0], new length=" + tree.length);
         renderAll();
