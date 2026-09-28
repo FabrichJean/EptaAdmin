@@ -89,11 +89,11 @@ func HandleCreateCRMTeam(a *app.App, w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/crm/"+team.Slug, http.StatusSeeOther)
 }
 
-// HandleRenameCRMTeam changes a team's display name only — its slug (and
-// every /crm/{slug}/... link) stays stable. Gated on roles.PermWorkspaceManage,
-// the same Owner-only permission that would cover renaming/deleting a
-// workspace itself (see roles.go): a CRM+ team is CRM+'s equivalent of a
-// workspace, not a piece of its data.
+// HandleRenameCRMTeam changes a team's display name AND its slug (see
+// Store.RenameCRMTeam — every existing /crm/{slug}/... link for this team
+// stops working the moment it's renamed, by explicit request). Gated on
+// roles.PermWorkspaceManage, the same Owner-only permission that would
+// cover renaming/deleting a workspace itself (see roles.go): a CRM+ team
 func HandleRenameCRMTeam(a *app.App, w http.ResponseWriter, r *http.Request) {
 	currentUser := app.UserFromContext(r)
 	lang := a.ResolveLang(r)
