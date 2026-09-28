@@ -165,6 +165,20 @@ func (s *Store) RenameCRMTeam(id int64, name string) (string, error) {
 		var exists int
 		if err := tx.QueryRow(`SELECT COUNT(*) FROM crm_teams WHERE slug = ? AND id != ?`, slug, id).Scan(&exists); err != nil {
 			return "", err
+		}
+		if exists == 0 {
+			break
+		}
+		slug = base + "-" + strconv.Itoa(suffix)
+	}
+
+	if _, err := tx.Exec(`UPDATE crm_teams SET name = ?, slug = ? WHERE id = ?`, name, slug, id); err != nil {
+		return "", err
+	}
+	if err := tx.Commit(); err != nil {
+		return "", err
+	}
+	return slug, nil
 }
 
 func scanCRMTeam(row *sql.Row) (*CRMTeam, error) {
