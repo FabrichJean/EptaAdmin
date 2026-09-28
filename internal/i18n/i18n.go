@@ -132,6 +132,7 @@ var translations = map[string]map[string]string{
 		"activity.desc.visual_site.apply":            "%s a appliqué les zones éditées du site visuel « %s » vers la datasource.",
 
 		"activity.desc.crm_team.create":        "%s a créé l'équipe CRM+ « %s ».",
+		"activity.desc.crm_team.rename":        "%s a renommé l'équipe CRM+ « %s » en « %s ».",
 		"activity.desc.crm_entity.create":      "%s a créé l'entité « %s » dans « %s ».",
 		"activity.desc.crm_entity.update":      "%s a modifié l'entité « %s » dans « %s ».",
 		"activity.desc.crm_entity.delete":      "%s a supprimé l'entité « %s » dans « %s ».",
@@ -146,6 +147,8 @@ var translations = map[string]map[string]string{
 		"crm.your_teams":                        "Vos équipes",
 		"crm.empty_state":                       "Aucune équipe CRM+ pour l'instant.",
 		"crm.name_required":                     "Merci de renseigner un nom d'équipe.",
+		"crm.rename_team_prompt":                "Nouveau nom de l'équipe",
+		"crm.rename_team_button":                "Renommer l'équipe",
 		"crm.name_exists":                       "Une équipe avec ce nom existe déjà.",
 		"crm.members_title":                     "Membres de l'équipe",
 		"crm.new_entity_button":                 "Nouvelle entité",
