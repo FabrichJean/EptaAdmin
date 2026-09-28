@@ -1495,6 +1495,37 @@
       "  function showCopyIcon(el) {\n" +
       "    ensureCopyIcon();\n" +
       "    if (copyIconHideTimer) { clearTimeout(copyIconHideTimer); copyIconHideTimer = null; }\n" +
+      "    copyIconTarget = el;\n" +
+      "    positionCopyIcon(el);\n" +
+      "    copyIcon.style.display = 'flex';\n" +
+      "  }\n" +
+      "  function scheduleHideCopyIcon() {\n" +
+      "    if (copyIconHideTimer) clearTimeout(copyIconHideTimer);\n" +
+      "    copyIconHideTimer = setTimeout(function () {\n" +
+      "      if (copyIcon) copyIcon.style.display = 'none';\n" +
+      "      copyIconTarget = null;\n" +
+      "    }, 150);\n" +
+      "  }\n" +
+      "  document.addEventListener('mouseover', function (e) {\n" +
+      "    if (!editModeOn) return;\n" +
+      "    var el = e.target.closest && e.target.closest('[data-crm-edit-path]');\n" +
+      "    if (el) showCopyIcon(el);\n" +
+      "  });\n" +
+      "  document.addEventListener('mouseout', function (e) {\n" +
+      "    if (!editModeOn) return;\n" +
+      "    var el = e.target.closest && e.target.closest('[data-crm-edit-path]');\n" +
+      "    if (el && el === copyIconTarget) scheduleHideCopyIcon();\n" +
+      "  });\n" +
+      "  window.addEventListener('scroll', function () {\n" +
+      "    if (copyIconTarget && copyIcon && copyIcon.style.display !== 'none') positionCopyIcon(copyIconTarget);\n" +
+      "  }, { passive: true });\n" +
+      "  function valueToCopy(node) {\n" +
+      "    if (!node) return '';\n" +
+      "    if (node.value === undefined || node.value === null) return '';\n" +
+      "    return String(node.value);\n" +
+      "  }\n" +
+      "  function handleCopyIconClick(e) {\n" +
+      "    e.preventDefault();\n" +
       "  var style = document.createElement('style');\n" +
       "  style.textContent = '.crm-edit-mode .crm-editable{outline:1px dashed #34d399;outline-offset:2px;cursor:text;}" +
       ".crm-edit-mode .crm-editable:hover{background:rgba(52,211,153,0.12);}" +
