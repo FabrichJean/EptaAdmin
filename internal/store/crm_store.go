@@ -138,6 +138,15 @@ func (s *Store) CreateCRMTeam(name string, creatorID int64) (*CRMTeam, error) {
 	return s.GetCRMTeamByID(id)
 }
 
+// RenameCRMTeam changes a team's display name only — its slug (and
+// therefore every existing link to it, including entity/design/upload
+// URLs under /crm/{slug}/...) stays exactly as it was, mirroring
+// Store.RenameTable/RenameDataSource.
+func (s *Store) RenameCRMTeam(id int64, name string) error {
+	_, err := s.db.Exec(`UPDATE crm_teams SET name = ? WHERE id = ?`, name, id)
+	return err
+}
+
 func scanCRMTeam(row *sql.Row) (*CRMTeam, error) {
 	t := &CRMTeam{}
 	err := row.Scan(&t.ID, &t.Name, &t.Slug, &t.CreatedBy, &t.CreatedAt)
