@@ -138,13 +138,20 @@ func (s *Store) CreateCRMTeam(name string, creatorID int64) (*CRMTeam, error) {
 	return s.GetCRMTeamByID(id)
 }
 
-// RenameCRMTeam changes a team's display name only — its slug (and
-// therefore every existing link to it, including entity/design/upload
-// URLs under /crm/{slug}/...) stays exactly as it was, mirroring
-// Store.RenameTable/RenameDataSource.
-func (s *Store) RenameCRMTeam(id int64, name string) error {
-	_, err := s.db.Exec(`UPDATE crm_teams SET name = ? WHERE id = ?`, name, id)
-	return err
+// RenameCRMTeam changes a team's display name AND regenerates its slug to
+// match — unlike Store.RenameTable/RenameDataSource, which deliberately
+// keep the slug stable. This does mean every existing /crm/{slug}/...
+// link (including entity, design and public API URLs) for this team
+// breaks the moment it's renamed — an explicit tradeoff the caller asked
+// for, favoring a URL that always matches the current name over link
+// stability. Collision handling mirrors CreateCRMTeam's own
+// slugify-then-suffix loop, just excluding this team's own row so
+// renaming to a name that happens to slugify the same way is a no-op
+// rather than a collision with itself. Returns the new slug so the
+// caller can redirect there instead of 404ing on the old one.
+func (s *Store) RenameCRMTeam(id int64, name string) (string, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
 }
 
 func scanCRMTeam(row *sql.Row) (*CRMTeam, error) {
