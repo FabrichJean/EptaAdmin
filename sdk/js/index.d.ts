@@ -16,6 +16,28 @@ export interface DataSourceContent {
   columns: Record<string, unknown[]>;
 }
 
+export interface CRMEntitySummary {
+  name: string;
+  slug: string;
+}
+
+/**
+ * One node of a CRM+ entity's content tree — the same shape the entity
+ * editor itself works with. "object"/"list" nodes have `children` and no
+ * `value`; every other type ("text", "markdown", "image", "number",
+ * "boolean") has `value` and no `children`.
+ */
+export interface CRMEntityNode {
+  type: "text" | "markdown" | "image" | "list" | "object" | "number" | "boolean";
+  key?: string;
+  value?: unknown;
+  children?: CRMEntityNode[];
+}
+
+export interface CRMEntityContent extends CRMEntitySummary {
+  content: CRMEntityNode[];
+}
+
 export declare class EptaAdminError extends Error {
   status: number;
   constructor(message: string, status: number);
@@ -44,4 +66,8 @@ export declare class EptaAdminClient {
    *   - "wsSlug/dsSlug/column/index" -> exactly one value at that index.
    */
   getValue(path: string): Promise<unknown>;
+  /** Lists a CRM+ team's entities (just {name, slug} each — fetch one with getCRMEntity for its content). */
+  listCRMEntities(teamSlug: string): Promise<CRMEntitySummary[]>;
+  /** Fetches one CRM+ entity's full content tree, with "image" leaf values already resolved to absolute URLs. */
+  getCRMEntity(teamSlug: string, entitySlug: string): Promise<CRMEntityContent>;
 }
