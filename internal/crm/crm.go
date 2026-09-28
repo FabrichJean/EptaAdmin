@@ -89,6 +89,47 @@ func HandleCreateCRMTeam(a *app.App, w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/crm/"+team.Slug, http.StatusSeeOther)
 }
 
+// HandleRenameCRMTeam changes a team's display name only — its slug (and
+// every /crm/{slug}/... link) stays stable. Gated on roles.PermWorkspaceManage,
+// the same Owner-only permission that would cover renaming/deleting a
+// workspace itself (see roles.go): a CRM+ team is CRM+'s equivalent of a
+// workspace, not a piece of its data.
+func HandleRenameCRMTeam(a *app.App, w http.ResponseWriter, r *http.Request) {
+	currentUser := app.UserFromContext(r)
+	lang := a.ResolveLang(r)
+	team, role, ok := loadCRMTeamMembership(a, w, r, currentUser)
+	if !ok {
+		return
+	}
+	if !roles.HasPermission(role, roles.PermWorkspaceManage) {
+		webutil.WriteJSON(w, http.StatusForbidden, map[string]string{"error": i18n.T(lang, "common.access_denied")})
+		return
+	}
+
+	var req struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		webutil.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": i18n.T(lang, "common.invalid_request")})
+		return
+	}
+	newName := strings.TrimSpace(req.Name)
+	if newName == "" {
+		webutil.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": i18n.T(lang, "crm.name_required")})
+		return
+	}
+	oldName := team.Name
+
+	if err := a.Store.RenameCRMTeam(team.ID, newName); err != nil {
+		log.Printf("rename crm team error: %v", err)
+		webutil.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": i18n.T(lang, "common.error_generic")})
+		return
+	}
+	a.LogActivity(app.LogActivityParams{UserID: currentUser.ID, Action: store.ActionCRMTeamRename, Details: map[string]any{"oldName": oldName, "newName": newName}})
+
+	webutil.WriteJSON(w, http.StatusOK, map[string]string{"name": newName})
+}
+
 // loadCRMTeamMembership fetches the team and the caller's role in it,
 // writing an HTTP error and returning ok=false if either is missing —
 // mirrors loadWorkspaceMembership.
