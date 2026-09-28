@@ -152,6 +152,19 @@ func (s *Store) CreateCRMTeam(name string, creatorID int64) (*CRMTeam, error) {
 func (s *Store) RenameCRMTeam(id int64, name string) (string, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback()
+
+	base := slugify(name)
+	if base == "" {
+		base = "team"
+	}
+	slug := base
+	for suffix := 2; ; suffix++ {
+		var exists int
+		if err := tx.QueryRow(`SELECT COUNT(*) FROM crm_teams WHERE slug = ? AND id != ?`, slug, id).Scan(&exists); err != nil {
+			return "", err
 }
 
 func scanCRMTeam(row *sql.Row) (*CRMTeam, error) {
