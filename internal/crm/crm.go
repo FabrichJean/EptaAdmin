@@ -94,6 +94,7 @@ func HandleCreateCRMTeam(a *app.App, w http.ResponseWriter, r *http.Request) {
 // stops working the moment it's renamed, by explicit request). Gated on
 // roles.PermWorkspaceManage, the same Owner-only permission that would
 // cover renaming/deleting a workspace itself (see roles.go): a CRM+ team
+// is CRM+'s equivalent of a workspace, not a piece of its data.
 func HandleRenameCRMTeam(a *app.App, w http.ResponseWriter, r *http.Request) {
 	currentUser := app.UserFromContext(r)
 	lang := a.ResolveLang(r)
@@ -120,14 +121,15 @@ func HandleRenameCRMTeam(a *app.App, w http.ResponseWriter, r *http.Request) {
 	}
 	oldName := team.Name
 
-	if err := a.Store.RenameCRMTeam(team.ID, newName); err != nil {
+	newSlug, err := a.Store.RenameCRMTeam(team.ID, newName)
+	if err != nil {
 		log.Printf("rename crm team error: %v", err)
 		webutil.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": i18n.T(lang, "common.error_generic")})
 		return
 	}
 	a.LogActivity(app.LogActivityParams{UserID: currentUser.ID, Action: store.ActionCRMTeamRename, Details: map[string]any{"oldName": oldName, "newName": newName}})
 
-	webutil.WriteJSON(w, http.StatusOK, map[string]string{"name": newName})
+	webutil.WriteJSON(w, http.StatusOK, map[string]string{"name": newName, "slug": newSlug})
 }
 
 // loadCRMTeamMembership fetches the team and the caller's role in it,
