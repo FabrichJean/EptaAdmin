@@ -62,17 +62,27 @@
       </div>
 
       <div id="crm-design-view" class="hidden eb-card rounded-xl overflow-hidden">
-        <div class="flex items-center justify-between gap-3 px-4 py-3" style="border-bottom: 1px solid var(--eb-border);">
-          <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "crm.design_hint"}}</p>
+        <div id="crm-design-toolbar" class="flex items-center justify-end gap-2 px-4 py-3" style="border-bottom: 1px solid var(--eb-border);">
+          <div id="crm-design-maxheight-wrap" class="hidden">
+            <button id="crm-design-maxheight-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors">{{t .Lang "crm.design_maxheight_button"}}</button>
+          </div>
           {{if .CanEdit}}
-          <div class="flex items-center gap-2 shrink-0">
-            <button id="crm-design-choose-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors">{{t .Lang "crm.design_choose_button"}}</button>
-            <div id="crm-design-applied-actions" class="flex items-center gap-2" style="{{if not .Entity.DesignHTML}}display:none;{{end}}">
-              <button id="crm-design-edit-toggle-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors">{{t .Lang "crm.design_edit_enable_button"}}</button>
-              <button id="crm-design-add-item-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors">{{t .Lang "crm.design_add_item_button"}}</button>
-              <button id="crm-design-refresh-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors">{{t .Lang "crm.design_refresh_button"}}</button>
-              <button id="crm-design-regenerate-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors">{{t .Lang "crm.design_regenerate_button"}}</button>
-              <button id="crm-design-remove-btn" type="button" class="rounded-lg text-xs px-3 py-1.5 transition-colors" style="color: #f87171; border: 1px solid rgba(248,113,113,0.3);">{{t .Lang "crm.design_remove_button"}}</button>
+          <div class="relative shrink-0">
+            <button id="crm-design-actions-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors inline-flex items-center gap-1.5">
+              {{t .Lang "crm.design_actions_button"}}
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div id="crm-design-actions-menu" class="hidden absolute right-0 mt-2 w-60 rounded-lg py-1 eb-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4); z-index: 10;">
+              <button id="crm-design-choose-btn" type="button" class="block w-full text-left px-3 py-2 text-sm transition-colors hover:bg-white/5" style="color: var(--eb-text);">{{t .Lang "crm.design_choose_button"}}</button>
+              <div id="crm-design-applied-actions" style="{{if not .Entity.DesignHTML}}display:none;{{end}}">
+                <div class="my-1" style="border-top: 1px solid var(--eb-border);"></div>
+                <button id="crm-design-edit-toggle-btn" type="button" class="block w-full text-left px-3 py-2 text-sm transition-colors hover:bg-white/5" style="color: var(--eb-text);">{{t .Lang "crm.design_edit_enable_button"}}</button>
+                <button id="crm-design-add-item-btn" type="button" class="block w-full text-left px-3 py-2 text-sm transition-colors hover:bg-white/5" style="color: var(--eb-text);">{{t .Lang "crm.design_add_item_button"}}</button>
+                <button id="crm-design-refresh-btn" type="button" class="block w-full text-left px-3 py-2 text-sm transition-colors hover:bg-white/5" style="color: var(--eb-text);">{{t .Lang "crm.design_refresh_button"}}</button>
+                <button id="crm-design-regenerate-btn" type="button" class="block w-full text-left px-3 py-2 text-sm transition-colors hover:bg-white/5" style="color: var(--eb-text);">{{t .Lang "crm.design_regenerate_button"}}</button>
+                <div class="my-1" style="border-top: 1px solid var(--eb-border);"></div>
+                <button id="crm-design-remove-btn" type="button" class="block w-full text-left px-3 py-2 text-sm transition-colors hover:bg-white/5" style="color: #f87171;">{{t .Lang "crm.design_remove_button"}}</button>
+              </div>
             </div>
           </div>
           {{end}}
@@ -101,9 +111,6 @@
 
           <div id="crm-design-preview-backdrop" class="crm-design-preview-backdrop"></div>
           <div id="crm-design-preview-wrap" class="hidden">
-            <div class="flex items-center justify-end mb-2">
-              <button id="crm-design-maxheight-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors">{{t .Lang "crm.design_maxheight_button"}}</button>
-            </div>
             <iframe id="crm-design-preview" class="w-full rounded-lg" style="height: 70vh; border: 1px solid var(--eb-border); background: #0a0a0b;" sandbox="allow-scripts"></iframe>
           </div>
         </div>
@@ -281,6 +288,8 @@
     designEditDisableButton: {{t .Lang "crm.design_edit_disable_button"}},
     designEditedHint: {{t .Lang "crm.design_edited_hint"}},
     designAddItemNeedsExisting: {{t .Lang "crm.design_add_item_needs_existing"}},
+    designAddItemDefaultText: {{t .Lang "crm.design_add_item_default_text"}},
+    designAddItemDefaultMarkdown: {{t .Lang "crm.design_add_item_default_markdown"}},
     designMaxheightButton: {{t .Lang "crm.design_maxheight_button"}},
     designMinheightButton: {{t .Lang "crm.design_minheight_button"}},
   };
@@ -654,6 +663,20 @@
 
   // ---- Markdown ----
 
+  // The markdown editor modal (below) and the "Rendu" design preview
+  // (further down, in its own IIFE — see "---- Design ----") are in two
+  // separate closures: appliedDesignHTML/renderPreview are private to the
+  // design section and were never reachable from here directly (a real
+  // ReferenceError, previously swallowed silently by a try/catch, meant
+  // saving a markdown edit never actually refreshed "Rendu" — same root
+  // cause the image-replace path never hit, since that one lives inside
+  // the design IIFE already). The design section assigns this once it
+  // sets renderPreview/appliedDesignHTML up, giving the modal's Save
+  // button a safe way to ask "refresh the design preview if one's
+  // showing" without needing direct access to either.
+  let refreshDesignPreviewIfApplied = null;
+
+
   function renderMarkdownInto(container, raw) {
     if (!raw) {
       container.textContent = I18N.markdownEmptyPlaceholder;
@@ -696,6 +719,11 @@
       if (mdEditingNode) mdEditingNode.value = mdTextarea.value;
       closeMarkdownEditor();
       renderAll();
+      // Refreshes the "Rendu" preview too when a design is applied — see
+      // refreshDesignPreviewIfApplied's own comment just above (the design
+      // section lives in a separate closure, so this indirection is the
+      // only safe way to reach it from here).
+      if (refreshDesignPreviewIfApplied) refreshDesignPreviewIfApplied();
     });
   }
 
@@ -982,6 +1010,23 @@
     });
   }
 
+  // Ctrl/Cmd+S saves instead of triggering the browser's own "Save page"
+  // dialog. When the markdown editor modal is open, it saves that field's
+  // draft (its own Save button) rather than the whole entity — the
+  // textarea's live edits only land in the tree on that click, so
+  // reaching straight for the entity save here would silently commit the
+  // tree WITHOUT whatever the user just typed in the modal.
+  document.addEventListener("keydown", (e) => {
+    if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "s") return;
+    e.preventDefault();
+    if (mdBackdrop && !mdBackdrop.classList.contains("hidden")) {
+      const mdSaveBtn = document.getElementById("crm-md-editor-save-btn");
+      if (mdSaveBtn) mdSaveBtn.click();
+      return;
+    }
+    if (saveBtn) saveBtn.click();
+  });
+
   // ---- Export / import ----
   // Both operate purely on the in-memory tree (no server round trip):
   // export downloads exactly what's currently shown, including unsaved
@@ -1069,6 +1114,7 @@
     const previewWrap = document.getElementById("crm-design-preview-wrap");
     const previewBackdrop = document.getElementById("crm-design-preview-backdrop");
     const maxHeightBtn = document.getElementById("crm-design-maxheight-btn");
+    const maxHeightWrap = document.getElementById("crm-design-maxheight-wrap");
     const descriptionInput = document.getElementById("crm-design-description");
     const imageInput = document.getElementById("crm-design-image");
     const generateBtn = document.getElementById("crm-design-generate-btn");
@@ -1087,6 +1133,25 @@
     const libraryList = document.getElementById("crm-design-library-list");
     const libraryCloseBtn = document.getElementById("crm-design-library-close-btn");
     if (!preview) return; // page rendered without edit rights: nothing interactive to wire
+
+    // Design toolbar actions live behind a single dropdown (crm-design-
+    // actions-btn) instead of a cluttered row of buttons — same open/close
+    // pattern as the header's user menu (templates/layout.html): toggle on
+    // click, close on any outside click or once an action inside is picked.
+    (function () {
+      const actionsBtn = document.getElementById("crm-design-actions-btn");
+      const actionsMenu = document.getElementById("crm-design-actions-menu");
+      if (!actionsBtn || !actionsMenu) return;
+      actionsBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        actionsMenu.classList.toggle("hidden");
+      });
+      actionsMenu.addEventListener("click", (e) => {
+        const target = e.target.closest("button");
+        if (target) actionsMenu.classList.add("hidden");
+      });
+      document.addEventListener("click", () => actionsMenu.classList.add("hidden"));
+    })();
 
     // A visible error handler (so a bug in the AI-generated JS shows up as
     // readable text instead of a silent blank iframe — sandbox="allow-scripts"
@@ -1146,37 +1211,162 @@
       "(function () {\n" +
       "  var editModeOn = false;\n" +
       "  var currentEl = null;\n" +
+      // Mirrors the parent's own getNodeByPath (templates/crm_entity_
+      // editor.html), just reading from this iframe's own copy of the
+      // data (window.__CRM_ENTITY_DATA__, injected once per load) instead
+      // of the parent's live `tree` — used by the floating copy icon
+      // below to resolve a marked element back to the value it should
+      // copy, entirely locally (no round trip to the parent needed).
+      "  function getNodeByPath(path) {\n" +
+      "    var cursor = window.__CRM_ENTITY_DATA__ || [];\n" +
+      "    for (var i = 0; i < path.length; i++) {\n" +
+      "      if (cursor == null) return null;\n" +
+      "      cursor = cursor[path[i]];\n" +
+      "    }\n" +
+      "    return cursor;\n" +
+      "  }\n" +
+      // stripMarkdown is a deliberately crude markdown-to-plain-text
+      // converter — good enough to compare against rendered text, not to
+      // actually render anything (that's the generated design's own job,
+      // per the AI prompt in internal/crm/design.go). Whitespace is
+      // collapsed to single spaces on both sides of every comparison
+      // (see markMarkdownEditable below) so line-wrapping differences
+      // between the source markdown and the rendered HTML never matter.
+      // List/quote markers are stripped BEFORE header markers on purpose:
+      // "^\d+\.\s+" (an ordered-list item) and "## 1. Some heading" (a
+      // heading whose own text happens to start with a number) look
+      // identical once the leading "#"s are gone — stripping list markers
+      // first, while a heading line still starts with "#" and so can't
+      // match the list-item pattern, keeps a heading's real "1. " text
+      // intact instead of misreading it as a list bullet to drop.
+      "  function stripMarkdown(md) {\n" +
+      "    return String(md)\n" +
+      "      .replace(/^>\\s?/gm, '')\n" +
+      "      .replace(/^\\s*[-*+]\\s+/gm, '')\n" +
+      "      .replace(/^\\s*\\d+\\.\\s+/gm, '')\n" +
+      "      .replace(/^#{1,6}\\s+/gm, '')\n" +
+      "      .replace(/!\\[([^\\]]*)\\]\\([^)]*\\)/g, '$1')\n" +
+      "      .replace(/\\[([^\\]]*)\\]\\([^)]*\\)/g, '$1')\n" +
+      "      .replace(/(\\*\\*|__)(.*?)\\1/g, '$2')\n" +
+      "      .replace(/(\\*|_)(.*?)\\1/g, '$2')\n" +
+      "      .replace(/`([^`]*)`/g, '$1')\n" +
+      "      .replace(/\\s+/g, ' ')\n" +
+      "      .trim();\n" +
+      "  }\n" +
       "  function buildIndex() {\n" +
-      "    var index = {};\n" +
+      "    var textIndex = {};\n" +
+      "    var markdownEntries = [];\n" +
+      "    var imageEntries = [];\n" +
       "    function walk(list, path) {\n" +
       "      if (!Array.isArray(list)) return;\n" +
       "      list.forEach(function (node, i) {\n" +
       "        var nodePath = path.concat(i);\n" +
       "        if (node && (node.type === 'text' || node.type === 'number') && node.value !== '' && node.value !== undefined && node.value !== null) {\n" +
       "          var key = String(node.value);\n" +
-      "          if (!index[key]) index[key] = [];\n" +
-      "          index[key].push(nodePath);\n" +
+      "          if (!textIndex[key]) textIndex[key] = [];\n" +
+      "          textIndex[key].push(nodePath);\n" +
+      "        }\n" +
+      "        if (node && node.type === 'markdown' && node.value) {\n" +
+      "          markdownEntries.push({ path: nodePath, plain: stripMarkdown(node.value) });\n" +
+      "        }\n" +
+      "        if (node && node.type === 'image' && node.value) {\n" +
+      "          imageEntries.push({ path: nodePath, value: String(node.value) });\n" +
       "        }\n" +
       "        if (node && Array.isArray(node.children)) walk(node.children, nodePath.concat('children'));\n" +
       "      });\n" +
       "    }\n" +
       "    walk(window.__CRM_ENTITY_DATA__ || [], []);\n" +
-      "    return index;\n" +
+      "    return { textIndex: textIndex, markdownEntries: markdownEntries, imageEntries: imageEntries };\n" +
+      "  }\n" +
+      // Exact-text matching (used for "text"/"number" fields) can't work
+      // for "markdown" fields: the generated design parses the markdown
+      // source into several separate HTML elements (headings, paragraphs,
+      // list items...), so no single rendered element's text ever equals
+      // the field's raw value. Instead, a leaf-ish element (skipped once
+      // an ancestor already matched, same as the text/number pass) whose
+      // own text is a long-enough substring of a markdown field's
+      // stripped plain text is treated as belonging to that field —
+      // clicking it opens the markdown editor modal (see the
+      // 'crm-design-edit-markdown' postMessage below) rather than
+      // becoming contenteditable in place, since there's no reliable way
+      // to map an edit back into the original markdown source.
+      "  var MARKDOWN_MATCH_MIN_LENGTH = 20;\n" +
+      "  function markMarkdownEditable(markdownEntries) {\n" +
+      "    if (!markdownEntries.length) return;\n" +
+      "    var all = document.body.querySelectorAll('*');\n" +
+      "    for (var i = 0; i < all.length; i++) {\n" +
+      "      var el = all[i];\n" +
+      "      if (el.closest && el.closest('[data-crm-edit-path]')) continue;\n" +
+      "      var text = (el.textContent || '').replace(/\\s+/g, ' ').trim();\n" +
+      "      if (text.length < MARKDOWN_MATCH_MIN_LENGTH) continue;\n" +
+      "      for (var j = 0; j < markdownEntries.length; j++) {\n" +
+      "        if (markdownEntries[j].plain.indexOf(text) === -1) continue;\n" +
+      "        el.setAttribute('data-crm-edit-path', JSON.stringify(markdownEntries[j].path));\n" +
+      "        el.setAttribute('data-crm-edit-kind', 'markdown');\n" +
+      "        el.classList.add('crm-editable-markdown');\n" +
+      "        break;\n" +
+      "      }\n" +
+      "    }\n" +
+      "  }\n" +
+      // Images have no visible text to match against at all — instead,
+      // every <img> is compared by its raw src attribute (not the
+      // browser-resolved absolute URL, which a relative value would never
+      // equal) against an "image" field's stored value. A match still
+      // isn't guaranteed (the design might render it as a CSS
+      // background-image instead of an <img>, or transform the URL), but
+      // it covers the common case: the design's own script setting
+      // img.src straight from window.__CRM_ENTITY_DATA__.
+      "  function markImageEditable(imageEntries) {\n" +
+      "    if (!imageEntries.length) return;\n" +
+      "    var imgs = document.body.querySelectorAll('img');\n" +
+      "    for (var i = 0; i < imgs.length; i++) {\n" +
+      "      var el = imgs[i];\n" +
+      "      if (el.closest && el.closest('[data-crm-edit-path]')) continue;\n" +
+      "      var src = (el.getAttribute('src') || '').trim();\n" +
+      "      if (!src) continue;\n" +
+      "      for (var j = 0; j < imageEntries.length; j++) {\n" +
+      "        if (imageEntries[j].value.trim() !== src) continue;\n" +
+      "        el.setAttribute('data-crm-edit-path', JSON.stringify(imageEntries[j].path));\n" +
+      "        el.setAttribute('data-crm-edit-kind', 'image');\n" +
+      "        el.classList.add('crm-editable-image');\n" +
+      "        break;\n" +
+      "      }\n" +
+      "    }\n" +
       "  }\n" +
       "  function markEditable() {\n" +
-      "    var index = buildIndex();\n" +
+      "    var idx = buildIndex();\n" +
       "    var all = document.body.querySelectorAll('*');\n" +
+      "    if (observer) observer.disconnect();\n" +
       "    for (var i = 0; i < all.length; i++) {\n" +
       "      var el = all[i];\n" +
       "      if (el.children.length > 0) continue;\n" +
       "      if (el.closest && el.closest('[data-crm-edit-path]')) continue;\n" +
       "      var text = (el.textContent || '').trim();\n" +
-      "      if (!text || !index[text] || !index[text].length) continue;\n" +
-      "      var path = index[text].shift();\n" +
+      "      if (!text || !idx.textIndex[text] || !idx.textIndex[text].length) continue;\n" +
+      "      var path = idx.textIndex[text].shift();\n" +
       "      el.setAttribute('data-crm-edit-path', JSON.stringify(path));\n" +
       "      el.classList.add('crm-editable');\n" +
       "    }\n" +
+      "    markMarkdownEditable(idx.markdownEntries);\n" +
+      "    markImageEditable(idx.imageEntries);\n" +
+      "    if (observer && editModeOn) observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style', 'hidden', 'open'] });\n" +
       "  }\n" +
+      // Generated/imported designs routinely reveal NEW content after the
+      // initial render — a details modal opened on click, a <details>
+      // disclosure, a tab panel toggled via a class or [hidden] — none of
+      // which markEditable (run once when edit mode turns on) would ever
+      // see. Re-running it on every DOM change while edit mode is active
+      // keeps freshly-appeared elements editable too. The observer is
+      // disconnected for the duration of markEditable itself (it sets
+      // data-crm-edit-path/class on elements, which would otherwise
+      // re-trigger this same observer) and reconnected once it's done.
+      "  var observer = (window.MutationObserver) ? new MutationObserver(function () {\n" +
+      "    if (!editModeOn) return;\n" +
+      "    if (markScheduled) return;\n" +
+      "    markScheduled = true;\n" +
+      "    requestAnimationFrame(function () { markScheduled = false; if (editModeOn) markEditable(); });\n" +
+      "  }) : null;\n" +
+      "  var markScheduled = false;\n" +
       "  function selectAllText(el) {\n" +
       "    var range = document.createRange();\n" +
       "    range.selectNodeContents(el);\n" +
@@ -1202,7 +1392,19 @@
       "  document.addEventListener('click', function (e) {\n" +
       "    if (!editModeOn) return;\n" +
       "    var el = e.target.closest && e.target.closest('[data-crm-edit-path]');\n" +
-      "    if (!el || el === currentEl) return;\n" +
+      "    if (!el) return;\n" +
+      "    var kind = el.getAttribute('data-crm-edit-kind');\n" +
+      "    if (kind === 'markdown' || kind === 'image') {\n" +
+      "      e.preventDefault();\n" +
+      "      e.stopPropagation();\n" +
+      "      if (currentEl) commitEdit(currentEl);\n" +
+      "      try {\n" +
+      "        var kindPath = JSON.parse(el.getAttribute('data-crm-edit-path'));\n" +
+      "        window.parent.postMessage({ source: 'crm-design-edit-' + kind, path: kindPath }, '*');\n" +
+      "      } catch (e2) { console.error('[crm-design][preview] ' + kind + ' open error:', e2); }\n" +
+      "      return;\n" +
+      "    }\n" +
+      "    if (el === currentEl) return;\n" +
       "    if (currentEl) commitEdit(currentEl);\n" +
       "    e.preventDefault();\n" +
       "    e.stopPropagation();\n" +
@@ -1215,12 +1417,146 @@
       "    if (!e.data || e.data.source !== 'crm-design-set-edit-mode') return;\n" +
       "    editModeOn = !!e.data.enabled;\n" +
       "    document.body.classList.toggle('crm-edit-mode', editModeOn);\n" +
-      "    if (editModeOn) markEditable();\n" +
+      "    if (editModeOn) { markEditable(); } else if (observer) { observer.disconnect(); }\n" +
+      "    if (!editModeOn && copyIcon) { copyIcon.style.display = 'none'; copyIconTarget = null; }\n" +
       "  });\n" +
+      // renderPreview (parent side) reloads this whole document via
+      // srcdoc on every edit that can't be applied in place (a markdown
+      // save, an image replace, "Rafraîchir", "Régénérer", a new item) —
+      // a fresh document always starts scrolled to the top, with no
+      // memory of where the previous instance was scrolled to. The
+      // parent tracks this iframe's last-known scroll position (updated
+      // here, live, via 'crm-design-scroll') purely so it can hand it
+      // straight back once the reload finishes — see
+      // 'crm-design-restore-scroll' below and renderPreview itself.
+      "  var scrollReportPending = false;\n" +
+      "  function reportScroll() {\n" +
+      "    if (scrollReportPending) return;\n" +
+      "    scrollReportPending = true;\n" +
+      "    requestAnimationFrame(function () {\n" +
+      "      scrollReportPending = false;\n" +
+      "      window.parent.postMessage({ source: 'crm-design-scroll', x: window.scrollX, y: window.scrollY }, '*');\n" +
+      "    });\n" +
+      "  }\n" +
+      "  window.addEventListener('scroll', reportScroll, { passive: true });\n" +
+      "  window.addEventListener('message', function (e) {\n" +
+      "    if (!e.data || e.data.source !== 'crm-design-restore-scroll') return;\n" +
+      "    window.scrollTo(e.data.x || 0, e.data.y || 0);\n" +
+      "  });\n" +
+      // Floating "copy" icon: hovering any bordered editable element in
+      // edit mode reveals a small button pinned to its top-right corner
+      // (positioned via getBoundingClientRect, not a real child of the
+      // design's own markup — never risks disturbing its layout) that
+      // copies that field's raw value to the clipboard in one click,
+      // without first having to click into it. Resolves the value
+      // straight from window.__CRM_ENTITY_DATA__ via getNodeByPath, and
+      // copies with the legacy execCommand('copy') path specifically
+      // because it runs synchronously inside the real click's own user
+      // gesture — navigator.clipboard.writeText can silently fail in a
+      // sandboxed iframe without an explicit 'clipboard-write' Permissions
+      // Policy grant, which this iframe's sandbox="allow-scripts" doesn't.\n" +
+      // copyIcon itself is created lazily (on first hover of an editable
+      // element, via ensureCopyIcon) rather than eagerly here at the top
+      // of the script — this whole bridge script runs as soon as its own
+      // <script> tag is parsed, which is BEFORE the design's own <body>
+      // (its markup comes after this script in the injected srcdoc) has
+      // been reached by the browser's HTML parser. document.body is null
+      // at that point; an unguarded document.body.appendChild(copyIcon)
+      // here throws synchronously and aborts the rest of this IIFE — a
+      // real, previously-hit bug: everything textually after the throw
+      // (the CSS <style> injection included) silently never ran, which is
+      // why the outline CSS went missing even though markEditable (called
+      // later, from the async 'set-edit-mode' message, by which point
+      // document.body legitimately exists) still tagged elements fine.
+      "  var copyIcon = null;\n" +
+      "  var copyIconTarget = null;\n" +
+      "  var copyIconHideTimer = null;\n" +
+      "  function ensureCopyIcon() {\n" +
+      "    if (copyIcon) return copyIcon;\n" +
+      "    copyIcon = document.createElement('button');\n" +
+      "    copyIcon.type = 'button';\n" +
+      "    copyIcon.className = 'crm-copy-icon';\n" +
+      "    copyIcon.setAttribute('aria-label', 'Copy');\n" +
+      "    copyIcon.innerHTML = '<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"9\" y=\"9\" width=\"13\" height=\"13\" rx=\"2\"/><path d=\"M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1\"/></svg>';\n" +
+      "    copyIcon.style.display = 'none';\n" +
+      "    document.body.appendChild(copyIcon);\n" +
+      "    copyIcon.addEventListener('mouseenter', function () {\n" +
+      "      if (copyIconHideTimer) { clearTimeout(copyIconHideTimer); copyIconHideTimer = null; }\n" +
+      "    });\n" +
+      "    copyIcon.addEventListener('mouseleave', scheduleHideCopyIcon);\n" +
+      "    copyIcon.addEventListener('click', handleCopyIconClick);\n" +
+      "    return copyIcon;\n" +
+      "  }\n" +
+      "  function positionCopyIcon(el) {\n" +
+      "    var r = el.getBoundingClientRect();\n" +
+      "    copyIcon.style.top = (window.scrollY + r.top - 8) + 'px';\n" +
+      "    copyIcon.style.left = (window.scrollX + r.right - 8) + 'px';\n" +
+      "  }\n" +
+      "  function showCopyIcon(el) {\n" +
+      "    ensureCopyIcon();\n" +
+      "    if (copyIconHideTimer) { clearTimeout(copyIconHideTimer); copyIconHideTimer = null; }\n" +
+      "    copyIconTarget = el;\n" +
+      "    positionCopyIcon(el);\n" +
+      "    copyIcon.style.display = 'flex';\n" +
+      "  }\n" +
+      "  function scheduleHideCopyIcon() {\n" +
+      "    if (copyIconHideTimer) clearTimeout(copyIconHideTimer);\n" +
+      "    copyIconHideTimer = setTimeout(function () {\n" +
+      "      if (copyIcon) copyIcon.style.display = 'none';\n" +
+      "      copyIconTarget = null;\n" +
+      "    }, 150);\n" +
+      "  }\n" +
+      "  document.addEventListener('mouseover', function (e) {\n" +
+      "    if (!editModeOn) return;\n" +
+      "    var el = e.target.closest && e.target.closest('[data-crm-edit-path]');\n" +
+      "    if (el) showCopyIcon(el);\n" +
+      "  });\n" +
+      "  document.addEventListener('mouseout', function (e) {\n" +
+      "    if (!editModeOn) return;\n" +
+      "    var el = e.target.closest && e.target.closest('[data-crm-edit-path]');\n" +
+      "    if (el && el === copyIconTarget) scheduleHideCopyIcon();\n" +
+      "  });\n" +
+      "  window.addEventListener('scroll', function () {\n" +
+      "    if (copyIconTarget && copyIcon && copyIcon.style.display !== 'none') positionCopyIcon(copyIconTarget);\n" +
+      "  }, { passive: true });\n" +
+      "  function valueToCopy(node) {\n" +
+      "    if (!node) return '';\n" +
+      "    if (node.value === undefined || node.value === null) return '';\n" +
+      "    return String(node.value);\n" +
+      "  }\n" +
+      "  function handleCopyIconClick(e) {\n" +
+      "    e.preventDefault();\n" +
+      "    e.stopPropagation();\n" +
+      "    if (!copyIconTarget) return;\n" +
+      "    try {\n" +
+      "      var path = JSON.parse(copyIconTarget.getAttribute('data-crm-edit-path'));\n" +
+      "      var text = valueToCopy(getNodeByPath(path));\n" +
+      "      var ta = document.createElement('textarea');\n" +
+      "      ta.value = text;\n" +
+      "      ta.style.position = 'fixed';\n" +
+      "      ta.style.opacity = '0';\n" +
+      "      document.body.appendChild(ta);\n" +
+      "      ta.focus();\n" +
+      "      ta.select();\n" +
+      "      document.execCommand('copy');\n" +
+      "      document.body.removeChild(ta);\n" +
+      "      copyIcon.classList.add('crm-copy-icon-done');\n" +
+      "      setTimeout(function () { copyIcon.classList.remove('crm-copy-icon-done'); }, 900);\n" +
+      "    } catch (err) { console.error('[crm-design][preview] copy error:', err); }\n" +
+      "  }\n" +
       "  var style = document.createElement('style');\n" +
       "  style.textContent = '.crm-edit-mode .crm-editable{outline:1px dashed #34d399;outline-offset:2px;cursor:text;}" +
       ".crm-edit-mode .crm-editable:hover{background:rgba(52,211,153,0.12);}" +
-      "[contenteditable=\"true\"]{outline:2px solid #34d399 !important;background:rgba(52,211,153,0.08);}';\n" +
+      ".crm-edit-mode .crm-editable-markdown{outline:1px dashed #fb923c;outline-offset:2px;cursor:pointer;}" +
+      ".crm-edit-mode .crm-editable-markdown:hover{background:rgba(251,146,60,0.12);}" +
+      ".crm-edit-mode .crm-editable-image{outline:2px dashed #a78bfa;outline-offset:2px;cursor:pointer;}" +
+      ".crm-edit-mode .crm-editable-image:hover{filter:brightness(0.85);}" +
+      "[contenteditable=\"true\"]{outline:2px solid #34d399 !important;background:rgba(52,211,153,0.08);}" +
+      ".crm-copy-icon{position:absolute;z-index:2147483647;align-items:center;justify-content:center;" +
+      "width:22px;height:22px;padding:0;border:1px solid rgba(255,255,255,0.25);border-radius:5px;" +
+      "background:rgba(24,24,27,0.92);color:#e4e4e7;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.4);}" +
+      ".crm-copy-icon:hover{background:rgba(39,39,42,0.96);color:#fff;}" +
+      ".crm-copy-icon-done{color:#34d399 !important;border-color:#34d399 !important;}';\n" +
       "  document.head.appendChild(style);\n" +
       "  console.log('[crm-design][preview] edit bridge ready');\n" +
       "})();\n" +
@@ -1235,9 +1571,37 @@
 
     function renderPreview(html) {
       dlog("rendering preview, html_len=" + (html ? html.length : 0) + ", data_items=" + tree.length);
+      // Setting srcdoc tears down and reloads the iframe's whole document
+      // — a fresh copy of the edit bridge script runs, starting back at
+      // editModeOn=false and scrolled to the top, with no memory of the
+      // previous instance's state. Every caller of renderPreview (refresh,
+      // regenerate, add item, a markdown save or an image replace from
+      // within the preview itself) would otherwise silently drop back to
+      // non-edit mode AND jump the view back to the top — both restored
+      // here once the new document has actually loaded (not immediately:
+      // a postMessage sent before the iframe's own script attaches its
+      // listener is simply lost).
+      preview.addEventListener("load", function onPreviewLoad() {
+        preview.removeEventListener("load", onPreviewLoad);
+        if (!preview.contentWindow) return;
+        if (previewScrollX || previewScrollY) {
+          preview.contentWindow.postMessage({ source: "crm-design-restore-scroll", x: previewScrollX, y: previewScrollY }, "*");
+        }
+        if (editModeOn) {
+          preview.contentWindow.postMessage({ source: "crm-design-set-edit-mode", enabled: true }, "*");
+        }
+      });
       preview.srcdoc = injectedDataScript() + html;
       previewWrap.classList.remove("hidden");
+      if (maxHeightWrap) maxHeightWrap.classList.remove("hidden");
     }
+
+    // Lets the markdown editor modal (a separate closure — see its own
+    // comment where this is declared) ask for a preview refresh without
+    // needing direct access to appliedDesignHTML/renderPreview itself.
+    refreshDesignPreviewIfApplied = function () {
+      if (appliedDesignHTML) renderPreview(appliedDesignHTML);
+    };
 
     function showAppliedState() {
       badge.style.display = appliedDesignHTML ? "" : "none";
@@ -1251,15 +1615,36 @@
       } else {
         dlog("no design applied — default tree view active");
         previewWrap.classList.add("hidden");
+        if (maxHeightWrap) maxHeightWrap.classList.add("hidden");
         preview.srcdoc = "";
       }
     }
 
     if (maxHeightBtn) {
+      // Max-height mode turns previewWrap into a fixed, near-fullscreen
+      // overlay (see the CSS above) painted on top of everything else in
+      // normal document flow — including this very toolbar, which sits
+      // right above previewWrap in the page's static layout and would
+      // otherwise end up hidden behind the overlay. Rather than duplicate
+      // the Actions dropdown and its menu (real event listeners, real
+      // state), the single toolbar element is physically moved inside
+      // previewWrap (above the iframe) for the duration of max-height
+      // mode, and moved back to its original spot when it's turned off —
+      // same DOM node throughout, so nothing needs re-wiring either way.
+      const toolbar = document.getElementById("crm-design-toolbar");
+      const toolbarHomeParent = toolbar ? toolbar.parentElement : null;
+      const toolbarHomeNextSibling = toolbar ? toolbar.nextSibling : null;
       function setMaxHeight(isMax) {
         previewWrap.classList.toggle("crm-design-preview-max", isMax);
         previewBackdrop.classList.toggle("crm-design-preview-backdrop-visible", isMax);
         maxHeightBtn.textContent = isMax ? I18N.designMinheightButton : I18N.designMaxheightButton;
+        if (toolbar) {
+          if (isMax) {
+            previewWrap.insertBefore(toolbar, previewWrap.firstChild);
+          } else if (toolbarHomeParent) {
+            toolbarHomeParent.insertBefore(toolbar, toolbarHomeNextSibling);
+          }
+        }
         dlog("preview height toggled, max=" + isMax);
       }
       maxHeightBtn.addEventListener("click", () => {
@@ -1286,6 +1671,21 @@
     // same window.__CRM_ENTITY_DATA__/tree structure.
     let editModeOn = false;
 
+    // Kept in sync live by the iframe's own 'crm-design-scroll' reports
+    // (see the bridge script's scroll listener) so renderPreview can hand
+    // it straight back to the next iframe instance after a reload — the
+    // sandboxed iframe has no allow-same-origin, so the parent can't just
+    // read/write its contentWindow.scrollX/Y directly; postMessage is the
+    // only channel either side has into the other.
+    let previewScrollX = 0;
+    let previewScrollY = 0;
+    window.addEventListener("message", (e) => {
+      if (!preview || e.source !== preview.contentWindow) return;
+      if (!e.data || e.data.source !== "crm-design-scroll") return;
+      previewScrollX = e.data.x || 0;
+      previewScrollY = e.data.y || 0;
+    });
+
     function getNodeByPath(path) {
       let cursor = tree;
       for (let i = 0; i < path.length; i++) {
@@ -1309,6 +1709,73 @@
       designStatus.textContent = I18N.designEditedHint;
     });
 
+    // A click on a markdown-derived fragment in the preview (see
+    // markMarkdownEditable in the iframe bridge script) can't be edited
+    // in place — there's no reliable way to map a rendered HTML fragment
+    // back into a position in the original markdown source. It opens the
+    // same markdown editor modal the "Données" tab already uses instead.
+    window.addEventListener("message", (e) => {
+      if (!preview || e.source !== preview.contentWindow) return;
+      if (!e.data || e.data.source !== "crm-design-edit-markdown") return;
+      const node = getNodeByPath(e.data.path);
+      if (!node || node.type !== "markdown") {
+        derror("edit-markdown message: path did not resolve to a markdown node", e.data.path);
+        return;
+      }
+      dlog("opening markdown editor from preview click, path=" + JSON.stringify(e.data.path));
+      openMarkdownEditor(node);
+    });
+
+    // A click on an <img> matched to an "image" field (see
+    // markImageEditable) reuses the exact same upload flow as the
+    // "Données" tab's own image field (POST to /crm/{team}/uploads,
+    // store the returned URL) via one hidden, lazily-created <input
+    // type="file"> — there's no dedicated "image editor" UI to open,
+    // unlike markdown, so this goes straight to the file picker.
+    let designImageInput = null;
+    let designImageTargetNode = null;
+    function ensureDesignImageInput() {
+      if (designImageInput) return designImageInput;
+      designImageInput = document.createElement("input");
+      designImageInput.type = "file";
+      designImageInput.accept = "image/*";
+      designImageInput.style.display = "none";
+      designImageInput.addEventListener("change", () => {
+        const file = designImageInput.files[0];
+        designImageInput.value = "";
+        const node = designImageTargetNode;
+        designImageTargetNode = null;
+        if (!file || !node) return;
+        const form = new FormData();
+        form.append("file", file);
+        fetch("/crm/" + teamSlug + "/uploads", { method: "POST", body: form })
+          .then((res) => (res.ok ? res.json() : Promise.reject()))
+          .then((data) => {
+            node.value = data.url;
+            renderAll();
+            designStatus.textContent = I18N.designEditedHint;
+            try {
+              if (appliedDesignHTML && typeof renderPreview === "function") renderPreview(appliedDesignHTML);
+            } catch (e3) { /* design preview not initialized on this page */ }
+          })
+          .catch(() => alert(I18N.uploadError));
+      });
+      document.body.appendChild(designImageInput);
+      return designImageInput;
+    }
+    window.addEventListener("message", (e) => {
+      if (!preview || e.source !== preview.contentWindow) return;
+      if (!e.data || e.data.source !== "crm-design-edit-image") return;
+      const node = getNodeByPath(e.data.path);
+      if (!node || node.type !== "image") {
+        derror("edit-image message: path did not resolve to an image node", e.data.path);
+        return;
+      }
+      dlog("opening image picker from preview click, path=" + JSON.stringify(e.data.path));
+      designImageTargetNode = node;
+      ensureDesignImageInput().click();
+    });
+
     if (editToggleBtn) {
       editToggleBtn.addEventListener("click", () => {
         editModeOn = !editModeOn;
@@ -1320,21 +1787,48 @@
       });
     }
 
+    // Self-contained placeholder image (an inline SVG data URI, never a
+    // network request) so a freshly added "image" field shows an obvious
+    // "this needs a real picture" box in the preview instead of a broken
+    // image icon or nothing at all — same purpose as the text/markdown
+    // placeholders below, replaced the moment the user uploads a real
+    // file (see the image upload flow in the detail panel / preview
+    // click handler, both of which just overwrite node.value).
+    function placeholderImageDataURL() {
+      const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">' +
+        '<rect width="400" height="300" fill="#27272a"/>' +
+        '<g fill="none" stroke="#a78bfa" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">' +
+        '<rect x="100" y="85" width="200" height="140" rx="12"/>' +
+        '<circle cx="152" cy="133" r="16"/>' +
+        '<path d="M100 195 L165 145 L215 183 L255 145 L300 190"/>' +
+        '</g>' +
+        '</svg>';
+      return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+    }
     // Deep-clones the first root-level item as a starting point for a new
-    // one (same field shape the design already knows how to render), blanks
-    // its leaf values so it reads as empty rather than a duplicate, and
-    // re-renders the preview — unlike a text edit, a brand new item is a
-    // new DOM node the design's own script has to create, so this does
-    // need a full iframe reload (renderPreview), not just an in-place edit.
-    function blankLeafValues(node) {
+    // one (same field shape the design already knows how to render), fills
+    // its leaf values with placeholder content instead of leaving them
+    // blank — an empty string/0 routinely renders as literally nothing in
+    // an AI-generated design (no box, no outline), which made a freshly
+    // added item look like the click did nothing; visible placeholder
+    // content means there's always something on screen to click and edit.
+    // Then re-renders the preview — unlike a text edit, a brand new item
+    // is a new DOM node the design's own script has to create, so this
+    // does need a full iframe reload (renderPreview), not just an
+    // in-place edit.
+    function defaultLeafValues(node) {
       if (Array.isArray(node.children)) {
-        node.children.forEach(blankLeafValues);
+        node.children.forEach(defaultLeafValues);
       } else if (node.type === "boolean") {
         node.value = false;
       } else if (node.type === "number") {
-        node.value = "";
+        node.value = 0;
+      } else if (node.type === "markdown") {
+        node.value = I18N.designAddItemDefaultMarkdown;
+      } else if (node.type === "image") {
+        node.value = placeholderImageDataURL();
       } else {
-        node.value = "";
+        node.value = I18N.designAddItemDefaultText;
       }
     }
     if (addItemBtn) {
@@ -1344,7 +1838,7 @@
           return;
         }
         const clone = JSON.parse(JSON.stringify(tree[0]));
-        blankLeafValues(clone);
+        defaultLeafValues(clone);
         tree.push(clone);
         dlog("add item: cloned structure of tree[0], new length=" + tree.length);
         renderAll();
