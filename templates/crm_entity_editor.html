@@ -663,6 +663,20 @@
 
   // ---- Markdown ----
 
+  // The markdown editor modal (below) and the "Rendu" design preview
+  // (further down, in its own IIFE — see "---- Design ----") are in two
+  // separate closures: appliedDesignHTML/renderPreview are private to the
+  // design section and were never reachable from here directly (a real
+  // ReferenceError, previously swallowed silently by a try/catch, meant
+  // saving a markdown edit never actually refreshed "Rendu" — same root
+  // cause the image-replace path never hit, since that one lives inside
+  // the design IIFE already). The design section assigns this once it
+  // sets renderPreview/appliedDesignHTML up, giving the modal's Save
+  // button a safe way to ask "refresh the design preview if one's
+  // showing" without needing direct access to either.
+  let refreshDesignPreviewIfApplied = null;
+
+
   function renderMarkdownInto(container, raw) {
     if (!raw) {
       container.textContent = I18N.markdownEmptyPlaceholder;
@@ -705,18 +719,11 @@
       if (mdEditingNode) mdEditingNode.value = mdTextarea.value;
       closeMarkdownEditor();
       renderAll();
-      // Refreshes the "Rendu" preview too when a design is applied — the
-      // iframe re-parses the (now updated) markdown value itself on
-      // reload, same as the "Rafraîchir l'aperçu" button. Reached via
-      // closure: appliedDesignHTML/renderPreview are declared further
-      // down in this same top-level IIFE, but by the time this click
-      // handler runs the whole script has already finished executing —
-      // wrapped in try/catch anyway since a page rendered without edit
-      // rights can return out of that section before ever declaring them,
-      // leaving the binding in a permanent temporal dead zone.
-      try {
-        if (appliedDesignHTML && typeof renderPreview === "function") renderPreview(appliedDesignHTML);
-      } catch (e) { /* design preview not initialized on this page — nothing to refresh */ }
+      // Refreshes the "Rendu" preview too when a design is applied — see
+      // refreshDesignPreviewIfApplied's own comment just above (the design
+      // section lives in a separate closure, so this indirection is the
+      // only safe way to reach it from here).
+      if (refreshDesignPreviewIfApplied) refreshDesignPreviewIfApplied();
     });
   }
 
@@ -1204,6 +1211,11 @@
       "(function () {\n" +
       "  var editModeOn = false;\n" +
       "  var currentEl = null;\n" +
+      // Mirrors the parent's own getNodeByPath (templates/crm_entity_
+      // editor.html), just reading from this iframe's own copy of the
+      // data (window.__CRM_ENTITY_DATA__, injected once per load) instead
+      // of the parent's live `tree` — used by the floating copy icon
+      // below to resolve a marked element back to the value it should
       // stripMarkdown is a deliberately crude markdown-to-plain-text
       // converter — good enough to compare against rendered text, not to
       // actually render anything (that's the generated design's own job,
