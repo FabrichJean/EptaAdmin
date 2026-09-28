@@ -62,8 +62,10 @@
       </div>
 
       <div id="crm-design-view" class="hidden eb-card rounded-xl overflow-hidden">
-        <div class="flex items-center justify-between gap-3 px-4 py-3" style="border-bottom: 1px solid var(--eb-border);">
-          <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "crm.design_hint"}}</p>
+        <div id="crm-design-toolbar" class="flex items-center justify-end gap-2 px-4 py-3" style="border-bottom: 1px solid var(--eb-border);">
+          <div id="crm-design-maxheight-wrap" class="hidden">
+            <button id="crm-design-maxheight-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors">{{t .Lang "crm.design_maxheight_button"}}</button>
+          </div>
           {{if .CanEdit}}
           <div class="relative shrink-0">
             <button id="crm-design-actions-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors inline-flex items-center gap-1.5">
@@ -109,9 +111,6 @@
 
           <div id="crm-design-preview-backdrop" class="crm-design-preview-backdrop"></div>
           <div id="crm-design-preview-wrap" class="hidden">
-            <div class="flex items-center justify-end mb-2">
-              <button id="crm-design-maxheight-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors">{{t .Lang "crm.design_maxheight_button"}}</button>
-            </div>
             <iframe id="crm-design-preview" class="w-full rounded-lg" style="height: 70vh; border: 1px solid var(--eb-border); background: #0a0a0b;" sandbox="allow-scripts"></iframe>
           </div>
         </div>
@@ -289,6 +288,8 @@
     designEditDisableButton: {{t .Lang "crm.design_edit_disable_button"}},
     designEditedHint: {{t .Lang "crm.design_edited_hint"}},
     designAddItemNeedsExisting: {{t .Lang "crm.design_add_item_needs_existing"}},
+    designAddItemDefaultText: {{t .Lang "crm.design_add_item_default_text"}},
+    designAddItemDefaultMarkdown: {{t .Lang "crm.design_add_item_default_markdown"}},
     designMaxheightButton: {{t .Lang "crm.design_maxheight_button"}},
     designMinheightButton: {{t .Lang "crm.design_minheight_button"}},
   };
@@ -704,6 +705,18 @@
       if (mdEditingNode) mdEditingNode.value = mdTextarea.value;
       closeMarkdownEditor();
       renderAll();
+      // Refreshes the "Rendu" preview too when a design is applied — the
+      // iframe re-parses the (now updated) markdown value itself on
+      // reload, same as the "Rafraîchir l'aperçu" button. Reached via
+      // closure: appliedDesignHTML/renderPreview are declared further
+      // down in this same top-level IIFE, but by the time this click
+      // handler runs the whole script has already finished executing —
+      // wrapped in try/catch anyway since a page rendered without edit
+      // rights can return out of that section before ever declaring them,
+      // leaving the binding in a permanent temporal dead zone.
+      try {
+        if (appliedDesignHTML && typeof renderPreview === "function") renderPreview(appliedDesignHTML);
+      } catch (e) { /* design preview not initialized on this page — nothing to refresh */ }
     });
   }
 
@@ -990,6 +1003,23 @@
     });
   }
 
+  // Ctrl/Cmd+S saves instead of triggering the browser's own "Save page"
+  // dialog. When the markdown editor modal is open, it saves that field's
+  // draft (its own Save button) rather than the whole entity — the
+  // textarea's live edits only land in the tree on that click, so
+  // reaching straight for the entity save here would silently commit the
+  // tree WITHOUT whatever the user just typed in the modal.
+  document.addEventListener("keydown", (e) => {
+    if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "s") return;
+    e.preventDefault();
+    if (mdBackdrop && !mdBackdrop.classList.contains("hidden")) {
+      const mdSaveBtn = document.getElementById("crm-md-editor-save-btn");
+      if (mdSaveBtn) mdSaveBtn.click();
+      return;
+    }
+    if (saveBtn) saveBtn.click();
+  });
+
   // ---- Export / import ----
   // Both operate purely on the in-memory tree (no server round trip):
   // export downloads exactly what's currently shown, including unsaved
@@ -1077,6 +1107,7 @@
     const previewWrap = document.getElementById("crm-design-preview-wrap");
     const previewBackdrop = document.getElementById("crm-design-preview-backdrop");
     const maxHeightBtn = document.getElementById("crm-design-maxheight-btn");
+    const maxHeightWrap = document.getElementById("crm-design-maxheight-wrap");
     const descriptionInput = document.getElementById("crm-design-description");
     const imageInput = document.getElementById("crm-design-image");
     const generateBtn = document.getElementById("crm-design-generate-btn");
@@ -1173,23 +1204,70 @@
       "(function () {\n" +
       "  var editModeOn = false;\n" +
       "  var currentEl = null;\n" +
+      // stripMarkdown is a deliberately crude markdown-to-plain-text
+      // converter — good enough to compare against rendered text, not to
+      // actually render anything (that's the generated design's own job,
+      // per the AI prompt in internal/crm/design.go). Whitespace is
+      // collapsed to single spaces on both sides of every comparison
+      // (see markMarkdownEditable below) so line-wrapping differences
+      // between the source markdown and the rendered HTML never matter.
+      // List/quote markers are stripped BEFORE header markers on purpose:
+      // "^\d+\.\s+" (an ordered-list item) and "## 1. Some heading" (a
+      // heading whose own text happens to start with a number) look
+      // identical once the leading "#"s are gone — stripping list markers
+      // first, while a heading line still starts with "#" and so can't
+      // match the list-item pattern, keeps a heading's real "1. " text
+      // intact instead of misreading it as a list bullet to drop.
+      "  function stripMarkdown(md) {\n" +
+      "    return String(md)\n" +
+      "      .replace(/^>\\s?/gm, '')\n" +
+      "      .replace(/^\\s*[-*+]\\s+/gm, '')\n" +
+      "      .replace(/^\\s*\\d+\\.\\s+/gm, '')\n" +
+      "      .replace(/^#{1,6}\\s+/gm, '')\n" +
+      "      .replace(/!\\[([^\\]]*)\\]\\([^)]*\\)/g, '$1')\n" +
+      "      .replace(/\\[([^\\]]*)\\]\\([^)]*\\)/g, '$1')\n" +
+      "      .replace(/(\\*\\*|__)(.*?)\\1/g, '$2')\n" +
+      "      .replace(/(\\*|_)(.*?)\\1/g, '$2')\n" +
+      "      .replace(/`([^`]*)`/g, '$1')\n" +
+      "      .replace(/\\s+/g, ' ')\n" +
+      "      .trim();\n" +
+      "  }\n" +
       "  function buildIndex() {\n" +
-      "    var index = {};\n" +
+      "    var textIndex = {};\n" +
+      "    var markdownEntries = [];\n" +
+      "    var imageEntries = [];\n" +
       "    function walk(list, path) {\n" +
       "      if (!Array.isArray(list)) return;\n" +
       "      list.forEach(function (node, i) {\n" +
       "        var nodePath = path.concat(i);\n" +
       "        if (node && (node.type === 'text' || node.type === 'number') && node.value !== '' && node.value !== undefined && node.value !== null) {\n" +
       "          var key = String(node.value);\n" +
-      "          if (!index[key]) index[key] = [];\n" +
-      "          index[key].push(nodePath);\n" +
+      "          if (!textIndex[key]) textIndex[key] = [];\n" +
+      "          textIndex[key].push(nodePath);\n" +
+      "        }\n" +
+      "        if (node && node.type === 'markdown' && node.value) {\n" +
+      "          markdownEntries.push({ path: nodePath, plain: stripMarkdown(node.value) });\n" +
+      "        }\n" +
+      "        if (node && node.type === 'image' && node.value) {\n" +
+      "          imageEntries.push({ path: nodePath, value: String(node.value) });\n" +
       "        }\n" +
       "        if (node && Array.isArray(node.children)) walk(node.children, nodePath.concat('children'));\n" +
       "      });\n" +
       "    }\n" +
       "    walk(window.__CRM_ENTITY_DATA__ || [], []);\n" +
-      "    return index;\n" +
+      "    return { textIndex: textIndex, markdownEntries: markdownEntries, imageEntries: imageEntries };\n" +
       "  }\n" +
+      // Exact-text matching (used for "text"/"number" fields) can't work
+      // for "markdown" fields: the generated design parses the markdown
+      // source into several separate HTML elements (headings, paragraphs,
+      // list items...), so no single rendered element's text ever equals
+      // the field's raw value. Instead, a leaf-ish element (skipped once
+      // an ancestor already matched, same as the text/number pass) whose
+      // own text is a long-enough substring of a markdown field's
+      // stripped plain text is treated as belonging to that field —
+      // clicking it opens the markdown editor modal (see the
+      // 'crm-design-edit-markdown' postMessage below) rather than
+      // becoming contenteditable in place, since there's no reliable way
       "  function markEditable() {\n" +
       "    var index = buildIndex();\n" +
       "    var all = document.body.querySelectorAll('*');\n" +
