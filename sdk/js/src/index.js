@@ -25,6 +25,27 @@ function resolveImageURLs(value, baseUrl) {
   return Array.isArray(value) ? value.map((v) => resolveImageURL(v, baseUrl)) : resolveImageURL(value, baseUrl);
 }
 
+// A CRM+ entity's content is a tree of {type, key, value, children} nodes
+// (the same shape the entity editor itself works with — see
+// crm_entity_editor.html), not the flat {column: value[]} shape a
+// datasource returns. The server already signs every "image" leaf's
+// value before it ever reaches here (see signCRMEntityContentImages in
+// internal/crm/crm.go) — this just walks the same tree shape to turn
+// those already-signed relative paths into absolute URLs, exactly like
+// resolveImageURLs does for a datasource's flat columns.
+function resolveCRMContentImageURLs(nodes, baseUrl) {
+  if (!Array.isArray(nodes)) return nodes;
+  for (const node of nodes) {
+    if (!node || typeof node !== "object") continue;
+    if (node.type === "image") {
+      node.value = resolveImageURL(node.value, baseUrl);
+    } else if (Array.isArray(node.children)) {
+      resolveCRMContentImageURLs(node.children, baseUrl);
+    }
+  }
+  return nodes;
+}
+
 // Populated by build tooling (see eptaadmin-sdk/vite) via a bundler `define`
 // so the exact same `client.getDataSource()` / `client.getValue()` calls
 // resolve from build-time-fetched data in a production bundle, with zero
@@ -133,5 +154,29 @@ export class EptaAdminClient {
     }
     const body = await this._request(url);
     return resolveImageURLs(index !== undefined ? body.value : body.values, this.baseUrl);
+  }
+
+  /** Lists a CRM+ team's entities (just {name, slug} each — fetch one with getCRMEntity for its content). */
+  listCRMEntities(teamSlug) {
+    return this._request(`/api/v1/crm/teams/${encodeURIComponent(teamSlug)}/entities`);
+  }
+
+  /**
+   * Fetches one CRM+ entity's full content tree: `{ name, slug, content }`,
+   * where `content` is an array of `{type, key, value, children}` nodes —
+   * the same shape the entity editor itself works with. "image" leaves'
+   * values are already-signed, ready-to-use URLs (resolved to absolute
+   * here, same as getDataSource does for a datasource's columns).
+   */
+  async getCRMEntity(teamSlug, entitySlug) {
+    const cacheKey = `crm:${teamSlug}/${entitySlug}`;
+    const cached = PREFETCHED[cacheKey];
+    const body = cached
+      ? { name: cached.name, slug: cached.slug, content: JSON.parse(JSON.stringify(cached.content)) }
+      : await this._request(
+          `/api/v1/crm/teams/${encodeURIComponent(teamSlug)}/entities/${encodeURIComponent(entitySlug)}`
+        );
+    body.content = resolveCRMContentImageURLs(body.content, this.baseUrl);
+    return body;
   }
 }
