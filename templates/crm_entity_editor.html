@@ -1526,6 +1526,24 @@
       "  }\n" +
       "  function handleCopyIconClick(e) {\n" +
       "    e.preventDefault();\n" +
+      "    e.stopPropagation();\n" +
+      "    if (!copyIconTarget) return;\n" +
+      "    try {\n" +
+      "      var path = JSON.parse(copyIconTarget.getAttribute('data-crm-edit-path'));\n" +
+      "      var text = valueToCopy(getNodeByPath(path));\n" +
+      "      var ta = document.createElement('textarea');\n" +
+      "      ta.value = text;\n" +
+      "      ta.style.position = 'fixed';\n" +
+      "      ta.style.opacity = '0';\n" +
+      "      document.body.appendChild(ta);\n" +
+      "      ta.focus();\n" +
+      "      ta.select();\n" +
+      "      document.execCommand('copy');\n" +
+      "      document.body.removeChild(ta);\n" +
+      "      copyIcon.classList.add('crm-copy-icon-done');\n" +
+      "      setTimeout(function () { copyIcon.classList.remove('crm-copy-icon-done'); }, 900);\n" +
+      "    } catch (err) { console.error('[crm-design][preview] copy error:', err); }\n" +
+      "  }\n" +
       "  var style = document.createElement('style');\n" +
       "  style.textContent = '.crm-edit-mode .crm-editable{outline:1px dashed #34d399;outline-offset:2px;cursor:text;}" +
       ".crm-edit-mode .crm-editable:hover{background:rgba(52,211,153,0.12);}" +
@@ -1533,7 +1551,12 @@
       ".crm-edit-mode .crm-editable-markdown:hover{background:rgba(251,146,60,0.12);}" +
       ".crm-edit-mode .crm-editable-image{outline:2px dashed #a78bfa;outline-offset:2px;cursor:pointer;}" +
       ".crm-edit-mode .crm-editable-image:hover{filter:brightness(0.85);}" +
-      "[contenteditable=\"true\"]{outline:2px solid #34d399 !important;background:rgba(52,211,153,0.08);}';\n" +
+      "[contenteditable=\"true\"]{outline:2px solid #34d399 !important;background:rgba(52,211,153,0.08);}" +
+      ".crm-copy-icon{position:absolute;z-index:2147483647;align-items:center;justify-content:center;" +
+      "width:22px;height:22px;padding:0;border:1px solid rgba(255,255,255,0.25);border-radius:5px;" +
+      "background:rgba(24,24,27,0.92);color:#e4e4e7;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.4);}" +
+      ".crm-copy-icon:hover{background:rgba(39,39,42,0.96);color:#fff;}" +
+      ".crm-copy-icon-done{color:#34d399 !important;border-color:#34d399 !important;}';\n" +
       "  document.head.appendChild(style);\n" +
       "  console.log('[crm-design][preview] edit bridge ready');\n" +
       "})();\n" +
@@ -1572,6 +1595,13 @@
       previewWrap.classList.remove("hidden");
       if (maxHeightWrap) maxHeightWrap.classList.remove("hidden");
     }
+
+    // Lets the markdown editor modal (a separate closure — see its own
+    // comment where this is declared) ask for a preview refresh without
+    // needing direct access to appliedDesignHTML/renderPreview itself.
+    refreshDesignPreviewIfApplied = function () {
+      if (appliedDesignHTML) renderPreview(appliedDesignHTML);
+    };
 
     function showAppliedState() {
       badge.style.display = appliedDesignHTML ? "" : "none";
