@@ -1268,20 +1268,84 @@
       // clicking it opens the markdown editor modal (see the
       // 'crm-design-edit-markdown' postMessage below) rather than
       // becoming contenteditable in place, since there's no reliable way
-      "  function markEditable() {\n" +
-      "    var index = buildIndex();\n" +
+      // to map an edit back into the original markdown source.
+      "  var MARKDOWN_MATCH_MIN_LENGTH = 20;\n" +
+      "  function markMarkdownEditable(markdownEntries) {\n" +
+      "    if (!markdownEntries.length) return;\n" +
       "    var all = document.body.querySelectorAll('*');\n" +
+      "    for (var i = 0; i < all.length; i++) {\n" +
+      "      var el = all[i];\n" +
+      "      if (el.closest && el.closest('[data-crm-edit-path]')) continue;\n" +
+      "      var text = (el.textContent || '').replace(/\\s+/g, ' ').trim();\n" +
+      "      if (text.length < MARKDOWN_MATCH_MIN_LENGTH) continue;\n" +
+      "      for (var j = 0; j < markdownEntries.length; j++) {\n" +
+      "        if (markdownEntries[j].plain.indexOf(text) === -1) continue;\n" +
+      "        el.setAttribute('data-crm-edit-path', JSON.stringify(markdownEntries[j].path));\n" +
+      "        el.setAttribute('data-crm-edit-kind', 'markdown');\n" +
+      "        el.classList.add('crm-editable-markdown');\n" +
+      "        break;\n" +
+      "      }\n" +
+      "    }\n" +
+      "  }\n" +
+      // Images have no visible text to match against at all — instead,
+      // every <img> is compared by its raw src attribute (not the
+      // browser-resolved absolute URL, which a relative value would never
+      // equal) against an "image" field's stored value. A match still
+      // isn't guaranteed (the design might render it as a CSS
+      // background-image instead of an <img>, or transform the URL), but
+      // it covers the common case: the design's own script setting
+      // img.src straight from window.__CRM_ENTITY_DATA__.
+      "  function markImageEditable(imageEntries) {\n" +
+      "    if (!imageEntries.length) return;\n" +
+      "    var imgs = document.body.querySelectorAll('img');\n" +
+      "    for (var i = 0; i < imgs.length; i++) {\n" +
+      "      var el = imgs[i];\n" +
+      "      if (el.closest && el.closest('[data-crm-edit-path]')) continue;\n" +
+      "      var src = (el.getAttribute('src') || '').trim();\n" +
+      "      if (!src) continue;\n" +
+      "      for (var j = 0; j < imageEntries.length; j++) {\n" +
+      "        if (imageEntries[j].value.trim() !== src) continue;\n" +
+      "        el.setAttribute('data-crm-edit-path', JSON.stringify(imageEntries[j].path));\n" +
+      "        el.setAttribute('data-crm-edit-kind', 'image');\n" +
+      "        el.classList.add('crm-editable-image');\n" +
+      "        break;\n" +
+      "      }\n" +
+      "    }\n" +
+      "  }\n" +
+      "  function markEditable() {\n" +
+      "    var idx = buildIndex();\n" +
+      "    var all = document.body.querySelectorAll('*');\n" +
+      "    if (observer) observer.disconnect();\n" +
       "    for (var i = 0; i < all.length; i++) {\n" +
       "      var el = all[i];\n" +
       "      if (el.children.length > 0) continue;\n" +
       "      if (el.closest && el.closest('[data-crm-edit-path]')) continue;\n" +
       "      var text = (el.textContent || '').trim();\n" +
-      "      if (!text || !index[text] || !index[text].length) continue;\n" +
-      "      var path = index[text].shift();\n" +
+      "      if (!text || !idx.textIndex[text] || !idx.textIndex[text].length) continue;\n" +
+      "      var path = idx.textIndex[text].shift();\n" +
       "      el.setAttribute('data-crm-edit-path', JSON.stringify(path));\n" +
       "      el.classList.add('crm-editable');\n" +
       "    }\n" +
+      "    markMarkdownEditable(idx.markdownEntries);\n" +
+      "    markImageEditable(idx.imageEntries);\n" +
+      "    if (observer && editModeOn) observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style', 'hidden', 'open'] });\n" +
       "  }\n" +
+      // Generated/imported designs routinely reveal NEW content after the
+      // initial render — a details modal opened on click, a <details>
+      // disclosure, a tab panel toggled via a class or [hidden] — none of
+      // which markEditable (run once when edit mode turns on) would ever
+      // see. Re-running it on every DOM change while edit mode is active
+      // keeps freshly-appeared elements editable too. The observer is
+      // disconnected for the duration of markEditable itself (it sets
+      // data-crm-edit-path/class on elements, which would otherwise
+      // re-trigger this same observer) and reconnected once it's done.
+      "  var observer = (window.MutationObserver) ? new MutationObserver(function () {\n" +
+      "    if (!editModeOn) return;\n" +
+      "    if (markScheduled) return;\n" +
+      "    markScheduled = true;\n" +
+      "    requestAnimationFrame(function () { markScheduled = false; if (editModeOn) markEditable(); });\n" +
+      "  }) : null;\n" +
+      "  var markScheduled = false;\n" +
       "  function selectAllText(el) {\n" +
       "    var range = document.createRange();\n" +
       "    range.selectNodeContents(el);\n" +
@@ -1307,7 +1371,19 @@
       "  document.addEventListener('click', function (e) {\n" +
       "    if (!editModeOn) return;\n" +
       "    var el = e.target.closest && e.target.closest('[data-crm-edit-path]');\n" +
-      "    if (!el || el === currentEl) return;\n" +
+      "    if (!el) return;\n" +
+      "    var kind = el.getAttribute('data-crm-edit-kind');\n" +
+      "    if (kind === 'markdown' || kind === 'image') {\n" +
+      "      e.preventDefault();\n" +
+      "      e.stopPropagation();\n" +
+      "      if (currentEl) commitEdit(currentEl);\n" +
+      "      try {\n" +
+      "        var kindPath = JSON.parse(el.getAttribute('data-crm-edit-path'));\n" +
+      "        window.parent.postMessage({ source: 'crm-design-edit-' + kind, path: kindPath }, '*');\n" +
+      "      } catch (e2) { console.error('[crm-design][preview] ' + kind + ' open error:', e2); }\n" +
+      "      return;\n" +
+      "    }\n" +
+      "    if (el === currentEl) return;\n" +
       "    if (currentEl) commitEdit(currentEl);\n" +
       "    e.preventDefault();\n" +
       "    e.stopPropagation();\n" +
@@ -1320,8 +1396,17 @@
       "    if (!e.data || e.data.source !== 'crm-design-set-edit-mode') return;\n" +
       "    editModeOn = !!e.data.enabled;\n" +
       "    document.body.classList.toggle('crm-edit-mode', editModeOn);\n" +
-      "    if (editModeOn) markEditable();\n" +
+      "    if (editModeOn) { markEditable(); } else if (observer) { observer.disconnect(); }\n" +
       "  });\n" +
+      // renderPreview (parent side) reloads this whole document via
+      // srcdoc on every edit that can't be applied in place (a markdown
+      // save, an image replace, "Rafraîchir", "Régénérer", a new item) —
+      // a fresh document always starts scrolled to the top, with no
+      // memory of where the previous instance was scrolled to. The
+      // parent tracks this iframe's last-known scroll position (updated
+      // here, live, via 'crm-design-scroll') purely so it can hand it
+      // straight back once the reload finishes — see
+      // 'crm-design-restore-scroll' below and renderPreview itself.
       "  var style = document.createElement('style');\n" +
       "  style.textContent = '.crm-edit-mode .crm-editable{outline:1px dashed #34d399;outline-offset:2px;cursor:text;}" +
       ".crm-edit-mode .crm-editable:hover{background:rgba(52,211,153,0.12);}" +
