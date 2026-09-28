@@ -116,6 +116,7 @@ func main() {
 	mux.HandleFunc("GET /crm", a.RequireAuth(func(w http.ResponseWriter, r *http.Request) { crm.HandleCRMTeamsPage(a, w, r) }))
 	mux.HandleFunc("POST /crm", a.RequireAuth(func(w http.ResponseWriter, r *http.Request) { crm.HandleCreateCRMTeam(a, w, r) }))
 	mux.HandleFunc("GET /crm/{teamSlug}", a.RequireAuth(func(w http.ResponseWriter, r *http.Request) { crm.HandleCRMTeamDetail(a, w, r) }))
+	mux.HandleFunc("PATCH /crm/{teamSlug}", a.RequireAuth(func(w http.ResponseWriter, r *http.Request) { crm.HandleRenameCRMTeam(a, w, r) }))
 	mux.HandleFunc("POST /crm/{teamSlug}/entities", a.RequireAuth(func(w http.ResponseWriter, r *http.Request) { crm.HandleCreateCRMEntity(a, w, r) }))
 	mux.HandleFunc("DELETE /crm/{teamSlug}/entities/{entitySlug}", a.RequireAuth(func(w http.ResponseWriter, r *http.Request) { crm.HandleDeleteCRMEntity(a, w, r) }))
 	mux.HandleFunc("GET /crm/{teamSlug}/{entitySlug}", a.RequireAuth(func(w http.ResponseWriter, r *http.Request) { crm.HandleCRMEntityEditor(a, w, r) }))
