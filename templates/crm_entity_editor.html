@@ -1464,6 +1464,37 @@
       // at that point; an unguarded document.body.appendChild(copyIcon)
       // here throws synchronously and aborts the rest of this IIFE — a
       // real, previously-hit bug: everything textually after the throw
+      // (the CSS <style> injection included) silently never ran, which is
+      // why the outline CSS went missing even though markEditable (called
+      // later, from the async 'set-edit-mode' message, by which point
+      // document.body legitimately exists) still tagged elements fine.
+      "  var copyIcon = null;\n" +
+      "  var copyIconTarget = null;\n" +
+      "  var copyIconHideTimer = null;\n" +
+      "  function ensureCopyIcon() {\n" +
+      "    if (copyIcon) return copyIcon;\n" +
+      "    copyIcon = document.createElement('button');\n" +
+      "    copyIcon.type = 'button';\n" +
+      "    copyIcon.className = 'crm-copy-icon';\n" +
+      "    copyIcon.setAttribute('aria-label', 'Copy');\n" +
+      "    copyIcon.innerHTML = '<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"9\" y=\"9\" width=\"13\" height=\"13\" rx=\"2\"/><path d=\"M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1\"/></svg>';\n" +
+      "    copyIcon.style.display = 'none';\n" +
+      "    document.body.appendChild(copyIcon);\n" +
+      "    copyIcon.addEventListener('mouseenter', function () {\n" +
+      "      if (copyIconHideTimer) { clearTimeout(copyIconHideTimer); copyIconHideTimer = null; }\n" +
+      "    });\n" +
+      "    copyIcon.addEventListener('mouseleave', scheduleHideCopyIcon);\n" +
+      "    copyIcon.addEventListener('click', handleCopyIconClick);\n" +
+      "    return copyIcon;\n" +
+      "  }\n" +
+      "  function positionCopyIcon(el) {\n" +
+      "    var r = el.getBoundingClientRect();\n" +
+      "    copyIcon.style.top = (window.scrollY + r.top - 8) + 'px';\n" +
+      "    copyIcon.style.left = (window.scrollX + r.right - 8) + 'px';\n" +
+      "  }\n" +
+      "  function showCopyIcon(el) {\n" +
+      "    ensureCopyIcon();\n" +
+      "    if (copyIconHideTimer) { clearTimeout(copyIconHideTimer); copyIconHideTimer = null; }\n" +
       "  var style = document.createElement('style');\n" +
       "  style.textContent = '.crm-edit-mode .crm-editable{outline:1px dashed #34d399;outline-offset:2px;cursor:text;}" +
       ".crm-edit-mode .crm-editable:hover{background:rgba(52,211,153,0.12);}" +
