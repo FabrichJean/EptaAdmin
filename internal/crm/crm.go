@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -363,6 +364,90 @@ func verifyCRMUploadSignature(a *app.App, teamSlug, filename, sigParam string) (
 	return hmac.Equal([]byte(expected), []byte(sigParam)), nil
 }
 
+// crmContentImagePattern matches an "image" field's value when it points
+// at THIS team's own upload endpoint (see HandleCRMUpload/crmUploadURL) —
+// distinct from uploads.SignImageValue's own pattern, which only matches
+// the workspace upload shape ("/workspaces/{slug}/uploads/{file}"). An
+// entity's image field isn't required to hold either shape specifically —
+// an editor is free to paste in a value copied from a workspace table
+// (exactly what the "madascribe/blog" entity's own data does today) — so
+// signCRMEntityContentImages below tries both before giving up.
+var crmContentImagePattern = regexp.MustCompile(`^/crm/([^/]+)/uploads/(.+)$`)
+
+// signCRMEntityContentImages walks a CRM entity's content tree and
+// replaces every "image" leaf's value with a signed, publicly-fetchable
+// URL — mirroring uploads.SignImageValuesInColumnsMap's job for the
+// classic datasource API (handlers_api.go), which handleAPIGetCRMEntity
+// otherwise has no equivalent of: entity content is returned to the
+// public API completely unsigned today, so any image field pointing at
+// either upload endpoint would 403 the moment a caller tried to actually
+// load it. The tree shape is never schema-validated server-side (see
+// HandleSaveCRMEntityContent), so decoding is deliberately loose
+// (map[string]any) — anything that doesn't look like {type,value,
+// children} is left untouched rather than failing the whole response.
+func signCRMEntityContentImages(a *app.App, teamSlug, contentJSON string) string {
+	var tree []map[string]any
+	if err := json.Unmarshal([]byte(contentJSON), &tree); err != nil {
+		return contentJSON
+	}
+	if !signCRMImageNodes(a, teamSlug, tree) {
+		return contentJSON
+	}
+	out, err := json.Marshal(tree)
+	if err != nil {
+		return contentJSON
+	}
+	return string(out)
+}
+
+func signCRMImageNodes(a *app.App, teamSlug string, nodes []map[string]any) bool {
+	changed := false
+	for _, node := range nodes {
+		if t, _ := node["type"].(string); t == "image" {
+			if v, ok := node["value"].(string); ok && v != "" {
+				if signed, ok := signOneCRMContentImage(a, teamSlug, v); ok {
+					node["value"] = signed
+					changed = true
+				}
+			}
+			continue
+		}
+		childrenAny, ok := node["children"].([]any)
+		if !ok {
+			continue
+		}
+		children := make([]map[string]any, 0, len(childrenAny))
+		for _, c := range childrenAny {
+			if cm, ok := c.(map[string]any); ok {
+				children = append(children, cm)
+			}
+		}
+		// children holds map[string]any values, a reference type — signing
+		// mutates them in place, so no reassignment back into node["children"]
+		// is needed even though `children` itself is a freshly built slice.
+		if signCRMImageNodes(a, teamSlug, children) {
+			changed = true
+		}
+	}
+	return changed
+}
+
+// signOneCRMContentImage tries the workspace upload shape first (the one
+// actually in use by today's real data), then this team's own CRM upload
+// shape, returning ok=false unchanged for anything else (an external URL,
+// a data: URI, plain text that isn't a URL at all).
+func signOneCRMContentImage(a *app.App, teamSlug, value string) (string, bool) {
+	if signed, ok := uploads.SignImageValue(a.Store, value).(string); ok && signed != value {
+		return signed, true
+	}
+	if m := crmContentImagePattern.FindStringSubmatch(value); m != nil {
+		if signed, err := signCRMUploadPath(a, m[1], m[2]); err == nil {
+			return signed, true
+		}
+	}
+	return value, false
+}
+
 func HandleCRMUpload(a *app.App, w http.ResponseWriter, r *http.Request) {
 	currentUser := app.UserFromContext(r)
 	team, role, ok := loadCRMTeamMembership(a, w, r, currentUser)
@@ -701,5 +786,6 @@ func HandleAPIGetCRMEntity(a *app.App, w http.ResponseWriter, r *http.Request) {
 		webutil.WriteJSON(w, http.StatusNotFound, map[string]string{"error": i18n.T(lang, "crm.entity_not_found")})
 		return
 	}
-	webutil.WriteJSON(w, http.StatusOK, apiCRMEntity{Name: entity.Name, Slug: entity.Slug, Content: json.RawMessage(entity.ContentJSON)})
+	signedContent := signCRMEntityContentImages(a, team.Slug, entity.ContentJSON)
+	webutil.WriteJSON(w, http.StatusOK, apiCRMEntity{Name: entity.Name, Slug: entity.Slug, Content: json.RawMessage(signedContent)})
 }
