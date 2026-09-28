@@ -980,6 +980,7 @@ const (
 	ActionVisualSiteApply         = "visual_site.apply"
 
 	ActionCRMTeamCreate       = "crm_team.create"
+	ActionCRMTeamRename       = "crm_team.rename"
 	ActionCRMEntityCreate     = "crm_entity.create"
 	ActionCRMEntityUpdate     = "crm_entity.update"
 	ActionCRMEntityDelete     = "crm_entity.delete"
@@ -1143,6 +1144,8 @@ func (e *ActivityEntry) Describe(lang string) string {
 		return i18n.T(lang, "activity.desc.visual_site.apply", actor, DetailString(d, "name"))
 	case ActionCRMTeamCreate:
 		return i18n.T(lang, "activity.desc.crm_team.create", actor, DetailString(d, "name"))
+	case ActionCRMTeamRename:
+		return i18n.T(lang, "activity.desc.crm_team.rename", actor, DetailString(d, "oldName"), DetailString(d, "newName"))
 	case ActionCRMEntityCreate:
 		return i18n.T(lang, "activity.desc.crm_entity.create", actor, DetailString(d, "name"), DetailString(d, "teamName"))
 	case ActionCRMEntityUpdate:
