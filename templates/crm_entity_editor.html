@@ -631,11 +631,12 @@
         node.children.push(cloneListItemAsTemplate(node));
         renderAll();
         if (refreshDesignPreviewIfApplied) refreshDesignPreviewIfApplied();
+        return;
+      }
       openTypeMenu(btn, (type) => {
         node.children.push(makeNode(type));
         renderAll();
       });
-      e.stopPropagation();
     });
     wrap.appendChild(btn);
     return wrap;
@@ -924,17 +925,22 @@
         const imgWrap = document.createElement("div");
         imgWrap.className = "space-y-2";
         if (node.value) {
-          const img = document.createElement("img");
-          img.src = node.value;
-          img.className = "max-h-32 rounded w-full object-cover";
-          imgWrap.appendChild(img);
+          // "image" is the only media leaf type the entity schema has — a
+          // gallery slide (see e.g. services-detail's per-project "images"
+          // list) can hold a short video clip too, told apart from a photo
+          // by its extension (isVideoUrl), so the preview here has to match.
+          const media = isVideoUrl(node.value) ? document.createElement("video") : document.createElement("img");
+          media.src = node.value;
+          if (media.tagName === "VIDEO") media.controls = true;
+          media.className = "max-h-32 rounded w-full object-cover";
+          imgWrap.appendChild(media);
         }
         if (canEdit && !node.readOnly) {
           const row = document.createElement("div");
           row.className = "flex items-center gap-2";
           const input = document.createElement("input");
           input.type = "file";
-          input.accept = "image/*";
+          input.accept = "image/*,video/*";
           input.className = "text-xs flex-1 min-w-0";
           input.addEventListener("change", () => {
             const file = input.files[0];
@@ -1384,16 +1390,18 @@
       "    }\n" +
       "  }\n" +
       // Images have no visible text to match against at all — instead,
-      // every <img> is compared by its raw src attribute (not the
-      // browser-resolved absolute URL, which a relative value would never
-      // equal) against an "image" field's stored value. A match still
-      // isn't guaranteed (the design might render it as a CSS
-      // background-image instead of an <img>, or transform the URL), but
-      // it covers the common case: the design's own script setting
-      // img.src straight from window.__CRM_ENTITY_DATA__.
+      // every <img> (or <video>, for a design's gallery slide that's a
+      // clip rather than a photo — an "image" field's value can be either,
+      // see isVideoUrl on the parent side) is compared by its raw src
+      // attribute (not the browser-resolved absolute URL, which a relative
+      // value would never equal) against an "image" field's stored value. A
+      // match still isn't guaranteed (the design might render it as a CSS
+      // background-image instead, or transform the URL), but it covers the
+      // common case: the design's own script setting src straight from
+      // window.__CRM_ENTITY_DATA__.
       "  function markImageEditable(imageEntries) {\n" +
       "    if (!imageEntries.length) return;\n" +
-      "    var imgs = document.body.querySelectorAll('img');\n" +
+      "    var imgs = document.body.querySelectorAll('img, video');\n" +
       "    for (var i = 0; i < imgs.length; i++) {\n" +
       "      var el = imgs[i];\n" +
       "      if (el.closest && el.closest('[data-crm-edit-path]')) continue;\n" +
@@ -1518,6 +1526,21 @@
       "    if (!e.data || e.data.source !== 'crm-design-restore-scroll') return;\n" +
       "    window.scrollTo(e.data.x || 0, e.data.y || 0);\n" +
       "  });\n" +
+      // Applies a completed image upload straight to the DOM instead of
+      // needing a full reload (which renderPreview would otherwise require
+      // — see the parent side's own comment on this same message) — every
+      // <img>/<video> this iframe already tagged with the edited path gets
+      // its src swapped in place, so a modal/gallery the user had open to
+      // reach it stays open. window.__CRM_ENTITY_DATA__ is patched too, so
+      // a later markEditable() re-run (e.g. after some other DOM change)
+      // still matches this field by its now-current value. A design with a
+      // mixed photo/video gallery (see services-detail-design.html) may
+      // also listen for this same message itself, to swap which of an
+      // <img>/<video> pair is even shown when a slide's kind changes on
+      // upload — this blind src-only update runs regardless, harmlessly
+      // superseded by that more specific handling when present.
+      "  window.addEventListener('message', function (e) {\n" +
+      "    if (!e.data || e.data.source !== 'crm-design-image-updated') return;\n" +
       // Floating "copy" icon: hovering any bordered editable element in
       // edit mode reveals a small button pinned to its top-right corner
       // (positioned via getBoundingClientRect, not a real child of the
