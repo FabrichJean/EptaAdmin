@@ -1600,6 +1600,7 @@
       // (a resize) fixed it.
       previewWrap.classList.remove("hidden");
       if (maxHeightWrap) maxHeightWrap.classList.remove("hidden");
+      preview.srcdoc = injectedDataScript() + html;
     }
 
     // Lets the markdown editor modal (a separate closure — see its own
