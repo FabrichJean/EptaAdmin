@@ -1595,6 +1595,7 @@
       // Chrome), and a cross-origin frame that starts loading while
       // display:none gets its rendering throttled — the document never lays
       // out (everything measures 0px, the preview stays black) until
+      // something resizes the frame. That's why a first import/generation
       previewWrap.classList.remove("hidden");
       if (maxHeightWrap) maxHeightWrap.classList.remove("hidden");
     }
