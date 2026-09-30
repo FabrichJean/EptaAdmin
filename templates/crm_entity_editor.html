@@ -64,9 +64,12 @@
       <div id="crm-design-view" class="hidden eb-card rounded-xl overflow-hidden">
         <div id="crm-design-toolbar" class="flex items-center justify-end gap-2 px-4 py-3" style="border-bottom: 1px solid var(--eb-border);">
           <div id="crm-design-maxheight-wrap" class="hidden">
-            <button id="crm-design-maxheight-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors">{{t .Lang "crm.design_maxheight_button"}}</button>
+            <button id="crm-design-maxheight-btn" type="button" class="eb-btn-secondary rounded-lg p-1.5 transition-colors inline-flex items-center justify-center" title="{{t .Lang "crm.design_maxheight_button"}}" aria-label="{{t .Lang "crm.design_maxheight_button"}}"></button>
           </div>
           {{if .CanEdit}}
+          <div id="crm-design-edit-toggle-wrap" class="shrink-0" style="{{if not .Entity.DesignHTML}}display:none;{{end}}">
+            <button id="crm-design-edit-toggle-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors">{{t .Lang "crm.design_edit_enable_button"}}</button>
+          </div>
           <div class="relative shrink-0">
             <button id="crm-design-actions-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors inline-flex items-center gap-1.5">
               {{t .Lang "crm.design_actions_button"}}
@@ -76,7 +79,6 @@
               <button id="crm-design-choose-btn" type="button" class="block w-full text-left px-3 py-2 text-sm transition-colors hover:bg-white/5" style="color: var(--eb-text);">{{t .Lang "crm.design_choose_button"}}</button>
               <div id="crm-design-applied-actions" style="{{if not .Entity.DesignHTML}}display:none;{{end}}">
                 <div class="my-1" style="border-top: 1px solid var(--eb-border);"></div>
-                <button id="crm-design-edit-toggle-btn" type="button" class="block w-full text-left px-3 py-2 text-sm transition-colors hover:bg-white/5" style="color: var(--eb-text);">{{t .Lang "crm.design_edit_enable_button"}}</button>
                 <button id="crm-design-add-item-btn" type="button" class="block w-full text-left px-3 py-2 text-sm transition-colors hover:bg-white/5" style="color: var(--eb-text);">{{t .Lang "crm.design_add_item_button"}}</button>
                 <button id="crm-design-refresh-btn" type="button" class="block w-full text-left px-3 py-2 text-sm transition-colors hover:bg-white/5" style="color: var(--eb-text);">{{t .Lang "crm.design_refresh_button"}}</button>
                 <button id="crm-design-regenerate-btn" type="button" class="block w-full text-left px-3 py-2 text-sm transition-colors hover:bg-white/5" style="color: var(--eb-text);">{{t .Lang "crm.design_regenerate_button"}}</button>
@@ -307,6 +309,8 @@
     object: '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 16-9 5-9-5V8l9-5 9 5Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>',
     boolean: '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="5" width="22" height="14" rx="7"/><circle cx="16" cy="12" r="3"/></svg>',
     database: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>',
+    maximize: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>',
+    minimize: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>',
   };
 
   // TYPE_META drives every part of the tree that depends on a node's
@@ -1203,6 +1207,7 @@
     const refreshBtn = document.getElementById("crm-design-refresh-btn");
     const regenerateBtn = document.getElementById("crm-design-regenerate-btn");
     const removeBtn = document.getElementById("crm-design-remove-btn");
+    const editToggleWrap = document.getElementById("crm-design-edit-toggle-wrap");
     const editToggleBtn = document.getElementById("crm-design-edit-toggle-btn");
     const addItemBtn = document.getElementById("crm-design-add-item-btn");
     const applyBtn = document.getElementById("crm-design-apply-btn");
@@ -1719,6 +1724,7 @@
     function showAppliedState() {
       badge.style.display = appliedDesignHTML ? "" : "none";
       if (appliedActions) appliedActions.style.display = appliedDesignHTML ? "" : "none";
+      if (editToggleWrap) editToggleWrap.style.display = appliedDesignHTML ? "" : "none";
       if (form) form.style.display = appliedDesignHTML ? "none" : "";
       if (draftActions) draftActions.classList.add("hidden");
       draftDesignHTML = null;
@@ -1750,7 +1756,10 @@
       function setMaxHeight(isMax) {
         previewWrap.classList.toggle("crm-design-preview-max", isMax);
         previewBackdrop.classList.toggle("crm-design-preview-backdrop-visible", isMax);
-        maxHeightBtn.textContent = isMax ? I18N.designMinheightButton : I18N.designMaxheightButton;
+        const label = isMax ? I18N.designMinheightButton : I18N.designMaxheightButton;
+        maxHeightBtn.innerHTML = ICONS[isMax ? "minimize" : "maximize"];
+        maxHeightBtn.title = label;
+        maxHeightBtn.setAttribute("aria-label", label);
         if (toolbar) {
           if (isMax) {
             previewWrap.insertBefore(toolbar, previewWrap.firstChild);
@@ -1760,6 +1769,7 @@
         }
         dlog("preview height toggled, max=" + isMax);
       }
+      setMaxHeight(false); // sets the button's initial icon/label
       maxHeightBtn.addEventListener("click", () => {
         setMaxHeight(!previewWrap.classList.contains("crm-design-preview-max"));
       });
@@ -1985,6 +1995,7 @@
       regenerateBtn.addEventListener("click", () => {
         dlog("regenerate requested — reopening form");
         appliedActions.style.display = "none";
+        if (editToggleWrap) editToggleWrap.style.display = "none";
         form.style.display = "";
       });
     }

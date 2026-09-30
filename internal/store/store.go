@@ -300,6 +300,27 @@ func (s *Store) migrate() error {
 	);
 	CREATE INDEX IF NOT EXISTS idx_crm_designs_team ON crm_designs(crm_team_id);
 
+	-- crm_team_webhooks mirrors webhooks above, scoped to a CRM+ team
+	-- instead of a workspace: every modification to that team's entities
+	-- (content save, create/delete, design apply/clear — see
+	-- internal/crm/crm.go and design.go) fires an HTTP POST to url, signed
+	-- with secret (see internal/app/webhooks.go's DeliverCRMTeamWebhook). A
+	-- separate table rather than a nullable workspace_id on webhooks:
+	-- SQLite can't relax a NOT NULL column via ALTER TABLE without a full
+	-- table rebuild.
+	CREATE TABLE IF NOT EXISTS crm_team_webhooks (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		crm_team_id INTEGER NOT NULL REFERENCES crm_teams(id) ON DELETE CASCADE,
+		url TEXT NOT NULL,
+		secret TEXT NOT NULL,
+		enabled INTEGER NOT NULL DEFAULT 1,
+		last_triggered_at DATETIME,
+		last_status TEXT NOT NULL DEFAULT '',
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE INDEX IF NOT EXISTS idx_crm_team_webhooks_team ON crm_team_webhooks(crm_team_id);
+
 	CREATE TABLE IF NOT EXISTS activity_log (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		workspace_id INTEGER REFERENCES workspaces(id) ON DELETE CASCADE,
@@ -990,6 +1011,13 @@ const (
 
 	ActionCRMEntityDesignApply = "crm_entity.design_apply"
 	ActionCRMEntityDesignClear = "crm_entity.design_clear"
+
+	ActionCRMWebhookCreate           = "crm_webhook.create"
+	ActionCRMWebhookDelete           = "crm_webhook.delete"
+	ActionCRMWebhookEnable           = "crm_webhook.enable"
+	ActionCRMWebhookDisable          = "crm_webhook.disable"
+	ActionCRMWebhookManualTrigger    = "crm_webhook.manual_trigger"
+	ActionCRMWebhookSecretRegenerate = "crm_webhook.secret_regenerate"
 )
 
 // ActivityEntry is one row of activity_log, plus the joined username for
@@ -1162,6 +1190,18 @@ func (e *ActivityEntry) Describe(lang string) string {
 		return i18n.T(lang, "activity.desc.crm_entity.design_apply", actor, DetailString(d, "name"), DetailString(d, "teamName"))
 	case ActionCRMEntityDesignClear:
 		return i18n.T(lang, "activity.desc.crm_entity.design_clear", actor, DetailString(d, "name"), DetailString(d, "teamName"))
+	case ActionCRMWebhookCreate:
+		return i18n.T(lang, "activity.desc.crm_webhook.create", actor, DetailString(d, "url"), DetailString(d, "teamName"))
+	case ActionCRMWebhookDelete:
+		return i18n.T(lang, "activity.desc.crm_webhook.delete", actor, DetailString(d, "url"), DetailString(d, "teamName"))
+	case ActionCRMWebhookEnable:
+		return i18n.T(lang, "activity.desc.crm_webhook.enable", actor, DetailString(d, "url"), DetailString(d, "teamName"))
+	case ActionCRMWebhookDisable:
+		return i18n.T(lang, "activity.desc.crm_webhook.disable", actor, DetailString(d, "url"), DetailString(d, "teamName"))
+	case ActionCRMWebhookManualTrigger:
+		return i18n.T(lang, "activity.desc.crm_webhook.manual_trigger", actor, DetailString(d, "url"), DetailString(d, "teamName"))
+	case ActionCRMWebhookSecretRegenerate:
+		return i18n.T(lang, "activity.desc.crm_webhook.secret_regenerate", actor, DetailString(d, "url"), DetailString(d, "teamName"))
 	default:
 		return actor + " — " + e.Action
 	}
