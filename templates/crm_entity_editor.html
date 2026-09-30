@@ -346,6 +346,44 @@
     return node;
   }
 
+  // The entity schema has no leaf type dedicated to video, distinct from
+  // "image" — a design that wants a mixed photo/video gallery (see
+  // services-detail's per-project "images" list) just stores either kind of
+  // URL under the same "image" leaf, told apart by extension. Shared here
+  // so the tree panel's own image-field preview/upload picker recognizes it
+  // too, not just the generated designs that choose to support it.
+  function isVideoUrl(url) {
+    return /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i.test(url || "");
+  }
+
+  // Shared with the design section's own "Ajouter un élément" button (root-
+  // level lists only) below — also used here so that adding an item to a
+  // *nested* list (e.g. a service's "projects") gets the same treatment:
+  // cloning the last sibling as a template instead of an empty node the
+  // user would have to build field-by-field, with placeholder content so a
+  // freshly added item isn't literally invisible in an AI-generated design
+  // (an empty string/0 routinely renders as nothing at all).
+  function placeholderImageDataURL() {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">' +
+      '<rect width="400" height="300" fill="#27272a"/>' +
+      '<g fill="none" stroke="#a78bfa" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">' +
+      '<rect x="100" y="85" width="200" height="140" rx="12"/>' +
+      '<circle cx="152" cy="133" r="16"/>' +
+      '<path d="M100 195 L165 145 L215 183 L255 145 L300 190"/>' +
+      '</g>' +
+      '</svg>';
+    return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+  }
+  function defaultLeafValues(node) {
+    if (Array.isArray(node.children)) {
+      node.children.forEach(defaultLeafValues);
+    } else if (node.type === "boolean") {
+      node.value = false;
+    } else if (node.type === "number") {
+      node.value = 0;
+    } else if (node.type === "markdown") {
+      node.value = I18N.designAddItemDefaultMarkdown;
+    } else if (node.type === "image") {
   // renumberTree writes an explicit 1-based "order" field onto every node,
   // matching its actual position among its siblings — kept authoritative
   // by recomputing it on every render rather than editing it by hand, so
