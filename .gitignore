@@ -9,3 +9,4 @@ backup*
 eptaadmin*
 export/
 .env*
+templates/crm*

@@ -1832,15 +1832,39 @@
       }
     }
     if (addItemBtn) {
+      // Where a new item goes depends on the entity's shape: an entity with
+      // header fields plus a repeated collection (e.g. badge/title + a
+      // "services" list) gets it appended to that list; an entity whose
+      // root IS the collection (e.g. one object per blog article) gets it
+      // appended at the root. Cloning tree[0] blindly used to duplicate the
+      // first header field instead — invisible in the rendered design.
+      function findAddItemTarget() {
+        const list = tree.find((n) => n && n.type === "list" && Array.isArray(n.children) && n.children.length);
+        if (list) return { siblings: list.children, template: list.children[list.children.length - 1] };
+        const objects = tree.filter((n) => n && n.type === "object");
+        if (objects.length) return { siblings: tree, template: objects[objects.length - 1] };
+        return null;
+      }
+      // A cloned object must not keep its template's key: at the root of a
+      // blog-style entity that key is the article's slug, so a duplicate
+      // key means two articles fighting over the same URL.
+      function uniqueItemKey(siblings) {
+        const taken = new Set(siblings.map((n) => n && n.key));
+        let key = "nouvel-element";
+        for (let i = 2; taken.has(key); i++) key = "nouvel-element-" + i;
+        return key;
+      }
       addItemBtn.addEventListener("click", () => {
-        if (!tree.length) {
+        const target = findAddItemTarget();
+        if (!target) {
           designStatus.textContent = I18N.designAddItemNeedsExisting;
           return;
         }
-        const clone = JSON.parse(JSON.stringify(tree[0]));
+        const clone = JSON.parse(JSON.stringify(target.template));
         defaultLeafValues(clone);
-        tree.push(clone);
-        dlog("add item: cloned structure of tree[0], new length=" + tree.length);
+        if (clone.key) clone.key = uniqueItemKey(target.siblings);
+        target.siblings.push(clone);
+        dlog("add item: appended clone to " + (target.siblings === tree ? "root" : "list") + ", count=" + target.siblings.length);
         renderAll();
         if (appliedDesignHTML) renderPreview(appliedDesignHTML);
         designStatus.textContent = I18N.designEditedHint;
