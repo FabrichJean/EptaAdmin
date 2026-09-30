@@ -384,6 +384,32 @@
     } else if (node.type === "markdown") {
       node.value = I18N.designAddItemDefaultMarkdown;
     } else if (node.type === "image") {
+      node.value = placeholderImageDataURL();
+    } else {
+      node.value = I18N.designAddItemDefaultText;
+    }
+  }
+  // A cloned item must not keep its template's key: for a root-level
+  // article-style entity that key is the slug, and for a nested list like
+  // "projects" it's still meant to be a unique identifier, so a duplicate
+  // key would mean two items fighting over the same one.
+  function uniqueItemKey(siblings) {
+    const taken = new Set(siblings.map((n) => n && n.key));
+    let key = "nouvel-element";
+    for (let i = 2; taken.has(key); i++) key = "nouvel-element-" + i;
+    return key;
+  }
+  // Clones the last item of a list as the starting point for a new one
+  // (same field shape the design already knows how to render) instead of
+  // an empty node from the type menu.
+  function cloneListItemAsTemplate(list) {
+    const template = list.children[list.children.length - 1];
+    const clone = JSON.parse(JSON.stringify(template));
+    defaultLeafValues(clone);
+    if (clone.key) clone.key = uniqueItemKey(list.children);
+    return clone;
+  }
+
   // renumberTree writes an explicit 1-based "order" field onto every node,
   // matching its actual position among its siblings — kept authoritative
   // by recomputing it on every render rather than editing it by hand, so
@@ -594,6 +620,17 @@
     btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>' +
       (node.type === "list" ? I18N.addElementButton : I18N.addFieldButton);
     btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      // A non-empty list already has a shape (e.g. a service's "projects",
+      // each with id/cover/description/tags/links/…): clone the last item
+      // as a filled-in template rather than making the user rebuild that
+      // shape field-by-field from the type menu. An empty list or an
+      // "object" node (adding a single field, not a repeated item) keeps
+      // the type-menu flow since there's no template to clone.
+      if (node.type === "list" && Array.isArray(node.children) && node.children.length) {
+        node.children.push(cloneListItemAsTemplate(node));
+        renderAll();
+        if (refreshDesignPreviewIfApplied) refreshDesignPreviewIfApplied();
       openTypeMenu(btn, (type) => {
         node.children.push(makeNode(type));
         renderAll();
