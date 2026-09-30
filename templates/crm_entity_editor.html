@@ -1946,31 +1946,6 @@
       });
     }
 
-    // one (same field shape the design already knows how to render), fills
-    // its leaf values with placeholder content instead of leaving them
-    // blank — an empty string/0 routinely renders as literally nothing in
-    // an AI-generated design (no box, no outline), which made a freshly
-    // added item look like the click did nothing; visible placeholder
-    // content means there's always something on screen to click and edit.
-    // Then re-renders the preview — unlike a text edit, a brand new item
-    // is a new DOM node the design's own script has to create, so this
-    // does need a full iframe reload (renderPreview), not just an
-    // in-place edit.
-    function defaultLeafValues(node) {
-      if (Array.isArray(node.children)) {
-        node.children.forEach(defaultLeafValues);
-      } else if (node.type === "boolean") {
-        node.value = false;
-      } else if (node.type === "number") {
-        node.value = 0;
-      } else if (node.type === "markdown") {
-        node.value = I18N.designAddItemDefaultMarkdown;
-      } else if (node.type === "image") {
-        node.value = placeholderImageDataURL();
-      } else {
-        node.value = I18N.designAddItemDefaultText;
-      }
-    }
     if (addItemBtn) {
       // Where a new item goes depends on the entity's shape: an entity with
       // header fields plus a repeated collection (e.g. badge/title + a
@@ -1978,21 +1953,16 @@
       // root IS the collection (e.g. one object per blog article) gets it
       // appended at the root. Cloning tree[0] blindly used to duplicate the
       // first header field instead — invisible in the rendered design.
+      // (placeholderImageDataURL/defaultLeafValues/uniqueItemKey live in the
+      // outer scope now — shared with the tree panel's own per-list "add
+      // element" button, so a nested list like a service's "projects" gets
+      // the same clone-a-template behavior as this root-level button.)
       function findAddItemTarget() {
         const list = tree.find((n) => n && n.type === "list" && Array.isArray(n.children) && n.children.length);
         if (list) return { siblings: list.children, template: list.children[list.children.length - 1] };
         const objects = tree.filter((n) => n && n.type === "object");
         if (objects.length) return { siblings: tree, template: objects[objects.length - 1] };
         return null;
-      }
-      // A cloned object must not keep its template's key: at the root of a
-      // blog-style entity that key is the article's slug, so a duplicate
-      // key means two articles fighting over the same URL.
-      function uniqueItemKey(siblings) {
-        const taken = new Set(siblings.map((n) => n && n.key));
-        let key = "nouvel-element";
-        for (let i = 2; taken.has(key); i++) key = "nouvel-element-" + i;
-        return key;
       }
       addItemBtn.addEventListener("click", () => {
         const target = findAddItemTarget();
