@@ -1917,6 +1917,24 @@
       if (!node || node.type !== "list" || !Array.isArray(node.children) || !node.children.length) {
         derror("add-item message: path did not resolve to a non-empty list", e.data.path);
         return;
+      }
+      node.children.push(cloneListItemAsTemplate(node));
+      dlog("add item (from design): path=" + JSON.stringify(e.data.path) + ", count=" + node.children.length);
+      renderAll();
+      // Not a full renderPreview reload: unlike the root-level "Ajouter un
+      // élément" button (which targets an entity with no modal to lose),
+      // this message only ever comes from a design-drawn "+" tile INSIDE
+      // some modal/gallery view of its own — the exact case a reload would
+      // immediately close, right after the click meant to add to it. Handing
+      // the updated tree back over postMessage lets a design that opted
+      // into this feature (see services-detail-design.html) re-render just
+      // the affected view and put the modal back where the user had it.
+      if (preview && preview.contentWindow) {
+        preview.contentWindow.postMessage({ source: "crm-design-data-updated", data: tree }, "*");
+      }
+      designStatus.textContent = I18N.designEditedHint;
+    });
+
     if (editToggleBtn) {
       editToggleBtn.addEventListener("click", () => {
         editModeOn = !editModeOn;
@@ -1928,25 +1946,6 @@
       });
     }
 
-    // Self-contained placeholder image (an inline SVG data URI, never a
-    // network request) so a freshly added "image" field shows an obvious
-    // "this needs a real picture" box in the preview instead of a broken
-    // image icon or nothing at all — same purpose as the text/markdown
-    // placeholders below, replaced the moment the user uploads a real
-    // file (see the image upload flow in the detail panel / preview
-    // click handler, both of which just overwrite node.value).
-    function placeholderImageDataURL() {
-      const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">' +
-        '<rect width="400" height="300" fill="#27272a"/>' +
-        '<g fill="none" stroke="#a78bfa" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">' +
-        '<rect x="100" y="85" width="200" height="140" rx="12"/>' +
-        '<circle cx="152" cy="133" r="16"/>' +
-        '<path d="M100 195 L165 145 L215 183 L255 145 L300 190"/>' +
-        '</g>' +
-        '</svg>';
-      return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
-    }
-    // Deep-clones the first root-level item as a starting point for a new
     // one (same field shape the design already knows how to render), fills
     // its leaf values with placeholder content instead of leaving them
     // blank — an empty string/0 routinely renders as literally nothing in
