@@ -175,15 +175,23 @@ func HandleCRMTeamDetail(a *app.App, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
 		return
 	}
+	webhooks, err := a.Store.ListCRMTeamWebhooks(team.ID)
+	if err != nil {
+		log.Printf("list crm team webhooks error: %v", err)
+		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
+		return
+	}
 
 	a.Render(w, r, "crm_team_detail.html", map[string]any{
-		"CurrentUser":      currentUser,
-		"ActiveNav":        "crm",
-		"PageTitle":        team.Name,
-		"CRMTeam":          team,
-		"Entities":         entities,
-		"CanManageData":    roles.HasPermission(role, roles.PermDataCreate),
-		"CanManageMembers": roles.HasPermission(role, roles.PermMembersManage),
+		"CurrentUser":       currentUser,
+		"ActiveNav":         "crm",
+		"PageTitle":         team.Name,
+		"CRMTeam":           team,
+		"Entities":          entities,
+		"Webhooks":          webhooks,
+		"CanManageData":     roles.HasPermission(role, roles.PermDataCreate),
+		"CanManageMembers":  roles.HasPermission(role, roles.PermMembersManage),
+		"CanManageWebhooks": roles.HasPermission(role, roles.PermWorkspaceManage),
 		"Breadcrumb": []app.Breadcrumb{
 			{Label: i18n.T(lang, "nav.crm"), URL: "/crm"},
 			{Label: team.Name},
@@ -216,7 +224,9 @@ func HandleCreateCRMEntity(a *app.App, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err == nil {
-		a.LogActivity(app.LogActivityParams{UserID: currentUser.ID, Action: store.ActionCRMEntityCreate, Details: map[string]any{"teamName": team.Name, "name": entity.Name}})
+		details := map[string]any{"teamName": team.Name, "name": entity.Name}
+		a.LogActivity(app.LogActivityParams{UserID: currentUser.ID, Action: store.ActionCRMEntityCreate, Details: details})
+		a.FireCRMTeamWebhooks(team.ID, store.ActionCRMEntityCreate, details)
 	}
 	http.Redirect(w, r, "/crm/"+team.Slug, http.StatusSeeOther)
 }
@@ -247,7 +257,9 @@ func HandleDeleteCRMEntity(a *app.App, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
 		return
 	}
-	a.LogActivity(app.LogActivityParams{UserID: currentUser.ID, Action: store.ActionCRMEntityDelete, Details: map[string]any{"teamName": team.Name, "name": entity.Name}})
+	deleteDetails := map[string]any{"teamName": team.Name, "name": entity.Name}
+	a.LogActivity(app.LogActivityParams{UserID: currentUser.ID, Action: store.ActionCRMEntityDelete, Details: deleteDetails})
+	a.FireCRMTeamWebhooks(team.ID, store.ActionCRMEntityDelete, deleteDetails)
 	http.Redirect(w, r, "/crm/"+team.Slug, http.StatusSeeOther)
 }
 
@@ -329,7 +341,9 @@ func HandleSaveCRMEntityContent(a *app.App, w http.ResponseWriter, r *http.Reque
 		webutil.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": i18n.T(lang, "common.error_generic")})
 		return
 	}
-	a.LogActivity(app.LogActivityParams{UserID: currentUser.ID, Action: store.ActionCRMEntityUpdate, Details: map[string]any{"teamName": team.Name, "name": entity.Name}})
+	updateDetails := map[string]any{"teamName": team.Name, "name": entity.Name}
+	a.LogActivity(app.LogActivityParams{UserID: currentUser.ID, Action: store.ActionCRMEntityUpdate, Details: updateDetails})
+	a.FireCRMTeamWebhooks(team.ID, store.ActionCRMEntityUpdate, updateDetails)
 
 	webutil.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
