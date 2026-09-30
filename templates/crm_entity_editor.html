@@ -1541,6 +1541,14 @@
       // superseded by that more specific handling when present.
       "  window.addEventListener('message', function (e) {\n" +
       "    if (!e.data || e.data.source !== 'crm-design-image-updated') return;\n" +
+      "    var node = getNodeByPath(e.data.path);\n" +
+      "    if (node) node.value = e.data.value;\n" +
+      "    var pathStr = JSON.stringify(e.data.path);\n" +
+      "    var imgs = document.querySelectorAll('img[data-crm-edit-path], video[data-crm-edit-path]');\n" +
+      "    for (var i = 0; i < imgs.length; i++) {\n" +
+      "      if (imgs[i].getAttribute('data-crm-edit-path') === pathStr) imgs[i].setAttribute('src', e.data.value);\n" +
+      "    }\n" +
+      "  });\n" +
       // Floating "copy" icon: hovering any bordered editable element in
       // edit mode reveals a small button pinned to its top-right corner
       // (positioned via getBoundingClientRect, not a real child of the
@@ -1839,17 +1847,20 @@
     // unlike markdown, so this goes straight to the file picker.
     let designImageInput = null;
     let designImageTargetNode = null;
+    let designImageTargetPath = null;
     function ensureDesignImageInput() {
       if (designImageInput) return designImageInput;
       designImageInput = document.createElement("input");
       designImageInput.type = "file";
-      designImageInput.accept = "image/*";
+      designImageInput.accept = "image/*,video/*";
       designImageInput.style.display = "none";
       designImageInput.addEventListener("change", () => {
         const file = designImageInput.files[0];
         designImageInput.value = "";
         const node = designImageTargetNode;
+        const path = designImageTargetPath;
         designImageTargetNode = null;
+        designImageTargetPath = null;
         if (!file || !node) return;
         const form = new FormData();
         form.append("file", file);
@@ -1859,8 +1870,17 @@
             node.value = data.url;
             renderAll();
             designStatus.textContent = I18N.designEditedHint;
+            // Updates the <img> directly inside the (still sandboxed, still
+            // cross-origin) iframe instead of a full renderPreview reload —
+            // a reload re-runs the design's own script from scratch, which
+            // closes whatever modal/gallery view the user had open to reach
+            // this image in the first place. Same postMessage channel as
+            // every other preview/parent exchange; the bridge script below
+            // applies it to any element it already tagged with this path.
             try {
-              if (appliedDesignHTML && typeof renderPreview === "function") renderPreview(appliedDesignHTML);
+              if (preview && preview.contentWindow) {
+                preview.contentWindow.postMessage({ source: "crm-design-image-updated", path: path, value: data.url }, "*");
+              }
             } catch (e3) { /* design preview not initialized on this page */ }
           })
           .catch(() => alert(I18N.uploadError));
@@ -1878,9 +1898,25 @@
       }
       dlog("opening image picker from preview click, path=" + JSON.stringify(e.data.path));
       designImageTargetNode = node;
+      designImageTargetPath = e.data.path;
       ensureDesignImageInput().click();
     });
 
+    // A design can offer its own "+ Ajouter" affordance for a list it
+    // renders nested inside a repeated item (e.g. each service's own
+    // "projects" gallery) — something the generic root-level "Ajouter un
+    // élément" button can't reach, since it only ever targets a top-level
+    // list. The design just needs to post the path of the list node itself
+    // (computed the same way buildIndex/getNodeByPath do elsewhere); this
+    // reuses the exact same clone-last-item-as-template behavior as the
+    // tree panel's own per-list "+" button.
+    window.addEventListener("message", (e) => {
+      if (!preview || e.source !== preview.contentWindow) return;
+      if (!e.data || e.data.source !== "crm-design-add-item") return;
+      const node = getNodeByPath(e.data.path);
+      if (!node || node.type !== "list" || !Array.isArray(node.children) || !node.children.length) {
+        derror("add-item message: path did not resolve to a non-empty list", e.data.path);
+        return;
     if (editToggleBtn) {
       editToggleBtn.addEventListener("click", () => {
         editModeOn = !editModeOn;
