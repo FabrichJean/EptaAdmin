@@ -1596,6 +1596,8 @@
       // display:none gets its rendering throttled — the document never lays
       // out (everything measures 0px, the preview stays black) until
       // something resizes the frame. That's why a first import/generation
+      // showed nothing while "Rafraîchir" (already visible) or "Hauteur max"
+      // (a resize) fixed it.
       previewWrap.classList.remove("hidden");
       if (maxHeightWrap) maxHeightWrap.classList.remove("hidden");
     }
