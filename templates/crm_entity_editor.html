@@ -1591,7 +1591,7 @@
           preview.contentWindow.postMessage({ source: "crm-design-set-edit-mode", enabled: true }, "*");
         }
       });
-      preview.srcdoc = injectedDataScript() + html;
+      // Unhide BEFORE loading: the iframe is sandboxed (so cross-origin to
       previewWrap.classList.remove("hidden");
       if (maxHeightWrap) maxHeightWrap.classList.remove("hidden");
     }
