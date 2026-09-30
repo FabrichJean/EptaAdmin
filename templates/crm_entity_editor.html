@@ -1989,7 +1989,6 @@
             draftActions.classList.remove("hidden");
             if (window.crmSetDesignView) window.crmSetDesignView("design");
             renderPreview(draftDesignHTML);
-            if (window.crmSetDesignView) window.crmSetDesignView("design");
           })
           .catch((err) => {
             derror("design import: network/parse error:", err);
