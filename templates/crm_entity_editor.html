@@ -1944,6 +1944,7 @@
             draftDesignHTML = body.html;
             form.style.display = "none";
             draftActions.classList.remove("hidden");
+            if (window.crmSetDesignView) window.crmSetDesignView("design");
             renderPreview(draftDesignHTML);
             if (window.crmSetDesignView) window.crmSetDesignView("design");
           })
