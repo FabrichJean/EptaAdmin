@@ -24,7 +24,7 @@
     "README.md"
   ],
   "bin": {
-    "eptaadmin-prefetch": "./bin/prefetch.js"
+    "eptaadmin-prefetch": "bin/prefetch.js"
   },
   "peerDependencies": {
     "vite": ">=4"
