@@ -314,7 +314,9 @@ func HandleApplyCRMEntityDesign(a *app.App, w http.ResponseWriter, r *http.Reque
 		return
 	}
 	log.Printf("%s apply: applied design_id=%d (%s)", logPrefix, design.ID, design.Name)
-	a.LogActivity(app.LogActivityParams{UserID: currentUser.ID, Action: store.ActionCRMEntityDesignApply, Details: map[string]any{"teamName": team.Name, "name": entity.Name, "designName": design.Name}})
+	applyDetails := map[string]any{"teamName": team.Name, "name": entity.Name, "designName": design.Name}
+	a.LogActivity(app.LogActivityParams{UserID: currentUser.ID, Action: store.ActionCRMEntityDesignApply, Details: applyDetails})
+	a.FireCRMTeamWebhooks(team.ID, store.ActionCRMEntityDesignApply, applyDetails)
 
 	webutil.WriteJSON(w, http.StatusOK, map[string]any{"ok": true, "html": design.HTML, "name": design.Name})
 }
@@ -470,7 +472,9 @@ func HandleDeleteCRMDesign(a *app.App, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Printf("[crm-design] team=%s user=%d deleted design_id=%d (%s)", team.Slug, currentUser.ID, designID, design.Name)
-	a.LogActivity(app.LogActivityParams{UserID: currentUser.ID, Action: store.ActionCRMEntityDesignClear, Details: map[string]any{"teamName": team.Name, "name": design.Name}})
+	deleteDesignDetails := map[string]any{"teamName": team.Name, "name": design.Name}
+	a.LogActivity(app.LogActivityParams{UserID: currentUser.ID, Action: store.ActionCRMEntityDesignClear, Details: deleteDesignDetails})
+	a.FireCRMTeamWebhooks(team.ID, store.ActionCRMEntityDesignClear, deleteDesignDetails)
 
 	webutil.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
@@ -503,7 +507,9 @@ func HandleClearCRMEntityDesign(a *app.App, w http.ResponseWriter, r *http.Reque
 		return
 	}
 	log.Printf("[crm-design] team=%s entity=%s user=%d clear: reverted to default view", team.Slug, entity.Slug, currentUser.ID)
-	a.LogActivity(app.LogActivityParams{UserID: currentUser.ID, Action: store.ActionCRMEntityDesignClear, Details: map[string]any{"teamName": team.Name, "name": entity.Name}})
+	clearDetails := map[string]any{"teamName": team.Name, "name": entity.Name}
+	a.LogActivity(app.LogActivityParams{UserID: currentUser.ID, Action: store.ActionCRMEntityDesignClear, Details: clearDetails})
+	a.FireCRMTeamWebhooks(team.ID, store.ActionCRMEntityDesignClear, clearDetails)
 
 	webutil.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
