@@ -27,6 +27,14 @@ type CRMTeam struct {
 type UserCRMTeam struct {
 	CRMTeam
 	Role string
+	// EntityCount/MemberCount/LastEntityUpdate are shown on the teams list
+	// page (crm_teams.html) so a card says something concrete about that
+	// team instead of just its name — computed once per team via scalar
+	// subqueries in ListCRMTeamsForUser rather than a separate round trip
+	// each.
+	EntityCount      int
+	MemberCount      int
+	LastEntityUpdate sql.NullTime
 }
 
 func (t *UserCRMTeam) RoleLabel(lang string) string {
@@ -205,7 +213,10 @@ func (s *Store) GetCRMTeamBySlug(slug string) (*CRMTeam, error) {
 
 func (s *Store) ListCRMTeamsForUser(userID int64) ([]*UserCRMTeam, error) {
 	rows, err := s.db.Query(`
-		SELECT crm_teams.id, crm_teams.name, crm_teams.slug, crm_teams.created_by, crm_teams.created_at, crm_team_members.role
+		SELECT crm_teams.id, crm_teams.name, crm_teams.slug, crm_teams.created_by, crm_teams.created_at, crm_team_members.role,
+			(SELECT COUNT(*) FROM crm_entities WHERE crm_entities.crm_team_id = crm_teams.id) AS entity_count,
+			(SELECT COUNT(*) FROM crm_team_members m2 WHERE m2.crm_team_id = crm_teams.id) AS member_count,
+			(SELECT MAX(updated_at) FROM crm_entities WHERE crm_entities.crm_team_id = crm_teams.id) AS last_entity_update
 		FROM crm_team_members
 		JOIN crm_teams ON crm_teams.id = crm_team_members.crm_team_id
 		WHERE crm_team_members.user_id = ?
@@ -219,7 +230,7 @@ func (s *Store) ListCRMTeamsForUser(userID int64) ([]*UserCRMTeam, error) {
 	var out []*UserCRMTeam
 	for rows.Next() {
 		ut := &UserCRMTeam{}
-		if err := rows.Scan(&ut.ID, &ut.Name, &ut.Slug, &ut.CreatedBy, &ut.CreatedAt, &ut.Role); err != nil {
+		// last_entity_update comes from a MAX(updated_at) subquery, not a
 			return nil, err
 		}
 		out = append(out, ut)
