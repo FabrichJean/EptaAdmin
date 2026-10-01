@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# Build the Go binary, swap it in atomically, then (re)start via pm2.
+# (Re)starts the app via pm2 — the actual build now happens in start.sh
+# itself (see ecosystem.config.js), so this just needs to ask pm2 to
+# (re)start the process; pm2 rebuilds from current source every time.
 set -euo pipefail
 cd "$(dirname "$0")"
-
-go build -o eptaadmin-linux.new .
-mv eptaadmin-linux.new eptaadmin-linux   # mv avoids "Text file busy"
 
 if pm2 describe eptaadmin >/dev/null 2>&1; then
   pm2 restart ecosystem.config.js --only eptaadmin
