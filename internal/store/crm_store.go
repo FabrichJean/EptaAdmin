@@ -231,7 +231,19 @@ func (s *Store) ListCRMTeamsForUser(userID int64) ([]*UserCRMTeam, error) {
 	for rows.Next() {
 		ut := &UserCRMTeam{}
 		// last_entity_update comes from a MAX(updated_at) subquery, not a
+		// plain column read — the sqlite driver only auto-parses a column's
+		// declared DATETIME type on a direct table read, so a computed
+		// expression like this one comes back as a bare string instead of a
+		// time.Time (sql.NullTime.Scan can't take it directly, hence the
+		// intermediate sql.NullString and manual parse below).
+		var lastUpdateRaw sql.NullString
+		if err := rows.Scan(&ut.ID, &ut.Name, &ut.Slug, &ut.CreatedBy, &ut.CreatedAt, &ut.Role, &ut.EntityCount, &ut.MemberCount, &lastUpdateRaw); err != nil {
 			return nil, err
+		}
+		if lastUpdateRaw.Valid {
+			if parsed, err := time.Parse("2006-01-02 15:04:05", lastUpdateRaw.String); err == nil {
+				ut.LastEntityUpdate = sql.NullTime{Time: parsed, Valid: true}
+			}
 		}
 		out = append(out, ut)
 	}
