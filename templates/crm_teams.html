@@ -35,14 +35,23 @@
         {{range .CRMTeams}}
         <div class="relative group">
           <a href="/crm/{{.Slug}}"
-            class="flex items-center gap-3 rounded-xl px-4 py-3 transition-colors eb-card"
+            class="flex items-start gap-3 rounded-xl px-4 py-4 transition-colors eb-card"
             onmouseover="this.style.borderColor='var(--eb-border-strong)'" onmouseout="this.style.borderColor='var(--eb-border)'">
             <div class="h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0" style="background: {{columnColorHex .Name}}26; color: {{columnColorHex .Name}};">
               {{slice .Name 0 1}}
             </div>
-            <div class="min-w-0">
+            <div class="min-w-0 flex-1">
               <p class="text-sm font-semibold truncate" style="color: var(--eb-text);">{{.Name}}</p>
               <p class="text-xs truncate" style="color: var(--eb-muted);">{{.RoleLabel $.Lang}}</p>
+              <p class="text-xs mt-1.5 flex items-center gap-1.5 flex-wrap" style="color: var(--eb-muted);">
+                <span>{{if eq .EntityCount 1}}{{t $.Lang "crm.entity_count_one"}}{{else}}{{t $.Lang "crm.entity_count_other" .EntityCount}}{{end}}</span>
+                <span>·</span>
+                <span>{{if eq .MemberCount 1}}{{t $.Lang "crm.member_count_one"}}{{else}}{{t $.Lang "crm.member_count_other" .MemberCount}}{{end}}</span>
+                {{if .LastEntityUpdate.Valid}}
+                <span>·</span>
+                <span>{{t $.Lang "crm.last_updated_label"}} {{formatTime .LastEntityUpdate.Time}}</span>
+                {{end}}
+              </p>
             </div>
           </a>
           {{if eq .Role "owner"}}
