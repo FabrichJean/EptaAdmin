@@ -1,11 +1,15 @@
 /**
  * Vite plugin: scans your project's source code for `client.getDataSource(...)`
- * / `client.getValue(...)` calls, fetches exactly those data sources once at
- * `vite build` time, and bakes the result into the bundle — so those same
- * calls resolve from static data with zero runtime request in production,
- * with no config listing what to prefetch and nothing to keep in sync by
- * hand. `vite` (dev server) is left untouched, so the exact same client
- * code keeps making live requests during development.
+ * / `client.getValue(...)` / `client.getCRMEntity(...)` calls, fetches
+ * exactly those data sources/entities once at `vite build` time, and bakes
+ * the result into the bundle — so those same calls resolve from static
+ * data with zero runtime request in production, with no config listing
+ * what to prefetch and nothing to keep in sync by hand. `vite` (dev
+ * server) is left untouched, so the exact same client code keeps making
+ * live requests during development. `listWorkspaces`/`listDataSources`/
+ * `listCRMEntities` are deliberately never prefetched, same as today —
+ * only the "leaf" fetches that already need a literal slug to mean
+ * anything are worth baking in ahead of time.
  */
 import { readFile, readdir } from "node:fs/promises";
 import { join, extname } from "node:path";
@@ -21,13 +25,17 @@ const GET_DATA_SOURCE_RE = /getDataSource\s*\(\s*(['"`])([^'"`]+)\1\s*,\s*(['"`]
 // Matches getValue("ws/ds/column") / getValue("ws/ds/column/index") —
 // only the workspace/dataSource prefix is needed to know what to prefetch.
 const GET_VALUE_RE = /getValue\s*\(\s*(['"`])([^'"`]+)\1\s*\)/g;
+// Matches getCRMEntity("team", "entity") — same shape as getDataSource,
+// just a different pair of literal arguments.
+const GET_CRM_ENTITY_RE = /getCRMEntity\s*\(\s*(['"`])([^'"`]+)\1\s*,\s*(['"`])([^'"`]+)\3\s*\)/g;
 
-// Broader "any call, any arguments" versions of the two above, used only to
-// flag calls scanning *can't* resolve (e.g. variables) — doesn't handle
+// Broader "any call, any arguments" versions of the three above, used only
+// to flag calls scanning *can't* resolve (e.g. variables) — doesn't handle
 // arguments containing nested parens/commas, but that's fine for a warning
 // whose job is just to point a human at the right line.
 const ANY_GET_DATA_SOURCE_CALL_RE = /getDataSource\s*\(([^)]*)\)/g;
 const ANY_GET_VALUE_CALL_RE = /getValue\s*\(([^)]*)\)/g;
+const ANY_GET_CRM_ENTITY_CALL_RE = /getCRMEntity\s*\(([^)]*)\)/g;
 const LITERAL_STRING_ARG_RE = /^\s*['"`][^'"`]*['"`]\s*$/;
 
 function lineNumberAt(text, index) {
@@ -56,15 +64,17 @@ async function collectFiles(dir, out) {
 }
 
 /** Scans every source file under `scanDir` for SDK calls with literal
- * string arguments, returning the unique {workspace, dataSource} pairs
- * actually referenced in the code, plus a warning for every call scanning
- * found but couldn't resolve (non-literal arguments) — so a developer can
- * fix each one by adding it to `sources` instead of it failing silently. */
+ * string arguments, returning the unique {workspace, dataSource} pairs and
+ * {team, entity} pairs actually referenced in the code, plus a warning for
+ * every call scanning found but couldn't resolve (non-literal arguments) —
+ * so a developer can fix each one by adding it to `sources`/`crmSources`
+ * instead of it failing silently. */
 async function scanForSources(scanDir) {
   const files = [];
   await collectFiles(scanDir, files);
 
   const found = new Map(); // "workspace/dataSource" -> {workspace, dataSource}
+  const foundCRM = new Map(); // "team/entity" -> {team, entity}
   const warnings = [];
 
   for (const file of files) {
@@ -89,6 +99,11 @@ async function scanForSources(scanDir) {
       }
       resolvedCallOffsets.add(m.index);
     }
+    for (const m of text.matchAll(GET_CRM_ENTITY_RE)) {
+      const [, , team, , entity] = m;
+      foundCRM.set(`${team}/${entity}`, { team, entity });
+      resolvedCallOffsets.add(m.index);
+    }
 
     for (const m of text.matchAll(ANY_GET_DATA_SOURCE_CALL_RE)) {
       if (resolvedCallOffsets.has(m.index)) continue;
@@ -104,9 +119,17 @@ async function scanForSources(scanDir) {
         warnings.push(`${file}:${lineNumberAt(text, m.index)} — getValue(${m[1].trim()}) has a non-literal argument, can't be scanned; add its {workspace, dataSource} via "sources" if it should be prefetched.`);
       }
     }
+    for (const m of text.matchAll(ANY_GET_CRM_ENTITY_CALL_RE)) {
+      if (resolvedCallOffsets.has(m.index)) continue;
+      const args = m[1].split(",");
+      const isLiteral = args.length === 2 && args.every((a) => LITERAL_STRING_ARG_RE.test(a));
+      if (!isLiteral) {
+        warnings.push(`${file}:${lineNumberAt(text, m.index)} — getCRMEntity(${m[1].trim()}) has non-literal arguments, can't be scanned; add it via "crmSources" if it should be prefetched.`);
+      }
+    }
   }
 
-  return { sources: [...found.values()], warnings };
+  return { sources: [...found.values()], crmSources: [...foundCRM.values()], warnings };
 }
 
 /**
@@ -115,15 +138,24 @@ async function scanForSources(scanDir) {
  *   apiKeyEnv?: string,
  *   scanDir?: string,
  *   sources?: { workspace: string, dataSource: string }[],
+ *   crmSources?: { team: string, entity: string }[],
  * }} options
  *   scanDir — directory to scan for SDK calls, relative to Vite's root.
  *             Defaults to "src".
  *   sources — extra {workspace, dataSource} pairs to prefetch on top of
  *             whatever scanning finds — for calls whose arguments aren't
  *             literal strings (e.g. a variable), which scanning can't see.
+ *   crmSources — same idea as `sources`, but for getCRMEntity's
+ *             {team, entity} pairs.
  */
 export function eptaadminPrefetch(options = {}) {
-  const { baseUrl, apiKeyEnv = "EPTAADMIN_API_KEY", scanDir = "src", sources: extraSources = [] } = options;
+  const {
+    baseUrl,
+    apiKeyEnv = "EPTAADMIN_API_KEY",
+    scanDir = "src",
+    sources: extraSources = [],
+    crmSources: extraCRMSources = [],
+  } = options;
   if (!baseUrl) throw new Error("eptaadminPrefetch: \"baseUrl\" is required");
 
   return {
@@ -143,17 +175,21 @@ export function eptaadminPrefetch(options = {}) {
         }
 
         const root = config.root || process.cwd();
-        const { sources: scanned, warnings } = await scanForSources(join(root, scanDir));
+        const { sources: scanned, crmSources: scannedCRM, warnings } = await scanForSources(join(root, scanDir));
         for (const w of warnings) console.warn(`[eptaadmin-prefetch] ${w}`);
 
         const byKey = new Map(scanned.map((s) => [`${s.workspace}/${s.dataSource}`, s]));
         for (const s of extraSources) byKey.set(`${s.workspace}/${s.dataSource}`, s);
         const sources = [...byKey.values()];
 
-        if (sources.length === 0) {
+        const byCRMKey = new Map(scannedCRM.map((s) => [`${s.team}/${s.entity}`, s]));
+        for (const s of extraCRMSources) byCRMKey.set(`${s.team}/${s.entity}`, s);
+        const crmSources = [...byCRMKey.values()];
+
+        if (sources.length === 0 && crmSources.length === 0) {
           console.warn(
-            `[eptaadmin-prefetch] found no getDataSource()/getValue() calls with literal arguments under "${scanDir}" — nothing to prefetch. ` +
-              `If your calls use variables instead of string literals, list them explicitly via the "sources" option.`
+            `[eptaadmin-prefetch] found no getDataSource()/getValue()/getCRMEntity() calls with literal arguments under "${scanDir}" — nothing to prefetch. ` +
+              `If your calls use variables instead of string literals, list them explicitly via the "sources"/"crmSources" options.`
           );
         }
 
@@ -162,6 +198,11 @@ export function eptaadminPrefetch(options = {}) {
           const result = await client.getDataSource(workspace, dataSource);
           data[`${workspace}/${dataSource}`] = result;
           console.log(`[eptaadmin-prefetch] ✓ ${workspace}/${dataSource}`);
+        }
+        for (const { team, entity } of crmSources) {
+          const result = await client.getCRMEntity(team, entity);
+          data[`crm:${team}/${entity}`] = result;
+          console.log(`[eptaadmin-prefetch] ✓ crm:${team}/${entity}`);
         }
       }
 

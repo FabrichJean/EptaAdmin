@@ -64,9 +64,12 @@
       <div id="crm-design-view" class="hidden eb-card rounded-xl overflow-hidden">
         <div id="crm-design-toolbar" class="flex items-center justify-end gap-2 px-4 py-3" style="border-bottom: 1px solid var(--eb-border);">
           <div id="crm-design-maxheight-wrap" class="hidden">
-            <button id="crm-design-maxheight-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors">{{t .Lang "crm.design_maxheight_button"}}</button>
+            <button id="crm-design-maxheight-btn" type="button" class="eb-btn-secondary rounded-lg p-1.5 transition-colors inline-flex items-center justify-center" title="{{t .Lang "crm.design_maxheight_button"}}" aria-label="{{t .Lang "crm.design_maxheight_button"}}"></button>
           </div>
           {{if .CanEdit}}
+          <div id="crm-design-edit-toggle-wrap" class="shrink-0" style="{{if not .Entity.DesignHTML}}display:none;{{end}}">
+            <button id="crm-design-edit-toggle-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors">{{t .Lang "crm.design_edit_enable_button"}}</button>
+          </div>
           <div class="relative shrink-0">
             <button id="crm-design-actions-btn" type="button" class="eb-btn-secondary rounded-lg text-xs px-3 py-1.5 transition-colors inline-flex items-center gap-1.5">
               {{t .Lang "crm.design_actions_button"}}
@@ -76,7 +79,6 @@
               <button id="crm-design-choose-btn" type="button" class="block w-full text-left px-3 py-2 text-sm transition-colors hover:bg-white/5" style="color: var(--eb-text);">{{t .Lang "crm.design_choose_button"}}</button>
               <div id="crm-design-applied-actions" style="{{if not .Entity.DesignHTML}}display:none;{{end}}">
                 <div class="my-1" style="border-top: 1px solid var(--eb-border);"></div>
-                <button id="crm-design-edit-toggle-btn" type="button" class="block w-full text-left px-3 py-2 text-sm transition-colors hover:bg-white/5" style="color: var(--eb-text);">{{t .Lang "crm.design_edit_enable_button"}}</button>
                 <button id="crm-design-add-item-btn" type="button" class="block w-full text-left px-3 py-2 text-sm transition-colors hover:bg-white/5" style="color: var(--eb-text);">{{t .Lang "crm.design_add_item_button"}}</button>
                 <button id="crm-design-refresh-btn" type="button" class="block w-full text-left px-3 py-2 text-sm transition-colors hover:bg-white/5" style="color: var(--eb-text);">{{t .Lang "crm.design_refresh_button"}}</button>
                 <button id="crm-design-regenerate-btn" type="button" class="block w-full text-left px-3 py-2 text-sm transition-colors hover:bg-white/5" style="color: var(--eb-text);">{{t .Lang "crm.design_regenerate_button"}}</button>
@@ -307,6 +309,8 @@
     object: '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 16-9 5-9-5V8l9-5 9 5Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>',
     boolean: '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="5" width="22" height="14" rx="7"/><circle cx="16" cy="12" r="3"/></svg>',
     database: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>',
+    maximize: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>',
+    minimize: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>',
   };
 
   // TYPE_META drives every part of the tree that depends on a node's
@@ -344,6 +348,70 @@
     if (meta.hasChildren) node.children = [];
     else node.value = type === "boolean" ? false : "";
     return node;
+  }
+
+  // The entity schema has no leaf type dedicated to video, distinct from
+  // "image" — a design that wants a mixed photo/video gallery (see
+  // services-detail's per-project "images" list) just stores either kind of
+  // URL under the same "image" leaf, told apart by extension. Shared here
+  // so the tree panel's own image-field preview/upload picker recognizes it
+  // too, not just the generated designs that choose to support it.
+  function isVideoUrl(url) {
+    return /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i.test(url || "");
+  }
+
+  // Shared with the design section's own "Ajouter un élément" button (root-
+  // level lists only) below — also used here so that adding an item to a
+  // *nested* list (e.g. a service's "projects") gets the same treatment:
+  // cloning the last sibling as a template instead of an empty node the
+  // user would have to build field-by-field, with placeholder content so a
+  // freshly added item isn't literally invisible in an AI-generated design
+  // (an empty string/0 routinely renders as nothing at all).
+  function placeholderImageDataURL() {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">' +
+      '<rect width="400" height="300" fill="#27272a"/>' +
+      '<g fill="none" stroke="#a78bfa" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">' +
+      '<rect x="100" y="85" width="200" height="140" rx="12"/>' +
+      '<circle cx="152" cy="133" r="16"/>' +
+      '<path d="M100 195 L165 145 L215 183 L255 145 L300 190"/>' +
+      '</g>' +
+      '</svg>';
+    return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+  }
+  function defaultLeafValues(node) {
+    if (Array.isArray(node.children)) {
+      node.children.forEach(defaultLeafValues);
+    } else if (node.type === "boolean") {
+      node.value = false;
+    } else if (node.type === "number") {
+      node.value = 0;
+    } else if (node.type === "markdown") {
+      node.value = I18N.designAddItemDefaultMarkdown;
+    } else if (node.type === "image") {
+      node.value = placeholderImageDataURL();
+    } else {
+      node.value = I18N.designAddItemDefaultText;
+    }
+  }
+  // A cloned item must not keep its template's key: for a root-level
+  // article-style entity that key is the slug, and for a nested list like
+  // "projects" it's still meant to be a unique identifier, so a duplicate
+  // key would mean two items fighting over the same one.
+  function uniqueItemKey(siblings) {
+    const taken = new Set(siblings.map((n) => n && n.key));
+    let key = "nouvel-element";
+    for (let i = 2; taken.has(key); i++) key = "nouvel-element-" + i;
+    return key;
+  }
+  // Clones the last item of a list as the starting point for a new one
+  // (same field shape the design already knows how to render) instead of
+  // an empty node from the type menu.
+  function cloneListItemAsTemplate(list) {
+    const template = list.children[list.children.length - 1];
+    const clone = JSON.parse(JSON.stringify(template));
+    defaultLeafValues(clone);
+    if (clone.key) clone.key = uniqueItemKey(list.children);
+    return clone;
   }
 
   // renumberTree writes an explicit 1-based "order" field onto every node,
@@ -556,11 +624,23 @@
     btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>' +
       (node.type === "list" ? I18N.addElementButton : I18N.addFieldButton);
     btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      // A non-empty list already has a shape (e.g. a service's "projects",
+      // each with id/cover/description/tags/links/…): clone the last item
+      // as a filled-in template rather than making the user rebuild that
+      // shape field-by-field from the type menu. An empty list or an
+      // "object" node (adding a single field, not a repeated item) keeps
+      // the type-menu flow since there's no template to clone.
+      if (node.type === "list" && Array.isArray(node.children) && node.children.length) {
+        node.children.push(cloneListItemAsTemplate(node));
+        renderAll();
+        if (refreshDesignPreviewIfApplied) refreshDesignPreviewIfApplied();
+        return;
+      }
       openTypeMenu(btn, (type) => {
         node.children.push(makeNode(type));
         renderAll();
       });
-      e.stopPropagation();
     });
     wrap.appendChild(btn);
     return wrap;
@@ -849,17 +929,22 @@
         const imgWrap = document.createElement("div");
         imgWrap.className = "space-y-2";
         if (node.value) {
-          const img = document.createElement("img");
-          img.src = node.value;
-          img.className = "max-h-32 rounded w-full object-cover";
-          imgWrap.appendChild(img);
+          // "image" is the only media leaf type the entity schema has — a
+          // gallery slide (see e.g. services-detail's per-project "images"
+          // list) can hold a short video clip too, told apart from a photo
+          // by its extension (isVideoUrl), so the preview here has to match.
+          const media = isVideoUrl(node.value) ? document.createElement("video") : document.createElement("img");
+          media.src = node.value;
+          if (media.tagName === "VIDEO") media.controls = true;
+          media.className = "max-h-32 rounded w-full object-cover";
+          imgWrap.appendChild(media);
         }
         if (canEdit && !node.readOnly) {
           const row = document.createElement("div");
           row.className = "flex items-center gap-2";
           const input = document.createElement("input");
           input.type = "file";
-          input.accept = "image/*";
+          input.accept = "image/*,video/*";
           input.className = "text-xs flex-1 min-w-0";
           input.addEventListener("change", () => {
             const file = input.files[0];
@@ -1122,6 +1207,7 @@
     const refreshBtn = document.getElementById("crm-design-refresh-btn");
     const regenerateBtn = document.getElementById("crm-design-regenerate-btn");
     const removeBtn = document.getElementById("crm-design-remove-btn");
+    const editToggleWrap = document.getElementById("crm-design-edit-toggle-wrap");
     const editToggleBtn = document.getElementById("crm-design-edit-toggle-btn");
     const addItemBtn = document.getElementById("crm-design-add-item-btn");
     const applyBtn = document.getElementById("crm-design-apply-btn");
@@ -1309,16 +1395,18 @@
       "    }\n" +
       "  }\n" +
       // Images have no visible text to match against at all — instead,
-      // every <img> is compared by its raw src attribute (not the
-      // browser-resolved absolute URL, which a relative value would never
-      // equal) against an "image" field's stored value. A match still
-      // isn't guaranteed (the design might render it as a CSS
-      // background-image instead of an <img>, or transform the URL), but
-      // it covers the common case: the design's own script setting
-      // img.src straight from window.__CRM_ENTITY_DATA__.
+      // every <img> (or <video>, for a design's gallery slide that's a
+      // clip rather than a photo — an "image" field's value can be either,
+      // see isVideoUrl on the parent side) is compared by its raw src
+      // attribute (not the browser-resolved absolute URL, which a relative
+      // value would never equal) against an "image" field's stored value. A
+      // match still isn't guaranteed (the design might render it as a CSS
+      // background-image instead, or transform the URL), but it covers the
+      // common case: the design's own script setting src straight from
+      // window.__CRM_ENTITY_DATA__.
       "  function markImageEditable(imageEntries) {\n" +
       "    if (!imageEntries.length) return;\n" +
-      "    var imgs = document.body.querySelectorAll('img');\n" +
+      "    var imgs = document.body.querySelectorAll('img, video');\n" +
       "    for (var i = 0; i < imgs.length; i++) {\n" +
       "      var el = imgs[i];\n" +
       "      if (el.closest && el.closest('[data-crm-edit-path]')) continue;\n" +
@@ -1442,6 +1530,29 @@
       "  window.addEventListener('message', function (e) {\n" +
       "    if (!e.data || e.data.source !== 'crm-design-restore-scroll') return;\n" +
       "    window.scrollTo(e.data.x || 0, e.data.y || 0);\n" +
+      "  });\n" +
+      // Applies a completed image upload straight to the DOM instead of
+      // needing a full reload (which renderPreview would otherwise require
+      // — see the parent side's own comment on this same message) — every
+      // <img>/<video> this iframe already tagged with the edited path gets
+      // its src swapped in place, so a modal/gallery the user had open to
+      // reach it stays open. window.__CRM_ENTITY_DATA__ is patched too, so
+      // a later markEditable() re-run (e.g. after some other DOM change)
+      // still matches this field by its now-current value. A design with a
+      // mixed photo/video gallery (see services-detail-design.html) may
+      // also listen for this same message itself, to swap which of an
+      // <img>/<video> pair is even shown when a slide's kind changes on
+      // upload — this blind src-only update runs regardless, harmlessly
+      // superseded by that more specific handling when present.
+      "  window.addEventListener('message', function (e) {\n" +
+      "    if (!e.data || e.data.source !== 'crm-design-image-updated') return;\n" +
+      "    var node = getNodeByPath(e.data.path);\n" +
+      "    if (node) node.value = e.data.value;\n" +
+      "    var pathStr = JSON.stringify(e.data.path);\n" +
+      "    var imgs = document.querySelectorAll('img[data-crm-edit-path], video[data-crm-edit-path]');\n" +
+      "    for (var i = 0; i < imgs.length; i++) {\n" +
+      "      if (imgs[i].getAttribute('data-crm-edit-path') === pathStr) imgs[i].setAttribute('src', e.data.value);\n" +
+      "    }\n" +
       "  });\n" +
       // Floating "copy" icon: hovering any bordered editable element in
       // edit mode reveals a small button pinned to its top-right corner
@@ -1591,9 +1702,16 @@
           preview.contentWindow.postMessage({ source: "crm-design-set-edit-mode", enabled: true }, "*");
         }
       });
-      preview.srcdoc = injectedDataScript() + html;
+      // Unhide BEFORE loading: the iframe is sandboxed (so cross-origin to
+      // Chrome), and a cross-origin frame that starts loading while
+      // display:none gets its rendering throttled — the document never lays
+      // out (everything measures 0px, the preview stays black) until
+      // something resizes the frame. That's why a first import/generation
+      // showed nothing while "Rafraîchir" (already visible) or "Hauteur max"
+      // (a resize) fixed it.
       previewWrap.classList.remove("hidden");
       if (maxHeightWrap) maxHeightWrap.classList.remove("hidden");
+      preview.srcdoc = injectedDataScript() + html;
     }
 
     // Lets the markdown editor modal (a separate closure — see its own
@@ -1606,6 +1724,7 @@
     function showAppliedState() {
       badge.style.display = appliedDesignHTML ? "" : "none";
       if (appliedActions) appliedActions.style.display = appliedDesignHTML ? "" : "none";
+      if (editToggleWrap) editToggleWrap.style.display = appliedDesignHTML ? "" : "none";
       if (form) form.style.display = appliedDesignHTML ? "none" : "";
       if (draftActions) draftActions.classList.add("hidden");
       draftDesignHTML = null;
@@ -1637,7 +1756,10 @@
       function setMaxHeight(isMax) {
         previewWrap.classList.toggle("crm-design-preview-max", isMax);
         previewBackdrop.classList.toggle("crm-design-preview-backdrop-visible", isMax);
-        maxHeightBtn.textContent = isMax ? I18N.designMinheightButton : I18N.designMaxheightButton;
+        const label = isMax ? I18N.designMinheightButton : I18N.designMaxheightButton;
+        maxHeightBtn.innerHTML = ICONS[isMax ? "minimize" : "maximize"];
+        maxHeightBtn.title = label;
+        maxHeightBtn.setAttribute("aria-label", label);
         if (toolbar) {
           if (isMax) {
             previewWrap.insertBefore(toolbar, previewWrap.firstChild);
@@ -1647,6 +1769,7 @@
         }
         dlog("preview height toggled, max=" + isMax);
       }
+      setMaxHeight(false); // sets the button's initial icon/label
       maxHeightBtn.addEventListener("click", () => {
         setMaxHeight(!previewWrap.classList.contains("crm-design-preview-max"));
       });
@@ -1734,17 +1857,20 @@
     // unlike markdown, so this goes straight to the file picker.
     let designImageInput = null;
     let designImageTargetNode = null;
+    let designImageTargetPath = null;
     function ensureDesignImageInput() {
       if (designImageInput) return designImageInput;
       designImageInput = document.createElement("input");
       designImageInput.type = "file";
-      designImageInput.accept = "image/*";
+      designImageInput.accept = "image/*,video/*";
       designImageInput.style.display = "none";
       designImageInput.addEventListener("change", () => {
         const file = designImageInput.files[0];
         designImageInput.value = "";
         const node = designImageTargetNode;
+        const path = designImageTargetPath;
         designImageTargetNode = null;
+        designImageTargetPath = null;
         if (!file || !node) return;
         const form = new FormData();
         form.append("file", file);
@@ -1754,8 +1880,17 @@
             node.value = data.url;
             renderAll();
             designStatus.textContent = I18N.designEditedHint;
+            // Updates the <img> directly inside the (still sandboxed, still
+            // cross-origin) iframe instead of a full renderPreview reload —
+            // a reload re-runs the design's own script from scratch, which
+            // closes whatever modal/gallery view the user had open to reach
+            // this image in the first place. Same postMessage channel as
+            // every other preview/parent exchange; the bridge script below
+            // applies it to any element it already tagged with this path.
             try {
-              if (appliedDesignHTML && typeof renderPreview === "function") renderPreview(appliedDesignHTML);
+              if (preview && preview.contentWindow) {
+                preview.contentWindow.postMessage({ source: "crm-design-image-updated", path: path, value: data.url }, "*");
+              }
             } catch (e3) { /* design preview not initialized on this page */ }
           })
           .catch(() => alert(I18N.uploadError));
@@ -1773,7 +1908,41 @@
       }
       dlog("opening image picker from preview click, path=" + JSON.stringify(e.data.path));
       designImageTargetNode = node;
+      designImageTargetPath = e.data.path;
       ensureDesignImageInput().click();
+    });
+
+    // A design can offer its own "+ Ajouter" affordance for a list it
+    // renders nested inside a repeated item (e.g. each service's own
+    // "projects" gallery) — something the generic root-level "Ajouter un
+    // élément" button can't reach, since it only ever targets a top-level
+    // list. The design just needs to post the path of the list node itself
+    // (computed the same way buildIndex/getNodeByPath do elsewhere); this
+    // reuses the exact same clone-last-item-as-template behavior as the
+    // tree panel's own per-list "+" button.
+    window.addEventListener("message", (e) => {
+      if (!preview || e.source !== preview.contentWindow) return;
+      if (!e.data || e.data.source !== "crm-design-add-item") return;
+      const node = getNodeByPath(e.data.path);
+      if (!node || node.type !== "list" || !Array.isArray(node.children) || !node.children.length) {
+        derror("add-item message: path did not resolve to a non-empty list", e.data.path);
+        return;
+      }
+      node.children.push(cloneListItemAsTemplate(node));
+      dlog("add item (from design): path=" + JSON.stringify(e.data.path) + ", count=" + node.children.length);
+      renderAll();
+      // Not a full renderPreview reload: unlike the root-level "Ajouter un
+      // élément" button (which targets an entity with no modal to lose),
+      // this message only ever comes from a design-drawn "+" tile INSIDE
+      // some modal/gallery view of its own — the exact case a reload would
+      // immediately close, right after the click meant to add to it. Handing
+      // the updated tree back over postMessage lets a design that opted
+      // into this feature (see services-detail-design.html) re-render just
+      // the affected view and put the modal back where the user had it.
+      if (preview && preview.contentWindow) {
+        preview.contentWindow.postMessage({ source: "crm-design-data-updated", data: tree }, "*");
+      }
+      designStatus.textContent = I18N.designEditedHint;
     });
 
     if (editToggleBtn) {
@@ -1787,60 +1956,35 @@
       });
     }
 
-    // Self-contained placeholder image (an inline SVG data URI, never a
-    // network request) so a freshly added "image" field shows an obvious
-    // "this needs a real picture" box in the preview instead of a broken
-    // image icon or nothing at all — same purpose as the text/markdown
-    // placeholders below, replaced the moment the user uploads a real
-    // file (see the image upload flow in the detail panel / preview
-    // click handler, both of which just overwrite node.value).
-    function placeholderImageDataURL() {
-      const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">' +
-        '<rect width="400" height="300" fill="#27272a"/>' +
-        '<g fill="none" stroke="#a78bfa" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">' +
-        '<rect x="100" y="85" width="200" height="140" rx="12"/>' +
-        '<circle cx="152" cy="133" r="16"/>' +
-        '<path d="M100 195 L165 145 L215 183 L255 145 L300 190"/>' +
-        '</g>' +
-        '</svg>';
-      return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
-    }
-    // Deep-clones the first root-level item as a starting point for a new
-    // one (same field shape the design already knows how to render), fills
-    // its leaf values with placeholder content instead of leaving them
-    // blank — an empty string/0 routinely renders as literally nothing in
-    // an AI-generated design (no box, no outline), which made a freshly
-    // added item look like the click did nothing; visible placeholder
-    // content means there's always something on screen to click and edit.
-    // Then re-renders the preview — unlike a text edit, a brand new item
-    // is a new DOM node the design's own script has to create, so this
-    // does need a full iframe reload (renderPreview), not just an
-    // in-place edit.
-    function defaultLeafValues(node) {
-      if (Array.isArray(node.children)) {
-        node.children.forEach(defaultLeafValues);
-      } else if (node.type === "boolean") {
-        node.value = false;
-      } else if (node.type === "number") {
-        node.value = 0;
-      } else if (node.type === "markdown") {
-        node.value = I18N.designAddItemDefaultMarkdown;
-      } else if (node.type === "image") {
-        node.value = placeholderImageDataURL();
-      } else {
-        node.value = I18N.designAddItemDefaultText;
-      }
-    }
     if (addItemBtn) {
+      // Where a new item goes depends on the entity's shape: an entity with
+      // header fields plus a repeated collection (e.g. badge/title + a
+      // "services" list) gets it appended to that list; an entity whose
+      // root IS the collection (e.g. one object per blog article) gets it
+      // appended at the root. Cloning tree[0] blindly used to duplicate the
+      // first header field instead — invisible in the rendered design.
+      // (placeholderImageDataURL/defaultLeafValues/uniqueItemKey live in the
+      // outer scope now — shared with the tree panel's own per-list "add
+      // element" button, so a nested list like a service's "projects" gets
+      // the same clone-a-template behavior as this root-level button.)
+      function findAddItemTarget() {
+        const list = tree.find((n) => n && n.type === "list" && Array.isArray(n.children) && n.children.length);
+        if (list) return { siblings: list.children, template: list.children[list.children.length - 1] };
+        const objects = tree.filter((n) => n && n.type === "object");
+        if (objects.length) return { siblings: tree, template: objects[objects.length - 1] };
+        return null;
+      }
       addItemBtn.addEventListener("click", () => {
-        if (!tree.length) {
+        const target = findAddItemTarget();
+        if (!target) {
           designStatus.textContent = I18N.designAddItemNeedsExisting;
           return;
         }
-        const clone = JSON.parse(JSON.stringify(tree[0]));
+        const clone = JSON.parse(JSON.stringify(target.template));
         defaultLeafValues(clone);
-        tree.push(clone);
-        dlog("add item: cloned structure of tree[0], new length=" + tree.length);
+        if (clone.key) clone.key = uniqueItemKey(target.siblings);
+        target.siblings.push(clone);
+        dlog("add item: appended clone to " + (target.siblings === tree ? "root" : "list") + ", count=" + target.siblings.length);
         renderAll();
         if (appliedDesignHTML) renderPreview(appliedDesignHTML);
         designStatus.textContent = I18N.designEditedHint;
@@ -1851,6 +1995,7 @@
       regenerateBtn.addEventListener("click", () => {
         dlog("regenerate requested — reopening form");
         appliedActions.style.display = "none";
+        if (editToggleWrap) editToggleWrap.style.display = "none";
         form.style.display = "";
       });
     }
@@ -1913,8 +2058,8 @@
             draftDesignHTML = body.html;
             form.style.display = "none";
             draftActions.classList.remove("hidden");
-            renderPreview(draftDesignHTML);
             if (window.crmSetDesignView) window.crmSetDesignView("design");
+            renderPreview(draftDesignHTML);
           })
           .catch((err) => {
             clearInterval(elapsedTimer);
@@ -1956,8 +2101,8 @@
             draftDesignHTML = body.html;
             form.style.display = "none";
             draftActions.classList.remove("hidden");
-            renderPreview(draftDesignHTML);
             if (window.crmSetDesignView) window.crmSetDesignView("design");
+            renderPreview(draftDesignHTML);
           })
           .catch((err) => {
             derror("design import: network/parse error:", err);

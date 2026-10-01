@@ -89,7 +89,7 @@ If you're shipping a static single-page app, you usually don't want the producti
 
 ### Option A — Vite plugin (recommended for Vite): identical code in dev and prod
 
-Your app code always calls `client.getDataSource(...)` / `client.getValue(...)` — never anything special-cased per environment, and **you don't list what to prefetch**: the plugin scans your source code for those calls (literal-string arguments only) and prefetches exactly what it finds. The plugin makes those calls resolve from build-time-fetched data with zero network request in the production bundle, while `vite` (the dev server) leaves them as real, live requests. Same code, same config, either way.
+Your app code always calls `client.getDataSource(...)` / `client.getValue(...)` / `client.getCRMEntity(...)` — never anything special-cased per environment, and **you don't list what to prefetch**: the plugin scans your source code for those calls (literal-string arguments only) and prefetches exactly what it finds. The plugin makes those calls resolve from build-time-fetched data with zero network request in the production bundle, while `vite` (the dev server) leaves them as real, live requests. Same code, same config, either way.
 
 ```js
 // vite.config.js
@@ -198,6 +198,22 @@ try {
 }
 ```
 
+## CRM+ entities
+
+CRM+ is a second, independent kind of content in EptaAdmin — not a workspace's flat tables, but a team's entities, each a tree of `{ type, key, value, children }` nodes (the same shape the entity editor itself works with: `"text"`/`"markdown"`/`"image"`/`"number"`/`"boolean"` leaves, `"list"`/`"object"` branches with `children`). `getCRMEntity()` returns that tree as-is, with every `"image"` leaf's value already rewritten into a signed, ready-to-use URL:
+
+```js
+const { content } = await client.getCRMEntity("madascribe", "blog");
+// content: [{ type: "object", key: "my-article", children: [
+//   { type: "text", key: "title", value: "..." },
+//   { type: "image", key: "image", value: "https://.../uploads/....webp?sig=..." },
+//   { type: "list", key: "tags", children: [{ type: "text", value: "..." }, ...] },
+//   { type: "markdown", key: "content", value: "..." },
+// ] }, ...]
+```
+
+There's no assumed schema beyond that — walk the tree the same way the entity editor does, keyed by each node's `key`.
+
 ## API reference
 
 - `new EptaAdminClient({ apiKey, baseUrl? })`
@@ -205,3 +221,5 @@ try {
 - `client.listDataSources(workspaceSlug): Promise<{ name, slug }[]>`
 - `client.getDataSource(workspaceSlug, dataSourceSlug): Promise<{ name, slug, columns }>`
 - `client.getValue(path): Promise<unknown>` — `path` is `"wsSlug/dsSlug/column"` (returns that column's full array) or `"wsSlug/dsSlug/column/index"` (returns one value)
+- `client.listCRMEntities(teamSlug): Promise<{ name, slug }[]>`
+- `client.getCRMEntity(teamSlug, entitySlug): Promise<{ name, slug, content }>` — see "CRM+ entities" above

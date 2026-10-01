@@ -1,5 +1,21 @@
 {{define "title"}}{{.CRMTeam.Name}} — CRM+ — EptaAdmin{{end}}
 {{define "content"}}
+<style>
+  .webhook-toggle-switch { display: inline-flex; align-items: center; cursor: pointer; }
+  .webhook-toggle-switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .webhook-toggle-track {
+    display: inline-block; width: 34px; height: 20px; border-radius: 9999px;
+    background: var(--eb-border-strong); position: relative; transition: background-color 0.15s;
+    flex-shrink: 0;
+  }
+  .webhook-toggle-knob {
+    position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 9999px;
+    background: #fff; transition: transform 0.15s;
+  }
+  .webhook-toggle-switch input:checked + .webhook-toggle-track { background: var(--eb-accent); }
+  .webhook-toggle-switch input:checked + .webhook-toggle-track .webhook-toggle-knob { transform: translateX(14px); }
+  .webhook-toggle-switch input:focus-visible + .webhook-toggle-track { outline: 2px solid var(--eb-accent); outline-offset: 2px; }
+</style>
 <div class="h-full flex">
   {{template "sidebar" .}}
 
@@ -52,6 +68,69 @@
         {{t .Lang "crm.no_entities"}}
       </div>
       {{end}}
+
+      {{if .CanManageWebhooks}}
+      <div class="flex items-center justify-between gap-3 mt-10 mb-3">
+        <div>
+          <h2 class="text-sm font-semibold" style="color: var(--eb-text);">{{t .Lang "crm.webhooks_title"}}</h2>
+          <p class="text-xs mt-0.5" style="color: var(--eb-muted);">{{t .Lang "crm.webhooks_subtitle"}}</p>
+        </div>
+        <button id="toggle-add-crm-webhook-btn" type="button" class="eb-btn-primary shrink-0 rounded-full text-xs font-semibold px-4 py-2 transition-colors">+ {{t .Lang "crm.add_webhook_button"}}</button>
+      </div>
+
+      <div id="add-crm-webhook-form" class="hidden eb-card rounded-xl p-4 space-y-3 mb-3">
+        <div id="add-crm-webhook-error" class="hidden rounded-lg text-sm px-3 py-2" style="background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: #fca5a5;"></div>
+        <div>
+          <label class="block text-xs font-medium mb-1" style="color: var(--eb-muted);" for="crm-webhook-url">{{t .Lang "crm.webhook_url_label"}}</label>
+          <input id="crm-webhook-url" type="text" placeholder="https://example.com/hooks/eptaadmin"
+            class="eb-input w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <button id="submit-crm-webhook-btn" type="button" class="eb-btn-primary w-full rounded-lg text-sm py-2 transition-colors">{{t .Lang "common.save"}}</button>
+      </div>
+
+      <div id="crm-webhook-secret-reveal" class="hidden eb-card rounded-xl p-4 space-y-2 mb-3" style="border: 1px solid var(--eb-accent);">
+        <p id="crm-webhook-secret-text" class="text-xs font-semibold" style="color: var(--eb-accent);"></p>
+        <button type="button" id="crm-webhook-secret-dismiss-btn" class="eb-btn-secondary w-full rounded-lg text-sm py-2 transition-colors">{{t .Lang "common.close"}}</button>
+      </div>
+
+      <div id="crm-webhook-list" class="space-y-3">
+        {{range .Webhooks}}
+        <div class="crm-webhook-row eb-card rounded-xl p-4" data-id="{{.ID}}">
+          <div class="flex items-center justify-between gap-4">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <p class="text-sm font-semibold truncate" style="color: var(--eb-text);">{{.URL}}</p>
+                <span class="crm-webhook-status-badge eb-badge text-xs" style="background: {{if .Enabled}}rgba(52,211,153,0.15){{else}}rgba(156,163,175,0.15){{end}}; color: {{if .Enabled}}var(--eb-accent){{else}}var(--eb-muted){{end}};">{{if .Enabled}}{{t $.Lang "crm.webhook_enabled"}}{{else}}{{t $.Lang "crm.webhook_disabled"}}{{end}}</span>
+              </div>
+              <p class="crm-webhook-last-triggered text-xs mt-1" style="color: var(--eb-muted);">
+                {{if .LastTriggeredAt.Valid}}{{t $.Lang "crm.webhook_last_triggered" (formatTime .LastTriggeredAt.Time) .LastStatus}}{{else}}{{t $.Lang "crm.webhook_never"}}{{end}}
+              </p>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <label class="webhook-toggle-switch" title="{{if .Enabled}}{{t $.Lang "crm.webhook_enabled"}}{{else}}{{t $.Lang "crm.webhook_disabled"}}{{end}}">
+                <input type="checkbox" class="crm-webhook-enabled-toggle" data-id="{{.ID}}" {{if .Enabled}}checked{{end}} />
+                <span class="webhook-toggle-track"><span class="webhook-toggle-knob"></span></span>
+              </label>
+              <button type="button" class="crm-webhook-trigger-btn eb-btn-secondary rounded-md text-xs px-3 py-1.5 transition-colors inline-flex items-center gap-1" data-id="{{.ID}}">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                {{t $.Lang "crm.webhook_send_button"}}
+              </button>
+              <div class="crm-webhook-menu-wrap relative">
+                <button type="button" class="crm-webhook-menu-btn eb-icon-btn text-xs" title="{{t $.Lang "crm.webhook_more_menu_title"}}">⋯</button>
+                <div class="crm-webhook-menu hidden absolute right-0 mt-1 w-52 rounded-lg py-1 eb-card z-10" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+                  <button type="button" class="crm-webhook-regenerate-btn block w-full text-left px-3 py-2 text-xs transition-colors" data-id="{{.ID}}" style="color: var(--eb-text);">{{t $.Lang "crm.webhook_regenerate_secret"}}</button>
+                  <button type="button" class="crm-webhook-delete-btn block w-full text-left px-3 py-2 text-xs transition-colors" data-id="{{.ID}}" style="color: #f87171;">{{t $.Lang "crm.webhook_delete_label"}}</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        {{end}}
+        {{if not .Webhooks}}
+        <div id="crm-webhook-empty-row" class="eb-card rounded-xl px-5 py-10 text-center text-sm" style="color: var(--eb-muted);">{{t .Lang "settings.no_webhooks"}}</div>
+        {{end}}
+      </div>
+      {{end}}
      </div>
     </main>
 
@@ -76,6 +155,128 @@
           if (!confirm("{{t .Lang "crm.delete_entity_confirm"}}")) return;
           fetch("/crm/" + teamSlug + "/entities/" + btn.dataset.slug, { method: "DELETE" })
             .then(() => window.location.reload());
+        });
+      });
+
+      // ---- CRM+ team webhooks ----
+      const addWebhookBtn = document.getElementById("toggle-add-crm-webhook-btn");
+      const addWebhookForm = document.getElementById("add-crm-webhook-form");
+      const webhookUrlInput = document.getElementById("crm-webhook-url");
+      const webhookErrorBox = document.getElementById("add-crm-webhook-error");
+      const submitWebhookBtn = document.getElementById("submit-crm-webhook-btn");
+      const secretReveal = document.getElementById("crm-webhook-secret-reveal");
+      const secretText = document.getElementById("crm-webhook-secret-text");
+      const genericError = "{{t .Lang "common.error_generic"}}";
+      const lastTriggeredTemplate = "{{t .Lang "crm.webhook_last_triggered" "%DATE%" "%STATUS%"}}";
+
+      if (addWebhookBtn && addWebhookForm) {
+        addWebhookBtn.addEventListener("click", () => {
+          addWebhookForm.classList.toggle("hidden");
+          if (!addWebhookForm.classList.contains("hidden")) webhookUrlInput?.focus();
+        });
+      }
+
+      if (submitWebhookBtn) {
+        submitWebhookBtn.addEventListener("click", async () => {
+          const url = webhookUrlInput.value.trim();
+          webhookErrorBox.classList.add("hidden");
+          try {
+            const res = await fetch("/crm/" + teamSlug + "/webhooks", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ url }),
+            });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              webhookErrorBox.textContent = body.error || genericError;
+              webhookErrorBox.classList.remove("hidden");
+              return;
+            }
+            window.location.reload();
+          } catch (e) {
+            webhookErrorBox.textContent = genericError;
+            webhookErrorBox.classList.remove("hidden");
+          }
+        });
+      }
+
+      document.getElementById("crm-webhook-secret-dismiss-btn")?.addEventListener("click", () => {
+        secretReveal?.classList.add("hidden");
+      });
+
+      document.querySelectorAll(".crm-webhook-delete-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (!confirm("{{t .Lang "crm.webhook_delete_confirm"}}")) return;
+          const res = await fetch("/crm/" + teamSlug + "/webhooks/" + btn.dataset.id, { method: "DELETE" });
+          if (res.ok) window.location.reload();
+        });
+      });
+
+      document.querySelectorAll(".crm-webhook-enabled-toggle").forEach((toggle) => {
+        toggle.addEventListener("change", async () => {
+          const row = toggle.closest(".crm-webhook-row");
+          try {
+            const res = await fetch("/crm/" + teamSlug + "/webhooks/" + toggle.dataset.id, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ enabled: toggle.checked }),
+            });
+            if (!res.ok) { toggle.checked = !toggle.checked; return; }
+            const badge = row?.querySelector(".crm-webhook-status-badge");
+            if (badge) {
+              badge.textContent = toggle.checked ? "{{t .Lang "crm.webhook_enabled"}}" : "{{t .Lang "crm.webhook_disabled"}}";
+              badge.style.background = toggle.checked ? "rgba(52,211,153,0.15)" : "rgba(156,163,175,0.15)";
+              badge.style.color = toggle.checked ? "var(--eb-accent)" : "var(--eb-muted)";
+            }
+          } catch (e) { toggle.checked = !toggle.checked; }
+        });
+      });
+
+      document.querySelectorAll(".crm-webhook-menu-wrap").forEach((wrap) => {
+        const btn = wrap.querySelector(".crm-webhook-menu-btn");
+        const menu = wrap.querySelector(".crm-webhook-menu");
+        if (!btn || !menu) return;
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          document.querySelectorAll(".crm-webhook-menu").forEach((m) => { if (m !== menu) m.classList.add("hidden"); });
+          menu.classList.toggle("hidden");
+        });
+      });
+      document.addEventListener("click", () => {
+        document.querySelectorAll(".crm-webhook-menu").forEach((m) => m.classList.add("hidden"));
+      });
+
+      document.querySelectorAll(".crm-webhook-regenerate-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const res = await fetch("/crm/" + teamSlug + "/webhooks/" + btn.dataset.id + "/regenerate-secret", { method: "POST" });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) return;
+          if (secretText && secretReveal) {
+            secretText.textContent = "{{t .Lang "crm.webhook_secret_shown"}}".replace("%s", body.secret);
+            secretReveal.classList.remove("hidden");
+          }
+        });
+      });
+
+      document.querySelectorAll(".crm-webhook-trigger-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (btn.dataset.busy) return;
+          btn.dataset.busy = "1";
+          const original = btn.innerHTML;
+          const row = btn.closest(".crm-webhook-row");
+          btn.disabled = true;
+          try {
+            const res = await fetch("/crm/" + teamSlug + "/webhooks/" + btn.dataset.id + "/trigger", { method: "POST" });
+            const body = await res.json().catch(() => ({}));
+            const lastTriggeredEl = row?.querySelector(".crm-webhook-last-triggered");
+            if (lastTriggeredEl && body.lastTriggeredAt) {
+              lastTriggeredEl.textContent = lastTriggeredTemplate.replace("%DATE%", body.lastTriggeredAt).replace("%STATUS%", body.lastStatus || "");
+            }
+          } finally {
+            delete btn.dataset.busy;
+            btn.disabled = false;
+            btn.innerHTML = original;
+          }
         });
       });
     })();

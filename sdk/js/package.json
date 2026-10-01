@@ -1,6 +1,6 @@
 {
   "name": "eptaadmin-sdk",
-  "version": "0.1.10",
+  "version": "0.2.0",
   "description": "Client SDK for reading your EptaAdmin workspace data from your own project.",
   "type": "module",
   "main": "src/index.js",
@@ -24,7 +24,7 @@
     "README.md"
   ],
   "bin": {
-    "eptaadmin-prefetch": "./bin/prefetch.js"
+    "eptaadmin-prefetch": "bin/prefetch.js"
   },
   "peerDependencies": {
     "vite": ">=4"

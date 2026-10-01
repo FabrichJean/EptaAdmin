@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -89,6 +90,49 @@ func HandleCreateCRMTeam(a *app.App, w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/crm/"+team.Slug, http.StatusSeeOther)
 }
 
+// HandleRenameCRMTeam changes a team's display name AND its slug (see
+// Store.RenameCRMTeam — every existing /crm/{slug}/... link for this team
+// stops working the moment it's renamed, by explicit request). Gated on
+// roles.PermWorkspaceManage, the same Owner-only permission that would
+// cover renaming/deleting a workspace itself (see roles.go): a CRM+ team
+// is CRM+'s equivalent of a workspace, not a piece of its data.
+func HandleRenameCRMTeam(a *app.App, w http.ResponseWriter, r *http.Request) {
+	currentUser := app.UserFromContext(r)
+	lang := a.ResolveLang(r)
+	team, role, ok := loadCRMTeamMembership(a, w, r, currentUser)
+	if !ok {
+		return
+	}
+	if !roles.HasPermission(role, roles.PermWorkspaceManage) {
+		webutil.WriteJSON(w, http.StatusForbidden, map[string]string{"error": i18n.T(lang, "common.access_denied")})
+		return
+	}
+
+	var req struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		webutil.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": i18n.T(lang, "common.invalid_request")})
+		return
+	}
+	newName := strings.TrimSpace(req.Name)
+	if newName == "" {
+		webutil.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": i18n.T(lang, "crm.name_required")})
+		return
+	}
+	oldName := team.Name
+
+	newSlug, err := a.Store.RenameCRMTeam(team.ID, newName)
+	if err != nil {
+		log.Printf("rename crm team error: %v", err)
+		webutil.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": i18n.T(lang, "common.error_generic")})
+		return
+	}
+	a.LogActivity(app.LogActivityParams{UserID: currentUser.ID, Action: store.ActionCRMTeamRename, Details: map[string]any{"oldName": oldName, "newName": newName}})
+
+	webutil.WriteJSON(w, http.StatusOK, map[string]string{"name": newName, "slug": newSlug})
+}
+
 // loadCRMTeamMembership fetches the team and the caller's role in it,
 // writing an HTTP error and returning ok=false if either is missing —
 // mirrors loadWorkspaceMembership.
@@ -131,15 +175,23 @@ func HandleCRMTeamDetail(a *app.App, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
 		return
 	}
+	webhooks, err := a.Store.ListCRMTeamWebhooks(team.ID)
+	if err != nil {
+		log.Printf("list crm team webhooks error: %v", err)
+		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
+		return
+	}
 
 	a.Render(w, r, "crm_team_detail.html", map[string]any{
-		"CurrentUser":      currentUser,
-		"ActiveNav":        "crm",
-		"PageTitle":        team.Name,
-		"CRMTeam":          team,
-		"Entities":         entities,
-		"CanManageData":    roles.HasPermission(role, roles.PermDataCreate),
-		"CanManageMembers": roles.HasPermission(role, roles.PermMembersManage),
+		"CurrentUser":       currentUser,
+		"ActiveNav":         "crm",
+		"PageTitle":         team.Name,
+		"CRMTeam":           team,
+		"Entities":          entities,
+		"Webhooks":          webhooks,
+		"CanManageData":     roles.HasPermission(role, roles.PermDataCreate),
+		"CanManageMembers":  roles.HasPermission(role, roles.PermMembersManage),
+		"CanManageWebhooks": roles.HasPermission(role, roles.PermWorkspaceManage),
 		"Breadcrumb": []app.Breadcrumb{
 			{Label: i18n.T(lang, "nav.crm"), URL: "/crm"},
 			{Label: team.Name},
@@ -172,7 +224,9 @@ func HandleCreateCRMEntity(a *app.App, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err == nil {
-		a.LogActivity(app.LogActivityParams{UserID: currentUser.ID, Action: store.ActionCRMEntityCreate, Details: map[string]any{"teamName": team.Name, "name": entity.Name}})
+		details := map[string]any{"teamName": team.Name, "name": entity.Name}
+		a.LogActivity(app.LogActivityParams{UserID: currentUser.ID, Action: store.ActionCRMEntityCreate, Details: details})
+		a.FireCRMTeamWebhooks(team.ID, store.ActionCRMEntityCreate, details)
 	}
 	http.Redirect(w, r, "/crm/"+team.Slug, http.StatusSeeOther)
 }
@@ -203,7 +257,9 @@ func HandleDeleteCRMEntity(a *app.App, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Une erreur est survenue.", http.StatusInternalServerError)
 		return
 	}
-	a.LogActivity(app.LogActivityParams{UserID: currentUser.ID, Action: store.ActionCRMEntityDelete, Details: map[string]any{"teamName": team.Name, "name": entity.Name}})
+	deleteDetails := map[string]any{"teamName": team.Name, "name": entity.Name}
+	a.LogActivity(app.LogActivityParams{UserID: currentUser.ID, Action: store.ActionCRMEntityDelete, Details: deleteDetails})
+	a.FireCRMTeamWebhooks(team.ID, store.ActionCRMEntityDelete, deleteDetails)
 	http.Redirect(w, r, "/crm/"+team.Slug, http.StatusSeeOther)
 }
 
@@ -285,7 +341,9 @@ func HandleSaveCRMEntityContent(a *app.App, w http.ResponseWriter, r *http.Reque
 		webutil.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": i18n.T(lang, "common.error_generic")})
 		return
 	}
-	a.LogActivity(app.LogActivityParams{UserID: currentUser.ID, Action: store.ActionCRMEntityUpdate, Details: map[string]any{"teamName": team.Name, "name": entity.Name}})
+	updateDetails := map[string]any{"teamName": team.Name, "name": entity.Name}
+	a.LogActivity(app.LogActivityParams{UserID: currentUser.ID, Action: store.ActionCRMEntityUpdate, Details: updateDetails})
+	a.FireCRMTeamWebhooks(team.ID, store.ActionCRMEntityUpdate, updateDetails)
 
 	webutil.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
@@ -318,6 +376,90 @@ func verifyCRMUploadSignature(a *app.App, teamSlug, filename, sigParam string) (
 	}
 	expected := uploads.ComputeUploadSignature(secret, crmUploadSigningNamespace+teamSlug, filename)
 	return hmac.Equal([]byte(expected), []byte(sigParam)), nil
+}
+
+// crmContentImagePattern matches an "image" field's value when it points
+// at THIS team's own upload endpoint (see HandleCRMUpload/crmUploadURL) —
+// distinct from uploads.SignImageValue's own pattern, which only matches
+// the workspace upload shape ("/workspaces/{slug}/uploads/{file}"). An
+// entity's image field isn't required to hold either shape specifically —
+// an editor is free to paste in a value copied from a workspace table
+// (exactly what the "madascribe/blog" entity's own data does today) — so
+// signCRMEntityContentImages below tries both before giving up.
+var crmContentImagePattern = regexp.MustCompile(`^/crm/([^/]+)/uploads/(.+)$`)
+
+// signCRMEntityContentImages walks a CRM entity's content tree and
+// replaces every "image" leaf's value with a signed, publicly-fetchable
+// URL — mirroring uploads.SignImageValuesInColumnsMap's job for the
+// classic datasource API (handlers_api.go), which handleAPIGetCRMEntity
+// otherwise has no equivalent of: entity content is returned to the
+// public API completely unsigned today, so any image field pointing at
+// either upload endpoint would 403 the moment a caller tried to actually
+// load it. The tree shape is never schema-validated server-side (see
+// HandleSaveCRMEntityContent), so decoding is deliberately loose
+// (map[string]any) — anything that doesn't look like {type,value,
+// children} is left untouched rather than failing the whole response.
+func signCRMEntityContentImages(a *app.App, teamSlug, contentJSON string) string {
+	var tree []map[string]any
+	if err := json.Unmarshal([]byte(contentJSON), &tree); err != nil {
+		return contentJSON
+	}
+	if !signCRMImageNodes(a, teamSlug, tree) {
+		return contentJSON
+	}
+	out, err := json.Marshal(tree)
+	if err != nil {
+		return contentJSON
+	}
+	return string(out)
+}
+
+func signCRMImageNodes(a *app.App, teamSlug string, nodes []map[string]any) bool {
+	changed := false
+	for _, node := range nodes {
+		if t, _ := node["type"].(string); t == "image" {
+			if v, ok := node["value"].(string); ok && v != "" {
+				if signed, ok := signOneCRMContentImage(a, teamSlug, v); ok {
+					node["value"] = signed
+					changed = true
+				}
+			}
+			continue
+		}
+		childrenAny, ok := node["children"].([]any)
+		if !ok {
+			continue
+		}
+		children := make([]map[string]any, 0, len(childrenAny))
+		for _, c := range childrenAny {
+			if cm, ok := c.(map[string]any); ok {
+				children = append(children, cm)
+			}
+		}
+		// children holds map[string]any values, a reference type — signing
+		// mutates them in place, so no reassignment back into node["children"]
+		// is needed even though `children` itself is a freshly built slice.
+		if signCRMImageNodes(a, teamSlug, children) {
+			changed = true
+		}
+	}
+	return changed
+}
+
+// signOneCRMContentImage tries the workspace upload shape first (the one
+// actually in use by today's real data), then this team's own CRM upload
+// shape, returning ok=false unchanged for anything else (an external URL,
+// a data: URI, plain text that isn't a URL at all).
+func signOneCRMContentImage(a *app.App, teamSlug, value string) (string, bool) {
+	if signed, ok := uploads.SignImageValue(a.Store, value).(string); ok && signed != value {
+		return signed, true
+	}
+	if m := crmContentImagePattern.FindStringSubmatch(value); m != nil {
+		if signed, err := signCRMUploadPath(a, m[1], m[2]); err == nil {
+			return signed, true
+		}
+	}
+	return value, false
 }
 
 func HandleCRMUpload(a *app.App, w http.ResponseWriter, r *http.Request) {
@@ -658,5 +800,6 @@ func HandleAPIGetCRMEntity(a *app.App, w http.ResponseWriter, r *http.Request) {
 		webutil.WriteJSON(w, http.StatusNotFound, map[string]string{"error": i18n.T(lang, "crm.entity_not_found")})
 		return
 	}
-	webutil.WriteJSON(w, http.StatusOK, apiCRMEntity{Name: entity.Name, Slug: entity.Slug, Content: json.RawMessage(entity.ContentJSON)})
+	signedContent := signCRMEntityContentImages(a, team.Slug, entity.ContentJSON)
+	webutil.WriteJSON(w, http.StatusOK, apiCRMEntity{Name: entity.Name, Slug: entity.Slug, Content: json.RawMessage(signedContent)})
 }

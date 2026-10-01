@@ -138,6 +138,49 @@ func (s *Store) CreateCRMTeam(name string, creatorID int64) (*CRMTeam, error) {
 	return s.GetCRMTeamByID(id)
 }
 
+// RenameCRMTeam changes a team's display name AND regenerates its slug to
+// match — unlike Store.RenameTable/RenameDataSource, which deliberately
+// keep the slug stable. This does mean every existing /crm/{slug}/...
+// link (including entity, design and public API URLs) for this team
+// breaks the moment it's renamed — an explicit tradeoff the caller asked
+// for, favoring a URL that always matches the current name over link
+// stability. Collision handling mirrors CreateCRMTeam's own
+// slugify-then-suffix loop, just excluding this team's own row so
+// renaming to a name that happens to slugify the same way is a no-op
+// rather than a collision with itself. Returns the new slug so the
+// caller can redirect there instead of 404ing on the old one.
+func (s *Store) RenameCRMTeam(id int64, name string) (string, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback()
+
+	base := slugify(name)
+	if base == "" {
+		base = "team"
+	}
+	slug := base
+	for suffix := 2; ; suffix++ {
+		var exists int
+		if err := tx.QueryRow(`SELECT COUNT(*) FROM crm_teams WHERE slug = ? AND id != ?`, slug, id).Scan(&exists); err != nil {
+			return "", err
+		}
+		if exists == 0 {
+			break
+		}
+		slug = base + "-" + strconv.Itoa(suffix)
+	}
+
+	if _, err := tx.Exec(`UPDATE crm_teams SET name = ?, slug = ? WHERE id = ?`, name, slug, id); err != nil {
+		return "", err
+	}
+	if err := tx.Commit(); err != nil {
+		return "", err
+	}
+	return slug, nil
+}
+
 func scanCRMTeam(row *sql.Row) (*CRMTeam, error) {
 	t := &CRMTeam{}
 	err := row.Scan(&t.ID, &t.Name, &t.Slug, &t.CreatedBy, &t.CreatedAt)

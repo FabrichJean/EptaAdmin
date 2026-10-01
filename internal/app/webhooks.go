@@ -135,6 +135,98 @@ func (a *App) DeliverWebhook(hook *store.Webhook, event string, manual bool, det
 	return nil
 }
 
+// DeliverCRMTeamWebhook is DeliverWebhook's CRM+ team equivalent (see its
+// own comment) — same payload shape, signing and delivery-status tracking,
+// just against the crm_team_webhooks table instead of workspace webhooks.
+func (a *App) DeliverCRMTeamWebhook(hook *store.CRMTeamWebhook, event string, manual bool, details map[string]any) (err error) {
+	deliveryID, err := newDeliveryID()
+	if err != nil {
+		return err
+	}
+	a.WebhookDeploy.start(webhookTargetLabel(hook.URL), deliveryID)
+	defer func() { a.WebhookDeploy.finish(err) }()
+
+	var progressURL string
+	if a.PublicURL != "" {
+		progressURL = a.PublicURL + "/api/webhooks/deliveries/" + deliveryID + "/progress"
+	}
+
+	payload := webhookPayload{
+		Event:       event,
+		Manual:      manual,
+		Timestamp:   time.Now().UTC().Format(time.RFC3339),
+		DeliveryID:  deliveryID,
+		ProgressURL: progressURL,
+		Details:     details,
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, hook.URL, bytes.NewReader(body))
+	if err != nil {
+		a.Store.MarkCRMTeamWebhookTriggered(hook.ID, "invalid URL")
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-EptaAdmin-Signature", computeWebhookSignature(hook.Secret, body))
+	req.Header.Set("X-EptaAdmin-Event", event)
+
+	client := &http.Client{Timeout: webhookDeliveryTimeout}
+	resp, err := client.Do(req)
+	if err != nil {
+		a.Store.MarkCRMTeamWebhookTriggered(hook.ID, "error: "+err.Error())
+		return err
+	}
+	defer resp.Body.Close()
+
+	status := resp.Status
+	if err := a.Store.MarkCRMTeamWebhookTriggered(hook.ID, status); err != nil {
+		log.Printf("mark crm team webhook triggered error: %v", err)
+	}
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("webhook responded with %s", status)
+	}
+	return nil
+}
+
+// FireCRMTeamWebhooks is fireWebhooks' CRM+ team equivalent — exported
+// (unlike fireWebhooks) because it's called directly from the internal/crm
+// handlers that modify a team's entities (content save, create/delete,
+// design apply/clear), a different package, since CRM+ activity is logged
+// account-level (no workspace_id) and so never reaches fireWebhooks itself.
+func (a *App) FireCRMTeamWebhooks(teamID int64, event string, details map[string]any) {
+	if teamID == 0 {
+		return
+	}
+	hooks, err := a.Store.ListCRMTeamWebhooks(teamID)
+	if err != nil {
+		log.Printf("list crm team webhooks error: %v", err)
+		return
+	}
+	for _, h := range hooks {
+		if !h.Enabled {
+			continue
+		}
+		hook := h
+		go func() {
+			deliverErr := a.DeliverCRMTeamWebhook(hook, event, false, details)
+			if deliverErr != nil {
+				log.Printf("crm team webhook delivery error (team %d, url %s): %v", hook.CRMTeamID, hook.URL, deliverErr)
+			}
+			errText := ""
+			if deliverErr != nil {
+				errText = deliverErr.Error()
+			}
+			a.LogActivity(LogActivityParams{
+				Action:  store.ActionWebhookAutoTrigger,
+				Details: map[string]any{"url": hook.URL, "triggeringAction": event, "success": deliverErr == nil, "error": errText},
+			})
+		}()
+	}
+}
+
 // fireWebhooks delivers a workspace-scoped event to every enabled webhook
 // on that workspace, each in its own goroutine so a slow or unreachable
 // external server never delays the request that triggered them — see the
