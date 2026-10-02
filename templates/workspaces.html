@@ -149,7 +149,12 @@
           .then((res) => (res.ok ? res.json() : []))
           .then((items) => {
             if (seq !== searchSeq) return; // a newer query superseded this one
-            renderResults(items || [], q);
+            // This box is scoped to workspace data (see its own heading) —
+            // /api/search now also returns CRM+ entity matches (kind
+            // "crm", see internal/workspace/search.go), shown instead in
+            // the header's own ⌘K global search, which has its own
+            // renderer for that shape.
+            renderResults((items || []).filter((item) => item.kind !== "crm"), q);
           })
           .catch(() => { if (seq === searchSeq) hideResultsPanel(); });
       }
