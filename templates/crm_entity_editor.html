@@ -1092,6 +1092,28 @@
     for (let i = 0; i < path.length; i++) {
       if (!Array.isArray(cursor)) return;
       const segment = path[i];
+      if (segment === "children") continue;
+      const node = cursor[segment];
+      if (!node) return;
+      const isLast = path[i + 1] !== "children";
+      if (isLast) {
+        targetNode = node;
+        targetSiblings = cursor;
+        break;
+      }
+      collapsed.delete(node);
+      cursor = node.children;
+    }
+    if (!targetNode) return;
+
+    selectNode(targetNode, targetSiblings);
+    const row = document.querySelector(".crm-row-selected");
+    if (row) {
+      row.classList.add("eb-row-highlight");
+      row.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  })();
+
   const addRootBtn = document.getElementById("crm-add-root-field-btn");
   if (addRootBtn) {
     addRootBtn.addEventListener("click", () => {
