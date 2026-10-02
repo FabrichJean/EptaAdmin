@@ -10,6 +10,7 @@ import (
 	"eptaadmin/internal/webutil"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -261,6 +262,35 @@ type trackCollectRequest struct {
 	Timestamp  string `json:"timestamp"`
 }
 
+// domainMatches reports whether pageURL (the page the visitor was on,
+// client-reported as location.href — see static/track.js) belongs to the
+// site's configured domain. A site with no domain configured (the
+// pre-existing default) accepts events from anywhere, same as before this
+// check existed. Matching ignores scheme, "www.", port and path, so
+// "fabrich.com" covers "https://fabrich.com/foo" and
+// "https://www.fabrich.com/foo" alike, but not "http://localhost:3000" —
+// which is the point: testing the site locally with the same key must not
+// pollute the production domain's analytics.
+func domainMatches(domain, pageURL string) bool {
+	domain = strings.ToLower(strings.TrimSpace(domain))
+	domain = strings.TrimPrefix(domain, "https://")
+	domain = strings.TrimPrefix(domain, "http://")
+	domain = strings.TrimPrefix(domain, "www.")
+	if i := strings.IndexAny(domain, "/:"); i != -1 {
+		domain = domain[:i]
+	}
+	if domain == "" {
+		return true
+	}
+
+	u, err := url.Parse(pageURL)
+	if err != nil {
+		return false
+	}
+	host := strings.ToLower(strings.TrimPrefix(u.Hostname(), "www."))
+	return host != "" && host == domain
+}
+
 // handleTrackCollect is the public ingestion endpoint the embedded SDK
 // (static/track.js) posts every enter/exit event to. It's deliberately
 // unauthenticated by session — auth here is the site's own public
@@ -284,6 +314,10 @@ func HandleTrackCollect(a *app.App, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if site == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if !domainMatches(site.Domain, req.URL) {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
