@@ -56,7 +56,7 @@
           </div>
 
           {{if .CanEdit}}
-          <div id="crm-detail-panel" class="hidden w-full lg:w-80 shrink-0 eb-card rounded-xl p-4"></div>
+          <div id="crm-detail-panel" class="hidden w-full lg:w-80 shrink-0 eb-card rounded-xl p-4" style="position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto;"></div>
           {{end}}
         </div>
       </div>
@@ -1384,6 +1384,20 @@
       "      .replace(/\\s+/g, ' ')\n" +
       "      .trim();\n" +
       "  }\n" +
+      // Finds the single element rendering one specific node's value —
+      // used only for the one-shot scroll-to-path below, so (unlike
+      // buildIndex/markEditable) it doesn't need to tag or index anything,
+      // just locate and return the first match with the same by-value
+      // techniques those use (exact text for text/number, src for
+      // image/video, substring-of-plain-text for markdown).
+      "  function findElementByValue(node) {\n" +
+      "    if (!node) return null;\n" +
+      "    if (node.type === 'image' && node.value) {\n" +
+      "      var media = document.querySelectorAll('img, video');\n" +
+      "      var want = String(node.value).trim();\n" +
+      "      for (var i = 0; i < media.length; i++) {\n" +
+      "        if ((media[i].getAttribute('src') || '').trim() === want) return media[i];\n" +
+      "      }\n" +
       "  function buildIndex() {\n" +
       "    var textIndex = {};\n" +
       "    var markdownEntries = [];\n" +
