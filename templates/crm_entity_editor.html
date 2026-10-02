@@ -1069,6 +1069,29 @@
 
   renderAll();
 
+  // --- Highlight a field reached from global search (?highlightPath=) ---
+  // The path is [index, "children", index, ...] — the same addressing
+  // getNodeByPath uses elsewhere in this file — built by
+  // internal/workspace/search.go from the matched node's position in the
+  // tree. Every "list"/"object" ancestor along the way gets expanded first
+  // (collapsed.delete), since a collapsed group would otherwise hide the
+  // target row from the DOM entirely — same idea as datasource_table.html's
+  // own ?highlightColumn=/?highlightIndex= scroll-and-flash, just walking a
+  // tree instead of indexing a flat grid.
+  (function highlightFromSearch() {
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get("highlightPath");
+    if (!raw) return;
+    let path;
+    try { path = JSON.parse(raw); } catch (e) { return; }
+    if (!Array.isArray(path) || !path.length) return;
+
+    let cursor = tree;
+    let targetNode = null;
+    let targetSiblings = null;
+    for (let i = 0; i < path.length; i++) {
+      if (!Array.isArray(cursor)) return;
+      const segment = path[i];
   const addRootBtn = document.getElementById("crm-add-root-field-btn");
   if (addRootBtn) {
     addRootBtn.addEventListener("click", () => {
