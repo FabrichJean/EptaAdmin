@@ -132,5 +132,37 @@ func HandleGlobalSearch(a *app.App, w http.ResponseWriter, r *http.Request) {
 		for _, entity := range entities {
 			perSourceCount := 0
 			appendHit := func(field, value string, nodePath []any) bool {
+				results = append(results, searchResult{
+					Kind:          "crm",
+					CRMTeamName:   team.Name,
+					CRMTeamSlug:   team.Slug,
+					CRMEntityName: entity.Name,
+					CRMEntitySlug: entity.Slug,
+					CRMField:      field,
+					CRMPath:       nodePath,
+					Value:         truncateSearchValue(value),
+				})
+				perSourceCount++
+				return len(results) >= maxSearchResults
+			}
+			if strings.Contains(strings.ToLower(entity.Name), lowerQuery) {
+				if appendHit("Nom", entity.Name, nil) {
+					webutil.WriteJSON(w, http.StatusOK, results)
+					return
+				}
+			}
+			hits := store.SearchCRMEntityContent(entity.ContentJSON, query, maxSearchResultsPerSource)
+			for _, hit := range hits {
+				if perSourceCount >= maxSearchResultsPerSource {
+					break
+				}
+				if appendHit(hit.Label, hit.Value, hit.NodePath) {
+					webutil.WriteJSON(w, http.StatusOK, results)
+					return
+				}
+			}
+		}
+	}
+
 	webutil.WriteJSON(w, http.StatusOK, results)
 }
