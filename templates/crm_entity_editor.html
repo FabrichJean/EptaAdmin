@@ -1398,6 +1398,21 @@
       "      for (var i = 0; i < media.length; i++) {\n" +
       "        if ((media[i].getAttribute('src') || '').trim() === want) return media[i];\n" +
       "      }\n" +
+      "      return null;\n" +
+      "    }\n" +
+      "    if (node.type === 'markdown' && node.value) {\n" +
+      "      var plain = stripMarkdown(node.value);\n" +
+      "      if (!plain) return null;\n" +
+      "      var all = document.body.querySelectorAll('*');\n" +
+      "      for (var j = 0; j < all.length; j++) {\n" +
+      "        var text = (all[j].textContent || '').replace(/\\s+/g, ' ').trim();\n" +
+      "        if (text.length < 20) continue;\n" +
+      "        if (plain.indexOf(text) !== -1) return all[j];\n" +
+      "      }\n" +
+      "      return null;\n" +
+      "    }\n" +
+      "    if (node.value === undefined || node.value === null || node.value === '') return null;\n" +
+      "    var target = String(node.value).trim();\n" +
       "  function buildIndex() {\n" +
       "    var textIndex = {};\n" +
       "    var markdownEntries = [];\n" +
