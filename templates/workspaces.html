@@ -57,8 +57,13 @@
               </div>
             </a>
             {{if eq .Role "owner"}}
-            <button type="button" class="workspace-delete-btn absolute top-2 right-2 h-6 w-6 hidden group-hover:flex items-center justify-center rounded text-sm leading-none eb-icon-btn-ok"
-              data-workspace-slug="{{.Slug}}" data-workspace-name="{{.Name}}" title="{{t $.Lang "workspaces.delete_button"}}" style="color: #f87171;">🗑</button>
+            <div class="workspace-menu-wrap absolute top-2 right-2 hidden group-hover:block">
+              <button type="button" class="workspace-menu-btn h-6 w-6 flex items-center justify-center rounded text-sm leading-none eb-icon-btn-ok" title="{{t $.Lang "crm.webhook_more_menu_title"}}">⋯</button>
+              <div class="workspace-menu hidden absolute right-0 mt-1 w-56 rounded-lg py-1 eb-card z-10" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+                <button type="button" class="workspace-delete-btn block w-full text-left px-3 py-2 text-xs transition-colors"
+                  data-workspace-slug="{{.Slug}}" data-workspace-name="{{.Name}}" style="color: #f87171;">{{t $.Lang "workspaces.delete_button"}}</button>
+              </div>
+            </div>
             {{end}}
           </div>
           {{end}}
@@ -207,6 +212,21 @@
         window.addEventListener("resize", updateScrollBtn);
         updateScrollBtn();
       }
+
+      document.querySelectorAll(".workspace-menu-wrap").forEach((wrap) => {
+        const btn = wrap.querySelector(".workspace-menu-btn");
+        const menu = wrap.querySelector(".workspace-menu");
+        if (!btn || !menu) return;
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          document.querySelectorAll(".workspace-menu").forEach((m) => { if (m !== menu) m.classList.add("hidden"); });
+          menu.classList.toggle("hidden");
+        });
+      });
+      document.addEventListener("click", () => {
+        document.querySelectorAll(".workspace-menu").forEach((m) => m.classList.add("hidden"));
+      });
 
       document.querySelectorAll(".workspace-delete-btn").forEach((btn) => {
         btn.addEventListener("click", (e) => {
