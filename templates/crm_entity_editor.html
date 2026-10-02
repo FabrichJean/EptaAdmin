@@ -1413,6 +1413,22 @@
       "    }\n" +
       "    if (node.value === undefined || node.value === null || node.value === '') return null;\n" +
       "    var target = String(node.value).trim();\n" +
+      "    var leaves = document.body.querySelectorAll('*');\n" +
+      "    for (var k = 0; k < leaves.length; k++) {\n" +
+      "      if (leaves[k].children.length > 0) continue;\n" +
+      "      if ((leaves[k].textContent || '').trim() === target) return leaves[k];\n" +
+      "    }\n" +
+      "    return null;\n" +
+      "  }\n" +
+      // Fired once by the parent right after this design loads, when the
+      // page was reached via a search result (see the parent's own
+      // pendingHighlightPath) — scrolls to and briefly flashes whichever
+      // element renders that field, with no dependency on edit mode being
+      // on (markEditable's own tagging is a separate, heavier mechanism
+      // this intentionally doesn't touch).
+      "  window.addEventListener('message', function (e) {\n" +
+      "    if (!e.data || e.data.source !== 'crm-design-scroll-to-path') return;\n" +
+      "    var node = getNodeByPath(e.data.path);\n" +
       "  function buildIndex() {\n" +
       "    var textIndex = {};\n" +
       "    var markdownEntries = [];\n" +
