@@ -53,10 +53,15 @@ type searchResult struct {
 func truncateSearchValue(value string) string {
 	if len(value) > 120 {
 		return value[:120] + "…"
+	}
+	return value
+}
+
 // handleGlobalSearch looks for a query string inside the actual data (column
 // values) of every data source across every workspace the requesting user is
-// a member of — not just workspace names. Scoped to workspaces.html's search
-// box.
+// a member of, and inside every CRM+ entity's content across every CRM+ team
+// they're a member of — not just workspace/entity names. Scoped to
+// workspaces.html's search box and the header's ⌘K global search.
 func HandleGlobalSearch(a *app.App, w http.ResponseWriter, r *http.Request) {
 	currentUser := app.UserFromContext(r)
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
@@ -90,18 +95,15 @@ func HandleGlobalSearch(a *app.App, w http.ResponseWriter, r *http.Request) {
 			}
 			hits := store.SearchRecords(records, query, maxSearchResultsPerSource)
 			for _, hit := range hits {
-				value := hit.Value
-				if len(value) > 120 {
-					value = value[:120] + "…"
-				}
 				results = append(results, searchResult{
+					Kind:           "workspace",
 					WorkspaceName:  ws.Name,
 					WorkspaceSlug:  ws.Slug,
 					DataSourceName: t.Name,
 					DataSourceSlug: t.Slug,
 					Column:         hit.Column,
 					Index:          hit.Index,
-					Value:          value,
+					Value:          truncateSearchValue(hit.Value),
 				})
 				if len(results) >= maxSearchResults {
 					webutil.WriteJSON(w, http.StatusOK, results)
@@ -111,5 +113,24 @@ func HandleGlobalSearch(a *app.App, w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	crmTeams, err := a.Store.ListCRMTeamsForUser(currentUser.ID)
+	if err != nil {
+		log.Printf("global search: list crm teams error: %v", err)
+		webutil.WriteJSON(w, http.StatusOK, results)
+		return
+	}
+	lowerQuery := strings.ToLower(query)
+	for _, team := range crmTeams {
+		if !roles.HasPermission(team.Role, roles.PermDataRead) {
+			continue
+		}
+		entities, err := a.Store.ListCRMEntitiesForTeam(team.ID)
+		if err != nil {
+			log.Printf("global search: list crm entities error: %v", err)
+			continue
+		}
+		for _, entity := range entities {
+			perSourceCount := 0
+			appendHit := func(field, value string, nodePath []any) bool {
 	webutil.WriteJSON(w, http.StatusOK, results)
 }
