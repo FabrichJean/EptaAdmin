@@ -92,6 +92,7 @@ func main() {
 	mux.HandleFunc("POST /api/activity/mark-read", a.RequireAuth(a.HandleMarkActivitySeen))
 	mux.HandleFunc("POST /workspaces", a.RequireAuth(func(w http.ResponseWriter, r *http.Request) { workspace.HandleCreateWorkspace(a, w, r) }))
 	mux.HandleFunc("GET /workspaces/{slug}", a.RequireAuth(func(w http.ResponseWriter, r *http.Request) { workspace.HandleWorkspaceDetail(a, w, r) }))
+	mux.HandleFunc("DELETE /workspaces/{slug}", a.RequireAuth(func(w http.ResponseWriter, r *http.Request) { workspace.HandleDeleteWorkspace(a, w, r) }))
 	mux.HandleFunc("GET /webhooks", a.RequireAuth(func(w http.ResponseWriter, r *http.Request) { webhook.HandleGlobalWebhooks(a, w, r) }))
 	mux.HandleFunc("GET /workspaces/{slug}/settings", a.RequireAuth(func(w http.ResponseWriter, r *http.Request) { webhook.HandleSettingsPage(a, w, r) }))
 	mux.HandleFunc("POST /workspaces/{slug}/webhooks", a.RequireAuth(func(w http.ResponseWriter, r *http.Request) { webhook.HandleCreateWebhook(a, w, r) }))
