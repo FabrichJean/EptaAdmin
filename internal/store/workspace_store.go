@@ -22,6 +22,7 @@ type Workspace struct {
 	Slug      string
 	CreatedBy int64
 	CreatedAt time.Time
+	DeletedAt sql.NullTime
 }
 
 // UserWorkspace is a workspace paired with the requesting user's role in it.
@@ -134,9 +135,15 @@ func (s *Store) CreateWorkspace(name string, creatorID int64) (*Workspace, error
 	return s.GetWorkspaceByID(id)
 }
 
+// GetWorkspaceByID deliberately does NOT filter out a soft-deleted
+// workspace — internal callers that already have an ID (e.g. the delete
+// handler re-reading what it just deleted) need to keep working on it.
+// GetWorkspaceBySlug below is the one every ordinary request-handling path
+// actually goes through (see LoadWorkspaceMembership), so that's where
+// hiding a deleted workspace actually matters.
 func (s *Store) GetWorkspaceByID(id int64) (*Workspace, error) {
 	row := s.db.QueryRow(
-		`SELECT id, name, slug, created_by, created_at FROM workspaces WHERE id = ?`,
+		`SELECT id, name, slug, created_by, created_at, deleted_at FROM workspaces WHERE id = ?`,
 		id,
 	)
 	return scanWorkspace(row)
@@ -144,7 +151,7 @@ func (s *Store) GetWorkspaceByID(id int64) (*Workspace, error) {
 
 func (s *Store) GetWorkspaceBySlug(slug string) (*Workspace, error) {
 	row := s.db.QueryRow(
-		`SELECT id, name, slug, created_by, created_at FROM workspaces WHERE slug = ?`,
+		`SELECT id, name, slug, created_by, created_at, deleted_at FROM workspaces WHERE slug = ? AND deleted_at IS NULL`,
 		slug,
 	)
 	return scanWorkspace(row)
@@ -152,7 +159,7 @@ func (s *Store) GetWorkspaceBySlug(slug string) (*Workspace, error) {
 
 func scanWorkspace(row *sql.Row) (*Workspace, error) {
 	w := &Workspace{}
-	err := row.Scan(&w.ID, &w.Name, &w.Slug, &w.CreatedBy, &w.CreatedAt)
+	err := row.Scan(&w.ID, &w.Name, &w.Slug, &w.CreatedBy, &w.CreatedAt, &w.DeletedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -162,14 +169,14 @@ func scanWorkspace(row *sql.Row) (*Workspace, error) {
 	return w, nil
 }
 
-// ListWorkspacesForUser returns every workspace the given user belongs to,
-// along with their role in each.
+// ListWorkspacesForUser returns every non-deleted workspace the given user
+// belongs to, along with their role in each.
 func (s *Store) ListWorkspacesForUser(userID int64) ([]*UserWorkspace, error) {
 	rows, err := s.db.Query(`
 		SELECT workspaces.id, workspaces.name, workspaces.slug, workspaces.created_by, workspaces.created_at, workspace_members.role
 		FROM workspace_members
 		JOIN workspaces ON workspaces.id = workspace_members.workspace_id
-		WHERE workspace_members.user_id = ?
+		WHERE workspace_members.user_id = ? AND workspaces.deleted_at IS NULL
 		ORDER BY workspaces.created_at
 	`, userID)
 	if err != nil {
@@ -186,6 +193,20 @@ func (s *Store) ListWorkspacesForUser(userID int64) ([]*UserWorkspace, error) {
 		out = append(out, uw)
 	}
 	return out, rows.Err()
+}
+
+// SoftDeleteWorkspace marks a workspace deleted without touching any of
+// its data (data sources, tables, activity log all stay on disk — see the
+// deleted_at column's migration comment in store.go). The slug is mangled
+// first so the name immediately becomes free again for a brand new
+// workspace — slug has a hard UNIQUE constraint, which a plain deleted_at
+// filter on reads can't work around for a literal duplicate.
+func (s *Store) SoftDeleteWorkspace(id int64) error {
+	_, err := s.db.Exec(
+		`UPDATE workspaces SET slug = slug || '-deleted-' || strftime('%s', 'now'), deleted_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		id,
+	)
+	return err
 }
 
 // GetWorkspaceMemberRole returns the caller's role in a workspace, or ""

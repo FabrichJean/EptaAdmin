@@ -1,5 +1,18 @@
 {{define "title"}}Tableau de bord — EptaAdmin{{end}}
 {{define "content"}}
+<style>
+  .eb-wave-emoji { display: inline-block; transform-origin: 70% 70%; animation: eb-wave 2.5s infinite; }
+  @keyframes eb-wave {
+    0% { transform: rotate(0deg); }
+    10% { transform: rotate(14deg); }
+    20% { transform: rotate(-8deg); }
+    30% { transform: rotate(14deg); }
+    40% { transform: rotate(-4deg); }
+    50% { transform: rotate(10deg); }
+    60% { transform: rotate(0deg); }
+    100% { transform: rotate(0deg); }
+  }
+</style>
 <div class="h-full flex">
   {{template "sidebar" .}}
 
@@ -8,7 +21,7 @@
 
     <main class="flex-1 overflow-y-auto px-4 sm:px-8 py-10">
      <div class="max-w-4xl mx-auto">
-    <h1 class="text-2xl font-semibold" style="color: var(--eb-text);">{{t .Lang "dashboard.welcome"}}, {{.CurrentUser.Username}} 👋</h1>
+    <h1 class="text-2xl font-semibold" style="color: var(--eb-text);">{{t .Lang "dashboard.welcome"}}, {{.CurrentUser.Username}} <span class="eb-wave-emoji" aria-hidden="true">👋</span></h1>
     <p class="mt-1" style="color: var(--eb-muted);">{{t .Lang "dashboard.subtitle_own"}}</p>
 
     <div class="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
