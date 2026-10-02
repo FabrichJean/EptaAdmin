@@ -697,6 +697,7 @@
         ? "/crm/" + item.crmTeamSlug + "/" + item.crmEntitySlug
           + (item.crmPath ? "?highlightPath=" + encodeURIComponent(JSON.stringify(item.crmPath)) : "")
         : "/workspaces/" + item.workspaceSlug + "/tables/" + item.dataSourceSlug
+          + "?highlightColumn=" + encodeURIComponent(item.column) + "&highlightIndex=" + item.index;
       row.className = "flex items-center justify-between gap-3 px-4 py-3 transition-colors";
       row.style.color = "var(--eb-text)";
       if (i > 0) row.style.borderTop = "1px solid var(--eb-border)";
@@ -707,7 +708,9 @@
       left.className = "min-w-0";
       const title = document.createElement("p");
       title.className = "text-sm font-semibold truncate";
-      title.textContent = item.dataSourceName + " · " + item.column;
+      title.textContent = isCRM
+        ? item.crmEntityName + " · " + item.crmField
+        : item.dataSourceName + " · " + item.column;
       const sub = document.createElement("p");
       sub.className = "text-xs truncate";
       sub.style.color = "var(--eb-muted)";
@@ -717,7 +720,7 @@
 
       const badge = document.createElement("span");
       badge.className = "eb-badge eb-badge-viewer shrink-0";
-      badge.textContent = item.workspaceName;
+      badge.textContent = isCRM ? item.crmTeamName : item.workspaceName;
 
       row.appendChild(left);
       row.appendChild(badge);
