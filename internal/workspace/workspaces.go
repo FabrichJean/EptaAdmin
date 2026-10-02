@@ -5,6 +5,7 @@ import (
 	"eptaadmin/internal/i18n"
 	"eptaadmin/internal/roles"
 	"eptaadmin/internal/store"
+	"eptaadmin/internal/webutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -147,6 +148,31 @@ func HandleCreateWorkspace(a *app.App, w http.ResponseWriter, r *http.Request) {
 	a.LogActivity(app.LogActivityParams{WorkspaceID: ws.ID, UserID: currentUser.ID, Action: store.ActionWorkspaceCreate, Details: map[string]any{"name": ws.Name}})
 
 	http.Redirect(w, r, "/workspaces/"+ws.Slug, http.StatusSeeOther)
+}
+
+// HandleDeleteWorkspace soft-deletes a workspace (see store.SoftDeleteWorkspace
+// — its data sources/tables/activity all stay on disk, just hidden from
+// every normal read from this point on) — Owner-only, the same permission
+// PermWorkspaceManage's own comment already names "delete" as covering.
+func HandleDeleteWorkspace(a *app.App, w http.ResponseWriter, r *http.Request) {
+	currentUser := app.UserFromContext(r)
+	lang := a.ResolveLang(r)
+	ws, role, ok := a.LoadWorkspaceMembership(w, r, currentUser)
+	if !ok {
+		return
+	}
+	if !roles.HasPermission(role, roles.PermWorkspaceManage) {
+		webutil.WriteJSON(w, http.StatusForbidden, map[string]string{"error": i18n.T(lang, "workspaces.delete_not_owner")})
+		return
+	}
+	if err := a.Store.SoftDeleteWorkspace(ws.ID); err != nil {
+		log.Printf("soft delete workspace error: %v", err)
+		webutil.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": i18n.T(lang, "common.error_generic_retry")})
+		return
+	}
+	a.LogActivity(app.LogActivityParams{WorkspaceID: ws.ID, UserID: currentUser.ID, Action: store.ActionWorkspaceDelete, Details: map[string]any{"name": ws.Name}})
+
+	webutil.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 // loadWorkspaceMembership fetches the workspace and the caller's role in
