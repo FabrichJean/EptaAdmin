@@ -54,3 +54,31 @@ func searchCRMNodes(nodes []any, labelPrefix []string, nodePathPrefix []any, que
 		if !ok {
 			continue
 		}
+		label, _ := node["key"].(string)
+		if label == "" {
+			label = "#" + strconv.Itoa(i+1)
+		}
+		labelPath := append(append([]string{}, labelPrefix...), label)
+		nodePath := append(append([]any{}, nodePathPrefix...), i)
+
+		if typ, _ := node["type"].(string); typ != "image" {
+			if v, present := node["value"]; present && v != nil {
+				text := FormatValue(v)
+				if text != "" && strings.Contains(strings.ToLower(text), query) {
+					*hits = append(*hits, CRMSearchHit{
+						Label:    strings.Join(labelPath, " › "),
+						NodePath: nodePath,
+						Value:    text,
+					})
+					if limit > 0 && len(*hits) >= limit {
+						return
+					}
+				}
+			}
+		}
+
+		if children, ok := node["children"].([]any); ok {
+			searchCRMNodes(children, labelPath, append(nodePath, "children"), query, limit, hits)
+		}
+	}
+}
