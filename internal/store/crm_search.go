@@ -26,3 +26,31 @@ type CRMSearchHit struct {
 // most limit hits (0 means unlimited). The tree is the same loosely-typed
 // {type, key, value, children} shape the entity editor and AI design
 // generation already decode (see signCRMImageNodes/truncateForPrompt in
+// internal/crm) — decoded here independently since content_json is never
+// schema-validated on save, only checked for being well-formed JSON.
+//
+// "image" leaves are skipped: their value is just an uploaded file URL,
+// never something a person would search for.
+func SearchCRMEntityContent(contentJSON, query string, limit int) []CRMSearchHit {
+	query = strings.ToLower(strings.TrimSpace(query))
+	if query == "" {
+		return nil
+	}
+	var nodes []any
+	if err := json.Unmarshal([]byte(contentJSON), &nodes); err != nil {
+		return nil
+	}
+	var hits []CRMSearchHit
+	searchCRMNodes(nodes, nil, nil, query, limit, &hits)
+	return hits
+}
+
+func searchCRMNodes(nodes []any, labelPrefix []string, nodePathPrefix []any, query string, limit int, hits *[]CRMSearchHit) {
+	for i, raw := range nodes {
+		if limit > 0 && len(*hits) >= limit {
+			return
+		}
+		node, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
