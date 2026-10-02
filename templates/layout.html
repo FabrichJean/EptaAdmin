@@ -691,9 +691,12 @@
       return;
     }
     items.forEach((item, i) => {
+      const isCRM = item.kind === "crm";
       const row = document.createElement("a");
-      row.href = "/workspaces/" + item.workspaceSlug + "/tables/" + item.dataSourceSlug
-        + "?highlightColumn=" + encodeURIComponent(item.column) + "&highlightIndex=" + item.index;
+      row.href = isCRM
+        ? "/crm/" + item.crmTeamSlug + "/" + item.crmEntitySlug
+          + (item.crmPath ? "?highlightPath=" + encodeURIComponent(JSON.stringify(item.crmPath)) : "")
+        : "/workspaces/" + item.workspaceSlug + "/tables/" + item.dataSourceSlug
       row.className = "flex items-center justify-between gap-3 px-4 py-3 transition-colors";
       row.style.color = "var(--eb-text)";
       if (i > 0) row.style.borderTop = "1px solid var(--eb-border)";
