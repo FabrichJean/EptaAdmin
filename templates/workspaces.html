@@ -57,9 +57,9 @@
               </div>
             </a>
             {{if eq .Role "owner"}}
-            <div class="workspace-menu-wrap absolute top-2 right-2 hidden group-hover:block">
+            <div class="position-relative workspace-menu-wrap absolute top-2 right-2 hidden group-hover:block">
               <button type="button" class="workspace-menu-btn h-6 w-6 flex items-center justify-center rounded text-sm leading-none eb-icon-btn-ok" title="{{t $.Lang "crm.webhook_more_menu_title"}}">⋯</button>
-              <div class="workspace-menu hidden absolute right-0 mt-1 w-56 rounded-lg py-1 eb-card z-10" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+              <div class="workspace-menu hidden absolute left-0 mt-1 w-56 rounded-lg py-1 eb-card z-10" style="box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
                 <button type="button" class="workspace-delete-btn block w-full text-left px-3 py-2 text-xs transition-colors"
                   data-workspace-slug="{{.Slug}}" data-workspace-name="{{.Name}}" style="color: #f87171;">{{t $.Lang "workspaces.delete_button"}}</button>
               </div>
@@ -213,6 +213,29 @@
         updateScrollBtn();
       }
 
+      // The workspace chips live inside #workspace-scroll, which needs
+      // overflow-x:auto for the horizontal carousel — that same overflow
+      // clips any ordinarily-positioned dropdown the moment it extends
+      // past the scroll container's own edge (not just off-screen: it cut
+      // the menu's left side off even while fully inside the viewport).
+      // Worked around the only reliable way: on open, the menu is actually
+      // moved to a direct child of <body> and switched to position:fixed,
+      // positioned from the button's own bounding rect — escaping the
+      // clipping ancestor entirely instead of trying to out-stack it. Put
+      // back in its original spot in the DOM on close so the template's
+      // own per-row markup stays intact for the next open.
+      let openWorkspaceMenu = null; // { menu, homeParent }
+      function closeWorkspaceMenu() {
+        if (!openWorkspaceMenu) return;
+        const { menu, homeParent } = openWorkspaceMenu;
+        menu.classList.add("hidden");
+        menu.style.position = "";
+        menu.style.top = "";
+        menu.style.left = "";
+        menu.style.margin = "";
+        homeParent.appendChild(menu);
+        openWorkspaceMenu = null;
+      }
       document.querySelectorAll(".workspace-menu-wrap").forEach((wrap) => {
         const btn = wrap.querySelector(".workspace-menu-btn");
         const menu = wrap.querySelector(".workspace-menu");
@@ -220,13 +243,20 @@
         btn.addEventListener("click", (e) => {
           e.preventDefault();
           e.stopPropagation();
-          document.querySelectorAll(".workspace-menu").forEach((m) => { if (m !== menu) m.classList.add("hidden"); });
-          menu.classList.toggle("hidden");
+          const reopening = openWorkspaceMenu && openWorkspaceMenu.menu === menu;
+          closeWorkspaceMenu();
+          if (reopening) return;
+          const rect = btn.getBoundingClientRect();
+          menu.classList.remove("hidden");
+          document.body.appendChild(menu);
+          menu.style.position = "fixed";
+          menu.style.top = (rect.bottom + 4) + "px";
+          menu.style.left = rect.left + "px";
+          menu.style.margin = "0";
+          openWorkspaceMenu = { menu, homeParent: wrap };
         });
       });
-      document.addEventListener("click", () => {
-        document.querySelectorAll(".workspace-menu").forEach((m) => m.classList.add("hidden"));
-      });
+      document.addEventListener("click", closeWorkspaceMenu);
 
       document.querySelectorAll(".workspace-delete-btn").forEach((btn) => {
         btn.addEventListener("click", (e) => {
