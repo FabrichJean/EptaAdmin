@@ -1898,6 +1898,21 @@
 
     // A search deep-link (?highlightPath=, see the outer scope's own
     // "Highlight a field reached from global search" block, which handles
+    // the "Données" tree side of this) also needs to work when the entity
+    // defaults to its "Rendu" view — read once here and consumed by the
+    // very next preview load (then cleared), so a later re-render from an
+    // edit doesn't keep re-scrolling/re-flashing the same original target.
+    let pendingHighlightPath = (function () {
+      const raw = new URLSearchParams(window.location.search).get("highlightPath");
+      if (!raw) return null;
+      try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) && parsed.length ? parsed : null;
+      } catch (e) {
+        return null;
+      }
+    })();
+
     // Kept in sync live by the iframe's own 'crm-design-scroll' reports
     // (see the bridge script's scroll listener) so renderPreview can hand
     // it straight back to the next iframe instance after a reload — the
