@@ -1429,6 +1429,12 @@
       "  window.addEventListener('message', function (e) {\n" +
       "    if (!e.data || e.data.source !== 'crm-design-scroll-to-path') return;\n" +
       "    var node = getNodeByPath(e.data.path);\n" +
+      "    var el = findElementByValue(node);\n" +
+      "    if (!el) return;\n" +
+      "    el.scrollIntoView({ behavior: 'smooth', block: 'center' });\n" +
+      "    el.classList.add('crm-search-highlight');\n" +
+      "    setTimeout(function () { el.classList.remove('crm-search-highlight'); }, 2500);\n" +
+      "  });\n" +
       "  function buildIndex() {\n" +
       "    var textIndex = {};\n" +
       "    var markdownEntries = [];\n" +
@@ -1746,7 +1752,9 @@
       "    } catch (err) { console.error('[crm-design][preview] copy error:', err); }\n" +
       "  }\n" +
       "  var style = document.createElement('style');\n" +
-      "  style.textContent = '.crm-edit-mode .crm-editable{outline:1px dashed #34d399;outline-offset:2px;cursor:text;}" +
+      "  style.textContent = '@keyframes crm-search-highlight-fade{0%{outline-color:#34d399;background:rgba(52,211,153,0.35);}100%{outline-color:rgba(52,211,153,0);background:transparent;}}" +
+      ".crm-search-highlight{outline:3px solid #34d399;outline-offset:3px;animation:crm-search-highlight-fade 2.5s ease-out;}" +
+      ".crm-edit-mode .crm-editable{outline:1px dashed #34d399;outline-offset:2px;cursor:text;}" +
       ".crm-edit-mode .crm-editable:hover{background:rgba(52,211,153,0.12);}" +
       ".crm-edit-mode .crm-editable-markdown{outline:1px dashed #fb923c;outline-offset:2px;cursor:pointer;}" +
       ".crm-edit-mode .crm-editable-markdown:hover{background:rgba(251,146,60,0.12);}" +
@@ -1790,6 +1798,10 @@
         }
         if (editModeOn) {
           preview.contentWindow.postMessage({ source: "crm-design-set-edit-mode", enabled: true }, "*");
+        }
+        if (pendingHighlightPath) {
+          preview.contentWindow.postMessage({ source: "crm-design-scroll-to-path", path: pendingHighlightPath }, "*");
+          pendingHighlightPath = null;
         }
       });
       // Unhide BEFORE loading: the iframe is sandboxed (so cross-origin to
@@ -1884,6 +1896,8 @@
     // same window.__CRM_ENTITY_DATA__/tree structure.
     let editModeOn = false;
 
+    // A search deep-link (?highlightPath=, see the outer scope's own
+    // "Highlight a field reached from global search" block, which handles
     // Kept in sync live by the iframe's own 'crm-design-scroll' reports
     // (see the bridge script's scroll listener) so renderPreview can hand
     // it straight back to the next iframe instance after a reload — the
