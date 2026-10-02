@@ -372,6 +372,13 @@ func (s *Store) migrate() error {
 		// if any — design_html/design_prompt above stay as a denormalized
 		// cache of that row's content for fast reads without a join.
 		`ALTER TABLE crm_entities ADD COLUMN active_design_id INTEGER REFERENCES crm_designs(id) ON DELETE SET NULL`,
+		// NULL = not deleted. Deleting a workspace only sets this (see
+		// SoftDeleteWorkspace) — its data_sources/tables/activity all stay
+		// on disk, just hidden from GetWorkspaceBySlug/ListWorkspacesForUser,
+		// since the person who deleted it by mistake is the overwhelmingly
+		// common case to design for, not someone who truly wants the bytes
+		// gone right away.
+		`ALTER TABLE workspaces ADD COLUMN deleted_at DATETIME`,
 	} {
 		if _, err := s.db.Exec(alter); err != nil {
 			if !strings.Contains(err.Error(), "duplicate column name") {
@@ -952,6 +959,7 @@ const (
 	ActionAPIKeyDelete   = "apikey.delete"
 
 	ActionWorkspaceCreate  = "workspace.create"
+	ActionWorkspaceDelete  = "workspace.delete"
 	ActionMemberAdd        = "member.add"
 	ActionMemberRemove     = "member.remove"
 	ActionMemberRoleChange = "member.role_change"
@@ -1085,6 +1093,8 @@ func (e *ActivityEntry) Describe(lang string) string {
 		return i18n.T(lang, "activity.desc.apikey.delete", actor, DetailString(d, "name"))
 	case ActionWorkspaceCreate:
 		return i18n.T(lang, "activity.desc.workspace.create", actor, DetailString(d, "name"))
+	case ActionWorkspaceDelete:
+		return i18n.T(lang, "activity.desc.workspace.delete", actor, DetailString(d, "name"))
 	case ActionMemberAdd:
 		return i18n.T(lang, "activity.desc.member.add", actor, DetailString(d, "username"), DetailString(d, "role"))
 	case ActionMemberRemove:
