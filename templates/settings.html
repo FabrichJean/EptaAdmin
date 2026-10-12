@@ -201,6 +201,7 @@
             </p>
           </div>
           <div class="flex items-center gap-2 shrink-0">
+            {{if .Domain}}<button type="button" class="site-test-link-btn eb-btn-secondary rounded-md text-xs px-3 py-1.5 transition-colors" data-domain="{{.Domain}}" title="{{t $.Lang "sites.test_link_title"}}">{{t $.Lang "sites.test_link_button"}}</button>{{end}}
             <a href="/workspaces/{{$.Workspace.Slug}}/sites/{{.ID}}/dashboard" class="eb-btn-secondary rounded-md text-xs px-3 py-1.5 transition-colors">{{t $.Lang "sites.view_table_link"}}</a>
             <button type="button" class="site-delete-btn eb-icon-btn text-xs" data-id="{{.ID}}" title="{{t $.Lang "settings.webhook_delete_label"}}">✕</button>
           </div>
@@ -710,6 +711,16 @@ http_response_code(200);`,
     return `<script src="${location.origin}/static/track.js" data-key="${key}"><\/script>`;
   }
 
+  // A link to the site's own domain carrying ?epta_notrack=1 — static/track.js
+  // (and HandleTrackCollect server-side, as a backstop) both skip recording
+  // when this is present, so clicking it for QA never pollutes the site's stats.
+  function buildTestLink(domain) {
+    const hasScheme = /^https?:\/\//i.test(domain);
+    const base = hasScheme ? domain : `https://${domain}`;
+    const sep = base.includes("?") ? "&" : "?";
+    return `${base}${sep}epta_notrack=1`;
+  }
+
   const addSiteBtn = document.getElementById("toggle-add-site-btn");
   const addSiteForm = document.getElementById("add-site-form");
   const siteNameInput = document.getElementById("site-name");
@@ -781,6 +792,17 @@ http_response_code(200);`,
       siteKeyReveal.classList.add("hidden");
     });
   }
+
+  document.querySelectorAll(".site-test-link-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(buildTestLink(btn.dataset.domain));
+        const original = btn.textContent;
+        btn.textContent = SITE_I18N.copiedLabel;
+        setTimeout(() => { btn.textContent = original; }, 1500);
+      } catch (e) {}
+    });
+  });
 
   document.querySelectorAll(".site-delete-btn").forEach((btn) => {
     btn.addEventListener("click", async () => {

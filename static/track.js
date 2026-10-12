@@ -23,6 +23,14 @@
   var key = currentScript.getAttribute("data-key");
   if (!key) return;
 
+  // ?epta_notrack=1 on the page URL opts this visit out entirely — see
+  // the "test link" button in the site's settings page. Checked here too
+  // (not just server-side) so a test visit doesn't even make the network
+  // call.
+  try {
+    if (new URLSearchParams(location.search).get("epta_notrack") === "1") return;
+  } catch (e) {}
+
   var endpoint = currentScript.getAttribute("data-endpoint") ||
     (window.EPTA_TRACK_ENDPOINT) ||
     (currentScript.src.replace(/\/static\/track\.js.*$/, "") + "/api/v1/track");

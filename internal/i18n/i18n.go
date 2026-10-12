@@ -376,6 +376,8 @@ var translations = map[string]map[string]string{
 		"sites.regenerate_key":         "Régénérer la clé",
 		"sites.regenerate_key_confirm": "Régénérer la clé ? L'ancienne cessera de fonctionner immédiatement — il faudra mettre à jour le script sur le site suivi.",
 		"sites.regenerate_key_ok":      "Nouvelle clé générée.",
+		"sites.test_link_button":       "Lien de test",
+		"sites.test_link_title":        "Copier un lien vers ce site qui ne sera jamais compté dans les statistiques — utile pour tester sans fausser les données.",
 
 		"plugins.title":                     "Plugins",
 		"plugins.subtitle":                  "Intégrations disponibles pour vos workspaces.",
@@ -1054,6 +1056,8 @@ var translations = map[string]map[string]string{
 		"sites.regenerate_key":         "Regenerate key",
 		"sites.regenerate_key_confirm": "Regenerate the key? The old one will stop working immediately — you'll need to update the snippet on the tracked site.",
 		"sites.regenerate_key_ok":      "New key generated.",
+		"sites.test_link_button":       "Test link",
+		"sites.test_link_title":        "Copy a link to this site that will never be counted in the stats — useful for testing without skewing your data.",
 
 		"plugins.title":                     "Plugins",
 		"plugins.subtitle":                  "Available integrations for your workspaces.",

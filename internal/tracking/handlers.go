@@ -291,6 +291,25 @@ func domainMatches(domain, pageURL string) bool {
 	return host != "" && host == domain
 }
 
+// noTrackQueryParam is the query-string flag a shareable "test link" (see
+// templates/settings.html's per-site "Lien de test" button) carries so
+// browsing a live, tracked domain for QA never pollutes that site's
+// analytics. It's a plain opt-out flag, not a secret: anyone who knows to
+// append it can dodge tracking for that visit, which is an acceptable
+// trade-off for a feature whose whole point is letting the site owner
+// (or anyone they hand the link to) browse untracked.
+const noTrackQueryParam = "epta_notrack"
+
+// isNoTrackRequest reports whether pageURL (location.href, as reported by
+// static/track.js) carries noTrackQueryParam=1.
+func isNoTrackRequest(pageURL string) bool {
+	u, err := url.Parse(pageURL)
+	if err != nil {
+		return false
+	}
+	return u.Query().Get(noTrackQueryParam) == "1"
+}
+
 // handleTrackCollect is the public ingestion endpoint the embedded SDK
 // (static/track.js) posts every enter/exit event to. It's deliberately
 // unauthenticated by session — auth here is the site's own public
@@ -303,6 +322,10 @@ func domainMatches(domain, pageURL string) bool {
 func HandleTrackCollect(a *app.App, w http.ResponseWriter, r *http.Request) {
 	var req trackCollectRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if isNoTrackRequest(req.URL) {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
