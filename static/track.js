@@ -24,12 +24,27 @@
   if (!key) return;
 
   // ?epta_notrack=1 on the page URL opts this visit out entirely — see
-  // the "test link" button in the site's settings page. Checked here too
-  // (not just server-side) so a test visit doesn't even make the network
-  // call.
-  try {
-    if (new URLSearchParams(location.search).get("epta_notrack") === "1") return;
-  } catch (e) {}
+  // the "test link" button in the site's settings page. The query param
+  // only survives the very first page load (any link clicked afterwards
+  // drops it), so once seen it's pinned in localStorage — deliberately
+  // localStorage, not sessionStorage: it must survive closing the tab (or
+  // the whole browser), so a tester doesn't have to re-click the test link
+  // every time they reopen the site. Unlike the per-tab session id below,
+  // this has no natural expiry; clearing it means visiting the test link
+  // again, or clearing the browser's site data for this origin.
+  var NOTRACK_KEY = "epta_track_notrack";
+  function noTrack() {
+    try {
+      if (new URLSearchParams(location.search).get("epta_notrack") === "1") {
+        localStorage.setItem(NOTRACK_KEY, "1");
+        return true;
+      }
+      return localStorage.getItem(NOTRACK_KEY) === "1";
+    } catch (e) {
+      return false;
+    }
+  }
+  if (noTrack()) return;
 
   var endpoint = currentScript.getAttribute("data-endpoint") ||
     (window.EPTA_TRACK_ENDPOINT) ||
