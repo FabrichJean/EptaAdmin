@@ -266,11 +266,14 @@
     clearImageButton: {{t .Lang "crm.clear_image_button"}},
     typeText: {{t .Lang "crm.type_text"}},
     typeImage: {{t .Lang "crm.type_image"}},
+    typeVideo: {{t .Lang "crm.type_video"}},
+    typeFile: {{t .Lang "crm.type_file"}},
     typeList: {{t .Lang "crm.type_list"}},
     typeObject: {{t .Lang "crm.type_object"}},
     typeNumber: {{t .Lang "crm.type_number"}},
     typeBoolean: {{t .Lang "crm.type_boolean"}},
     typeMarkdown: {{t .Lang "crm.type_markdown"}},
+    clearValueButton: {{t .Lang "crm.clear_value_button"}},
     markdownEditButton: {{t .Lang "crm.markdown_edit_button"}},
     markdownEmptyPlaceholder: {{t .Lang "crm.markdown_empty_placeholder"}},
     importInvalid: {{t .Lang "crm.import_invalid"}},
@@ -305,6 +308,8 @@
     grip: '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="5" r="1.3"/><circle cx="9" cy="12" r="1.3"/><circle cx="9" cy="19" r="1.3"/><circle cx="15" cy="5" r="1.3"/><circle cx="15" cy="12" r="1.3"/><circle cx="15" cy="19" r="1.3"/></svg>',
     close: '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
     image: '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>',
+    video: '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2" ry="2"/></svg>',
+    file: '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>',
     list: '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>',
     object: '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 16-9 5-9-5V8l9-5 9 5Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>',
     boolean: '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="5" width="22" height="14" rx="7"/><circle cx="16" cy="12" r="3"/></svg>',
@@ -321,13 +326,15 @@
   const TYPE_META = {
     text:    { label: I18N.typeText,    color: "#34d399", glyph: "T", hasChildren: false },
     image:   { label: I18N.typeImage,   color: "#a78bfa", glyph: ICONS.image, hasChildren: false },
+    video:   { label: I18N.typeVideo,   color: "#fb7185", glyph: ICONS.video, hasChildren: false },
+    file:    { label: I18N.typeFile,    color: "#f59e0b", glyph: ICONS.file, hasChildren: false },
     list:    { label: I18N.typeList,    color: "#60a5fa", glyph: ICONS.list, hasChildren: true, numbered: true },
     object:  { label: I18N.typeObject,  color: "#f472b6", glyph: ICONS.object, hasChildren: true, numbered: false },
     number:  { label: I18N.typeNumber,  color: "#fbbf24", glyph: "#", hasChildren: false },
     boolean: { label: I18N.typeBoolean, color: "#38bdf8", glyph: ICONS.boolean, hasChildren: false },
     markdown:{ label: I18N.typeMarkdown, color: "#fb923c", glyph: "M", hasChildren: false },
   };
-  const TYPE_ORDER = ["text", "markdown", "image", "list", "object", "number", "boolean"];
+  const TYPE_ORDER = ["text", "markdown", "image", "video", "file", "list", "object", "number", "boolean"];
 
   let tree;
   try {
@@ -389,6 +396,11 @@
       node.value = I18N.designAddItemDefaultMarkdown;
     } else if (node.type === "image") {
       node.value = placeholderImageDataURL();
+    } else if (node.type === "video" || node.type === "file") {
+      // No sensible inline placeholder for these (unlike the tiny inline
+      // SVG used for "image") — left empty, same "needs uploading" state
+      // valuePreview already renders as "—" for any empty media field.
+      node.value = "";
     } else {
       node.value = I18N.designAddItemDefaultText;
     }
@@ -454,7 +466,12 @@
       return n + " " + (node.type === "list" ? I18N.elementsLabel : I18N.fieldsLabel);
     }
     if (node.type === "boolean") return node.value ? I18N.yes : I18N.no;
-    if (node.type === "image") return node.value ? "" : "—";
+    if (node.type === "image" || node.type === "video") return node.value ? "" : "—";
+    if (node.type === "file") {
+      if (!node.value) return "—";
+      try { return decodeURIComponent(node.value.toString().split("/").pop()); }
+      catch (e) { return node.value.toString(); }
+    }
     const s = (node.value || "").toString();
     return s ? ('"' + (s.length > 40 ? s.slice(0, 40) + "…" : s) + '"') : "—";
   }
@@ -741,6 +758,41 @@
     return label;
   }
 
+  // Shared upload-a-file row builder for the three media-ish leaf types
+  // (image/video/file) — same flow for all three: POST to the team's
+  // generic upload endpoint (which accepts any file, no type checking of
+  // its own), store the returned URL as the field's value. accept narrows
+  // the OS file picker; "" means no restriction (used for "file").
+  function buildUploadRow(node, accept) {
+    const row = document.createElement("div");
+    row.className = "flex items-center gap-2";
+    const input = document.createElement("input");
+    input.type = "file";
+    if (accept) input.accept = accept;
+    input.className = "text-xs flex-1 min-w-0";
+    input.addEventListener("change", () => {
+      const file = input.files[0];
+      if (!file) return;
+      const form = new FormData();
+      form.append("file", file);
+      fetch("/crm/" + teamSlug + "/uploads", { method: "POST", body: form })
+        .then((res) => (res.ok ? res.json() : Promise.reject()))
+        .then((data) => { node.value = data.url; renderAll(); })
+        .catch(() => alert(I18N.uploadError));
+    });
+    row.appendChild(input);
+    if (node.value) {
+      const clearBtn = document.createElement("button");
+      clearBtn.type = "button";
+      clearBtn.className = "text-xs shrink-0";
+      clearBtn.style.color = "#f87171";
+      clearBtn.textContent = I18N.clearValueButton;
+      clearBtn.addEventListener("click", () => { node.value = ""; renderAll(); });
+      row.appendChild(clearBtn);
+    }
+    return row;
+  }
+
   // ---- Markdown ----
 
   // The markdown editor modal (below) and the "Rendu" design preview
@@ -969,6 +1021,34 @@
           imgWrap.appendChild(row);
         }
         detailPanel.appendChild(imgWrap);
+      } else if (node.type === "video") {
+        const videoWrap = document.createElement("div");
+        videoWrap.className = "space-y-2";
+        if (node.value) {
+          const video = document.createElement("video");
+          video.src = node.value;
+          video.controls = true;
+          video.className = "max-h-32 rounded w-full";
+          videoWrap.appendChild(video);
+        }
+        if (canEdit && !node.readOnly) videoWrap.appendChild(buildUploadRow(node, "video/*"));
+        detailPanel.appendChild(videoWrap);
+      } else if (node.type === "file") {
+        const fileWrap = document.createElement("div");
+        fileWrap.className = "space-y-2";
+        if (node.value) {
+          const link = document.createElement("a");
+          link.href = node.value;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.className = "text-xs underline block truncate";
+          link.style.color = "var(--eb-accent)";
+          try { link.textContent = decodeURIComponent(node.value.split("/").pop()); }
+          catch (e) { link.textContent = node.value; }
+          fileWrap.appendChild(link);
+        }
+        if (canEdit && !node.readOnly) fileWrap.appendChild(buildUploadRow(node, ""));
+        detailPanel.appendChild(fileWrap);
       }
     } else {
       const info = document.createElement("p");
@@ -1392,11 +1472,19 @@
       // image/video, substring-of-plain-text for markdown).
       "  function findElementByValue(node) {\n" +
       "    if (!node) return null;\n" +
-      "    if (node.type === 'image' && node.value) {\n" +
+      "    if ((node.type === 'image' || node.type === 'video') && node.value) {\n" +
       "      var media = document.querySelectorAll('img, video');\n" +
       "      var want = String(node.value).trim();\n" +
       "      for (var i = 0; i < media.length; i++) {\n" +
       "        if ((media[i].getAttribute('src') || '').trim() === want) return media[i];\n" +
+      "      }\n" +
+      "      return null;\n" +
+      "    }\n" +
+      "    if (node.type === 'file' && node.value) {\n" +
+      "      var links = document.querySelectorAll('a[href]');\n" +
+      "      var wantHref = String(node.value).trim();\n" +
+      "      for (var h = 0; h < links.length; h++) {\n" +
+      "        if ((links[h].getAttribute('href') || '').trim() === wantHref) return links[h];\n" +
       "      }\n" +
       "      return null;\n" +
       "    }\n" +
@@ -1451,8 +1539,11 @@
       "        if (node && node.type === 'markdown' && node.value) {\n" +
       "          markdownEntries.push({ path: nodePath, plain: stripMarkdown(node.value) });\n" +
       "        }\n" +
-      "        if (node && node.type === 'image' && node.value) {\n" +
-      "          imageEntries.push({ path: nodePath, value: String(node.value) });\n" +
+      "        if (node && (node.type === 'image' || node.type === 'video') && node.value) {\n" +
+      "          imageEntries.push({ path: nodePath, value: String(node.value), attr: 'src' });\n" +
+      "        }\n" +
+      "        if (node && node.type === 'file' && node.value) {\n" +
+      "          imageEntries.push({ path: nodePath, value: String(node.value), attr: 'href' });\n" +
       "        }\n" +
       "        if (node && Array.isArray(node.children)) walk(node.children, nodePath.concat('children'));\n" +
       "      });\n" +
@@ -1490,26 +1581,28 @@
       "      }\n" +
       "    }\n" +
       "  }\n" +
-      // Images have no visible text to match against at all — instead,
-      // every <img> (or <video>, for a design's gallery slide that's a
-      // clip rather than a photo — an "image" field's value can be either,
-      // see isVideoUrl on the parent side) is compared by its raw src
-      // attribute (not the browser-resolved absolute URL, which a relative
-      // value would never equal) against an "image" field's stored value. A
-      // match still isn't guaranteed (the design might render it as a CSS
-      // background-image instead, or transform the URL), but it covers the
-      // common case: the design's own script setting src straight from
-      // window.__CRM_ENTITY_DATA__.
+      // Images/videos have no visible text to match against at all —
+      // instead, every <img>/<video> (compared by its raw src, not the
+      // browser-resolved absolute URL a relative value would never equal)
+      // or <a href> (for a "file" field — a download link is the only
+      // sane way a design would ever render one) is compared against a
+      // stored field value, per entry's own attr. A match still isn't
+      // guaranteed (the design might render an image as a CSS
+      // background-image instead, or transform the URL), but it covers
+      // the common case: the design's own script setting src/href
+      // straight from window.__CRM_ENTITY_DATA__.
       "  function markImageEditable(imageEntries) {\n" +
       "    if (!imageEntries.length) return;\n" +
-      "    var imgs = document.body.querySelectorAll('img, video');\n" +
-      "    for (var i = 0; i < imgs.length; i++) {\n" +
-      "      var el = imgs[i];\n" +
+      "    var els = document.body.querySelectorAll('img, video, a[href]');\n" +
+      "    for (var i = 0; i < els.length; i++) {\n" +
+      "      var el = els[i];\n" +
       "      if (el.closest && el.closest('[data-crm-edit-path]')) continue;\n" +
-      "      var src = (el.getAttribute('src') || '').trim();\n" +
-      "      if (!src) continue;\n" +
+      "      var attrName = el.tagName === 'A' ? 'href' : 'src';\n" +
+      "      var val = (el.getAttribute(attrName) || '').trim();\n" +
+      "      if (!val) continue;\n" +
       "      for (var j = 0; j < imageEntries.length; j++) {\n" +
-      "        if (imageEntries[j].value.trim() !== src) continue;\n" +
+      "        if (imageEntries[j].attr !== attrName) continue;\n" +
+      "        if (imageEntries[j].value.trim() !== val) continue;\n" +
       "        el.setAttribute('data-crm-edit-path', JSON.stringify(imageEntries[j].path));\n" +
       "        el.setAttribute('data-crm-edit-kind', 'image');\n" +
       "        el.classList.add('crm-editable-image');\n" +
@@ -1630,24 +1723,27 @@
       // Applies a completed image upload straight to the DOM instead of
       // needing a full reload (which renderPreview would otherwise require
       // — see the parent side's own comment on this same message) — every
-      // <img>/<video> this iframe already tagged with the edited path gets
-      // its src swapped in place, so a modal/gallery the user had open to
-      // reach it stays open. window.__CRM_ENTITY_DATA__ is patched too, so
-      // a later markEditable() re-run (e.g. after some other DOM change)
-      // still matches this field by its now-current value. A design with a
-      // mixed photo/video gallery (see services-detail-design.html) may
-      // also listen for this same message itself, to swap which of an
-      // <img>/<video> pair is even shown when a slide's kind changes on
-      // upload — this blind src-only update runs regardless, harmlessly
-      // superseded by that more specific handling when present.
+      // <img>/<video>/<a> this iframe already tagged with the edited path
+      // gets its src/href swapped in place, so a modal/gallery the user
+      // had open to reach it stays open. window.__CRM_ENTITY_DATA__ is
+      // patched too, so a later markEditable() re-run (e.g. after some
+      // other DOM change) still matches this field by its now-current
+      // value. A design with a mixed photo/video gallery (see
+      // services-detail-design.html) may also listen for this same
+      // message itself, to swap which of an <img>/<video> pair is even
+      // shown when a slide's kind changes on upload — this blind
+      // src/href-only update runs regardless, harmlessly superseded by
+      // that more specific handling when present.
       "  window.addEventListener('message', function (e) {\n" +
       "    if (!e.data || e.data.source !== 'crm-design-image-updated') return;\n" +
       "    var node = getNodeByPath(e.data.path);\n" +
       "    if (node) node.value = e.data.value;\n" +
       "    var pathStr = JSON.stringify(e.data.path);\n" +
-      "    var imgs = document.querySelectorAll('img[data-crm-edit-path], video[data-crm-edit-path]');\n" +
-      "    for (var i = 0; i < imgs.length; i++) {\n" +
-      "      if (imgs[i].getAttribute('data-crm-edit-path') === pathStr) imgs[i].setAttribute('src', e.data.value);\n" +
+      "    var tagged = document.querySelectorAll('img[data-crm-edit-path], video[data-crm-edit-path], a[data-crm-edit-path]');\n" +
+      "    for (var i = 0; i < tagged.length; i++) {\n" +
+      "      if (tagged[i].getAttribute('data-crm-edit-path') !== pathStr) continue;\n" +
+      "      var attrName = tagged[i].tagName === 'A' ? 'href' : 'src';\n" +
+      "      tagged[i].setAttribute(attrName, e.data.value);\n" +
       "    }\n" +
       "  });\n" +
       // Floating "copy" icon: hovering any bordered editable element in
@@ -1968,12 +2064,14 @@
       openMarkdownEditor(node);
     });
 
-    // A click on an <img> matched to an "image" field (see
-    // markImageEditable) reuses the exact same upload flow as the
-    // "Données" tab's own image field (POST to /crm/{team}/uploads,
-    // store the returned URL) via one hidden, lazily-created <input
-    // type="file"> — there's no dedicated "image editor" UI to open,
-    // unlike markdown, so this goes straight to the file picker.
+    // A click on an <img>/<video>/<a href> matched to an "image", "video"
+    // or "file" field (see markImageEditable) reuses the exact same upload
+    // flow as the "Données" tab's own field editors (POST to
+    // /crm/{team}/uploads, store the returned URL) via one hidden,
+    // lazily-created <input type="file"> — there's no dedicated "media
+    // editor" UI to open, unlike markdown, so this goes straight to the
+    // file picker. accept narrows per the target field's own type, set
+    // right before each click rather than fixed at creation.
     let designImageInput = null;
     let designImageTargetNode = null;
     let designImageTargetPath = null;
@@ -1981,7 +2079,6 @@
       if (designImageInput) return designImageInput;
       designImageInput = document.createElement("input");
       designImageInput.type = "file";
-      designImageInput.accept = "image/*,video/*";
       designImageInput.style.display = "none";
       designImageInput.addEventListener("change", () => {
         const file = designImageInput.files[0];
@@ -2021,14 +2118,16 @@
       if (!preview || e.source !== preview.contentWindow) return;
       if (!e.data || e.data.source !== "crm-design-edit-image") return;
       const node = getNodeByPath(e.data.path);
-      if (!node || node.type !== "image") {
-        derror("edit-image message: path did not resolve to an image node", e.data.path);
+      if (!node || (node.type !== "image" && node.type !== "video" && node.type !== "file")) {
+        derror("edit-image message: path did not resolve to a media node", e.data.path);
         return;
       }
-      dlog("opening image picker from preview click, path=" + JSON.stringify(e.data.path));
+      dlog("opening " + node.type + " picker from preview click, path=" + JSON.stringify(e.data.path));
       designImageTargetNode = node;
       designImageTargetPath = e.data.path;
-      ensureDesignImageInput().click();
+      const input = ensureDesignImageInput();
+      input.accept = node.type === "image" ? "image/*" : node.type === "video" ? "video/*" : "";
+      input.click();
     });
 
     // A design can offer its own "+ Ajouter" affordance for a list it
