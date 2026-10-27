@@ -585,14 +585,18 @@ func HandleTrackingRecentEvents(a *app.App, w http.ResponseWriter, r *http.Reque
 		ua, _ := rec["user_agent"].(string)
 		browser, os, _ := ParseUserAgent(ua)
 		events = append(events, map[string]any{
-			"index":      i,
-			"ip_public":  rec["ip_public"],
-			"event_type": rec["event_type"],
-			"url":        rec["url"],
-			"session_id": rec["session_id"],
-			"timestamp":  rec["timestamp"],
-			"browser":    browser,
-			"os":         os,
+			"index":        i,
+			"ip_public":    rec["ip_public"],
+			"event_type":   rec["event_type"],
+			"url":          rec["url"],
+			"referrer":     rec["referrer"],
+			"session_id":   rec["session_id"],
+			"timestamp":    rec["timestamp"],
+			"language":     rec["language"],
+			"screen":       rec["screen"],
+			"time_on_page": rec["time_on_page"],
+			"browser":      browser,
+			"os":           os,
 		})
 	}
 

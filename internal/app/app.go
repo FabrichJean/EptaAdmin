@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -57,6 +58,30 @@ var templateFuncs = template.FuncMap{
 	// values this app built itself from fixed formats (e.g. countryFillColor
 	// in tracking_stats.go), never on anything a user typed.
 	"safeCSS": func(s string) template.CSS { return template.CSS(s) },
+	// pct is a plain percentage, used by the tracking dashboard's hand-rolled
+	// CSS bar/trend charts to size a bar against a known max (no charting
+	// library in this codebase — see donutPalette in tracking_stats.go for
+	// the same reasoning applied to the browser donut).
+	"pct": func(part, total int) float64 {
+		if total <= 0 {
+			return 0
+		}
+		return float64(part) / float64(total) * 100
+	},
+	// formatDuration renders a session's span (LastSeen-FirstSeen, in
+	// seconds) the way a human reads it — "1m 23s", or just "45s" under a
+	// minute — rather than a raw float.
+	"formatDuration": func(seconds float64) string {
+		total := int(seconds + 0.5)
+		if total < 0 {
+			total = 0
+		}
+		m, s := total/60, total%60
+		if m > 0 {
+			return strconv.Itoa(m) + "m " + strconv.Itoa(s) + "s"
+		}
+		return strconv.Itoa(s) + "s"
+	},
 }
 
 func New(s *store.Store) (*App, error) {

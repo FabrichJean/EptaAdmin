@@ -17,6 +17,13 @@
   .td-world-map svg { width: 100%; height: auto; max-height: 20rem; display: block; }
   .td-world-map path { fill: var(--eb-surface-2); stroke: var(--eb-border); stroke-width: 0.75; transition: fill 0.15s; }
   .td-world-map path:hover { stroke: var(--eb-accent); }
+  .td-trend-chart { display: flex; align-items: flex-end; gap: 2px; height: 6rem; }
+  .td-trend-bucket { flex: 1; display: flex; align-items: flex-end; justify-content: center; height: 100%; min-width: 2px; }
+  .td-trend-bars { display: flex; align-items: flex-end; gap: 1px; height: 100%; width: 100%; }
+  .td-trend-bar { flex: 1; border-radius: 2px 2px 0 0; min-height: 2px; }
+  .td-bar-row + .td-bar-row { margin-top: 0.5rem; }
+  .td-bar-track { height: 0.375rem; border-radius: 9999px; overflow: hidden; background: var(--eb-surface-2); }
+  .td-bar-fill { height: 100%; border-radius: 9999px; background: var(--eb-accent); }
 </style>
 <div class="h-full flex">
   {{template "sidebar" .}}
@@ -45,7 +52,7 @@
           </select>
         </div>
 
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div class="eb-card rounded-xl p-4">
             <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "dashboard.kpi_total_events"}}</p>
             <p id="kpi-total-events" class="text-xl font-semibold mt-1" style="color: var(--eb-text);">{{.Stats.TotalEvents}}</p>
@@ -70,6 +77,40 @@
             <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "dashboard.kpi_top_browser"}}</p>
             <p id="kpi-top-browser" class="text-xl font-semibold mt-1 truncate" style="color: var(--eb-text);">{{.Stats.TopBrowser}}</p>
           </div>
+          <div class="eb-card rounded-xl p-4">
+            <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "dashboard.avg_session_duration_label"}}</p>
+            <p id="kpi-avg-duration" class="text-xl font-semibold mt-1" style="color: var(--eb-text);">{{formatDuration .Stats.AvgSessionDuration}}</p>
+          </div>
+          <div class="eb-card rounded-xl p-4">
+            <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "dashboard.avg_events_per_session_label"}}</p>
+            <p id="kpi-avg-events" class="text-xl font-semibold mt-1" style="color: var(--eb-text);">{{printf "%.1f" .Stats.AvgEventsPerSession}}</p>
+          </div>
+        </div>
+
+        <div class="eb-card rounded-xl p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-semibold uppercase tracking-wider" style="color: var(--eb-muted);">{{t .Lang "dashboard.trend_chart_title"}}</h3>
+            <div class="flex items-center gap-3 text-xs">
+              <span class="flex items-center gap-1" style="color: var(--eb-muted);"><span class="td-legend-dot" style="background:#34d399;"></span>{{t .Lang "dashboard.kpi_total_events"}}</span>
+              <span class="flex items-center gap-1" style="color: var(--eb-muted);"><span class="td-legend-dot" style="background:#60a5fa;"></span>{{t .Lang "dashboard.kpi_unique_sessions"}}</span>
+            </div>
+          </div>
+          <div id="trend-chart" class="td-trend-chart">
+            {{range .Stats.Trend}}
+            <div class="td-trend-bucket" title="{{.Label}}: {{.Events}} / {{.Sessions}}">
+              <div class="td-trend-bars">
+                <div class="td-trend-bar" style="height: {{pct .Events $.Stats.TrendMax}}%; background:#34d399;"></div>
+                <div class="td-trend-bar" style="height: {{pct .Sessions $.Stats.TrendMax}}%; background:#60a5fa;"></div>
+              </div>
+            </div>
+            {{end}}
+          </div>
+          {{if .Stats.Trend}}
+          <div class="flex justify-between text-[10px]" style="color: var(--eb-muted);">
+            <span id="trend-range-start">{{(index .Stats.Trend 0).Label}}</span>
+            <span id="trend-range-end">{{(index .Stats.Trend (sub (len .Stats.Trend) 1)).Label}}</span>
+          </div>
+          {{end}}
         </div>
 
         <div class="eb-card rounded-xl p-5 flex flex-wrap items-center gap-6">
@@ -85,6 +126,94 @@
             {{if not .Stats.BrowserBreakdown}}
             <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "dashboard.no_sessions"}}</p>
             {{end}}
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="eb-card rounded-xl p-5 space-y-3">
+            <h3 class="text-xs font-semibold uppercase tracking-wider" style="color: var(--eb-muted);">{{t .Lang "dashboard.device_breakdown_title"}}</h3>
+            <div id="device-breakdown">
+              {{range .Stats.DeviceBreakdown}}
+              <div class="td-bar-row space-y-1">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="truncate" style="color: var(--eb-text);">{{.Name}}</span>
+                  <span style="color: var(--eb-muted);">{{printf "%.0f" .Percent}}%</span>
+                </div>
+                <div class="td-bar-track"><div class="td-bar-fill" style="width: {{printf "%.1f" .Percent}}%;"></div></div>
+              </div>
+              {{end}}
+              {{if not .Stats.DeviceBreakdown}}
+              <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "dashboard.no_sessions"}}</p>
+              {{end}}
+            </div>
+          </div>
+          <div class="eb-card rounded-xl p-5 space-y-3">
+            <h3 class="text-xs font-semibold uppercase tracking-wider" style="color: var(--eb-muted);">{{t .Lang "dashboard.top_pages_title"}}</h3>
+            <div id="top-pages">
+              {{range .Stats.TopPages}}
+              <div class="td-bar-row space-y-1">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="truncate" style="color: var(--eb-text);">{{.Name}}</span>
+                  <span style="color: var(--eb-muted);">{{printf "%.0f" .Percent}}%</span>
+                </div>
+                <div class="td-bar-track"><div class="td-bar-fill" style="width: {{printf "%.1f" .Percent}}%;"></div></div>
+              </div>
+              {{end}}
+              {{if not .Stats.TopPages}}
+              <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "dashboard.no_events"}}</p>
+              {{end}}
+            </div>
+          </div>
+          <div class="eb-card rounded-xl p-5 space-y-3">
+            <h3 class="text-xs font-semibold uppercase tracking-wider" style="color: var(--eb-muted);">{{t .Lang "dashboard.referrer_breakdown_title"}}</h3>
+            <div id="referrer-breakdown">
+              {{range .Stats.ReferrerBreakdown}}
+              <div class="td-bar-row space-y-1">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="truncate" style="color: var(--eb-text);">{{.Name}}</span>
+                  <span style="color: var(--eb-muted);">{{printf "%.0f" .Percent}}%</span>
+                </div>
+                <div class="td-bar-track"><div class="td-bar-fill" style="width: {{printf "%.1f" .Percent}}%;"></div></div>
+              </div>
+              {{end}}
+              {{if not .Stats.ReferrerBreakdown}}
+              <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "dashboard.no_sessions"}}</p>
+              {{end}}
+            </div>
+          </div>
+          <div class="eb-card rounded-xl p-5 space-y-3">
+            <h3 class="text-xs font-semibold uppercase tracking-wider" style="color: var(--eb-muted);">{{t .Lang "dashboard.language_breakdown_title"}}</h3>
+            <div id="language-breakdown">
+              {{range .Stats.LanguageBreakdown}}
+              <div class="td-bar-row space-y-1">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="truncate" style="color: var(--eb-text);">{{.Name}}</span>
+                  <span style="color: var(--eb-muted);">{{printf "%.0f" .Percent}}%</span>
+                </div>
+                <div class="td-bar-track"><div class="td-bar-fill" style="width: {{printf "%.1f" .Percent}}%;"></div></div>
+              </div>
+              {{end}}
+              {{if not .Stats.LanguageBreakdown}}
+              <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "dashboard.no_sessions"}}</p>
+              {{end}}
+            </div>
+          </div>
+          <div class="eb-card rounded-xl p-5 space-y-3 sm:col-span-2">
+            <h3 class="text-xs font-semibold uppercase tracking-wider" style="color: var(--eb-muted);">{{t .Lang "dashboard.screen_breakdown_title"}}</h3>
+            <div id="screen-breakdown">
+              {{range .Stats.ScreenBreakdown}}
+              <div class="td-bar-row space-y-1">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="truncate" style="color: var(--eb-text);">{{.Name}}</span>
+                  <span style="color: var(--eb-muted);">{{printf "%.0f" .Percent}}%</span>
+                </div>
+                <div class="td-bar-track"><div class="td-bar-fill" style="width: {{printf "%.1f" .Percent}}%;"></div></div>
+              </div>
+              {{end}}
+              {{if not .Stats.ScreenBreakdown}}
+              <p class="text-xs" style="color: var(--eb-muted);">{{t .Lang "dashboard.no_sessions"}}</p>
+              {{end}}
+            </div>
           </div>
         </div>
 
@@ -144,10 +273,15 @@
               <thead>
                 <tr style="border-bottom: 1px solid var(--eb-border);">
                   <th class="text-left px-4 py-2" style="color: var(--eb-muted);">ID</th>
+                  <th class="text-left px-4 py-2" style="color: var(--eb-muted);">timestamp</th>
                   <th class="text-left px-4 py-2" style="color: var(--eb-muted);">ip_public</th>
                   <th class="text-left px-4 py-2" style="color: var(--eb-muted);">browser / os</th>
                   <th class="text-left px-4 py-2" style="color: var(--eb-muted);">url</th>
+                  <th class="text-left px-4 py-2" style="color: var(--eb-muted);">referrer</th>
                   <th class="text-left px-4 py-2" style="color: var(--eb-muted);">event_type</th>
+                  <th class="text-left px-4 py-2" style="color: var(--eb-muted);">time_on_page</th>
+                  <th class="text-left px-4 py-2" style="color: var(--eb-muted);">language</th>
+                  <th class="text-left px-4 py-2" style="color: var(--eb-muted);">screen</th>
                   <th class="text-left px-4 py-2" style="color: var(--eb-muted);">session_id</th>
                 </tr>
               </thead>
@@ -167,10 +301,14 @@
                 <tr style="border-bottom: 1px solid var(--eb-border);">
                   <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "dashboard.session_id_label"}}</th>
                   <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "dashboard.kpi_top_browser"}}</th>
+                  <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "dashboard.device_column_label"}}</th>
+                  <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "dashboard.country_column_label"}}</th>
                   <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "dashboard.entry_page_label"}}</th>
                   <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "dashboard.exit_page_label"}}</th>
                   <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "dashboard.events_count_label"}}</th>
                   <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "dashboard.time_on_page_label"}}</th>
+                  <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "dashboard.first_seen_label"}}</th>
+                  <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "dashboard.duration_column_label"}}</th>
                   <th class="text-left px-4 py-2" style="color: var(--eb-muted);">{{t .Lang "dashboard.last_seen_label"}}</th>
                 </tr>
               </thead>
@@ -179,10 +317,14 @@
                 <tr style="border-bottom: 1px solid var(--eb-border);">
                   <td class="px-4 py-2 font-mono" style="color: var(--eb-text);">{{.SessionID}}</td>
                   <td class="px-4 py-2" style="color: var(--eb-text);">{{.Browser}} / {{.OS}}</td>
+                  <td class="px-4 py-2" style="color: var(--eb-muted);">{{.Device}}</td>
+                  <td class="px-4 py-2" style="color: var(--eb-muted);">{{if .CountryName}}{{.CountryName}}{{else}}—{{end}}</td>
                   <td class="px-4 py-2 truncate max-w-[12rem]" style="color: var(--eb-muted);">{{.EntryURL}}</td>
                   <td class="px-4 py-2 truncate max-w-[12rem]" style="color: var(--eb-muted);">{{.ExitURL}}</td>
                   <td class="px-4 py-2" style="color: var(--eb-muted);">{{.EventCount}}</td>
                   <td class="px-4 py-2" style="color: var(--eb-muted);">{{if .TimeOnPage}}{{printf "%.0f" .TimeOnPage}}s{{else}}—{{end}}</td>
+                  <td class="px-4 py-2" style="color: var(--eb-muted);">{{formatTime .FirstSeen}}</td>
+                  <td class="px-4 py-2" style="color: var(--eb-muted);">{{formatDuration .DurationSeconds}}</td>
                   <td class="px-4 py-2" style="color: var(--eb-muted);">{{formatTime .LastSeen}}</td>
                 </tr>
                 {{end}}
@@ -296,6 +438,59 @@
           </div>`).join("");
   }
 
+  // formatDuration mirrors the Go template func of the same name
+  // (internal/app/app.go) — kept in sync by hand since the JS side has no
+  // way to call back into the Go one for the Overview tab's live refresh.
+  function formatDuration(seconds) {
+    const total = Math.max(0, Math.round(seconds || 0));
+    const m = Math.floor(total / 60), s = total % 60;
+    return m > 0 ? `${m}m ${s}s` : `${s}s`;
+  }
+
+  // Shared renderer for every "name + % bar" card (device/top pages/
+  // referrer/language/screen breakdowns) — same markup as their
+  // server-rendered initial state above, just built from JSON on refresh.
+  function renderBarList(containerId, entries, emptyLabel) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    entries = entries || [];
+    el.innerHTML = entries.length === 0
+      ? `<p class="text-xs" style="color: var(--eb-muted);">${emptyLabel}</p>`
+      : entries.map((e) => `<div class="td-bar-row space-y-1">
+            <div class="flex items-center justify-between text-xs">
+              <span class="truncate" style="color: var(--eb-text);">${e.Name}</span>
+              <span style="color: var(--eb-muted);">${Math.round(e.Percent)}%</span>
+            </div>
+            <div class="td-bar-track"><div class="td-bar-fill" style="width: ${e.Percent}%;"></div></div>
+          </div>`).join("");
+  }
+
+  function renderTrend(trend, trendMax) {
+    const chart = document.getElementById("trend-chart");
+    const startEl = document.getElementById("trend-range-start");
+    const endEl = document.getElementById("trend-range-end");
+    trend = trend || [];
+    if (trend.length === 0) {
+      chart.innerHTML = "";
+      if (startEl) startEl.textContent = "";
+      if (endEl) endEl.textContent = "";
+      return;
+    }
+    const max = trendMax || 1;
+    chart.innerHTML = trend.map((p) => {
+      const eh = Math.max(0, Math.min(100, (p.Events / max) * 100));
+      const sh = Math.max(0, Math.min(100, (p.Sessions / max) * 100));
+      return `<div class="td-trend-bucket" title="${p.Label}: ${p.Events} / ${p.Sessions}">
+        <div class="td-trend-bars">
+          <div class="td-trend-bar" style="height: ${eh}%; background:#34d399;"></div>
+          <div class="td-trend-bar" style="height: ${sh}%; background:#60a5fa;"></div>
+        </div>
+      </div>`;
+    }).join("");
+    if (startEl) startEl.textContent = trend[0].Label;
+    if (endEl) endEl.textContent = trend[trend.length - 1].Label;
+  }
+
   function renderOverview(stats) {
     document.getElementById("kpi-total-events").textContent = stats.TotalEvents;
     document.getElementById("kpi-unique-sessions").textContent = stats.UniqueSessions;
@@ -303,6 +498,15 @@
     document.getElementById("kpi-bounce-rate").textContent = Math.round(stats.BounceRatePercent) + "%";
     document.getElementById("kpi-top-device").textContent = stats.TopDevice;
     document.getElementById("kpi-top-browser").textContent = stats.TopBrowser;
+    document.getElementById("kpi-avg-duration").textContent = formatDuration(stats.AvgSessionDuration);
+    document.getElementById("kpi-avg-events").textContent = (stats.AvgEventsPerSession || 0).toFixed(1);
+
+    renderTrend(stats.Trend, stats.TrendMax);
+    renderBarList("device-breakdown", stats.DeviceBreakdown, I18N.noSessions);
+    renderBarList("top-pages", stats.TopPages, I18N.noEvents);
+    renderBarList("referrer-breakdown", stats.ReferrerBreakdown, I18N.noSessions);
+    renderBarList("language-breakdown", stats.LanguageBreakdown, I18N.noSessions);
+    renderBarList("screen-breakdown", stats.ScreenBreakdown, I18N.noSessions);
 
     const breakdown = stats.BrowserBreakdown || [];
     const donut = document.getElementById("donut");
@@ -406,10 +610,14 @@
     tbody.innerHTML = sessions.map((s) => `<tr style="border-bottom: 1px solid var(--eb-border);">
         <td class="px-4 py-2 font-mono" style="color: var(--eb-text);">${s.SessionID}</td>
         <td class="px-4 py-2" style="color: var(--eb-text);">${s.Browser} / ${s.OS}</td>
+        <td class="px-4 py-2" style="color: var(--eb-muted);">${s.Device || ""}</td>
+        <td class="px-4 py-2" style="color: var(--eb-muted);">${s.CountryName || "—"}</td>
         <td class="px-4 py-2 truncate max-w-[12rem]" style="color: var(--eb-muted);">${s.EntryURL || ""}</td>
         <td class="px-4 py-2 truncate max-w-[12rem]" style="color: var(--eb-muted);">${s.ExitURL || ""}</td>
         <td class="px-4 py-2" style="color: var(--eb-muted);">${s.EventCount}</td>
         <td class="px-4 py-2" style="color: var(--eb-muted);">${s.TimeOnPage ? Math.round(s.TimeOnPage) + "s" : "—"}</td>
+        <td class="px-4 py-2" style="color: var(--eb-muted);">${new Date(s.FirstSeen).toLocaleString()}</td>
+        <td class="px-4 py-2" style="color: var(--eb-muted);">${formatDuration((new Date(s.LastSeen) - new Date(s.FirstSeen)) / 1000)}</td>
         <td class="px-4 py-2" style="color: var(--eb-muted);">${new Date(s.LastSeen).toLocaleString()}</td>
       </tr>`).join("");
   }
@@ -457,10 +665,15 @@
         tr.style.borderBottom = "1px solid var(--eb-border)";
         tr.innerHTML = `
           <td class="px-4 py-2" style="color: var(--eb-muted);">${e.index}</td>
+          <td class="px-4 py-2" style="color: var(--eb-muted);">${e.timestamp ? new Date(e.timestamp).toLocaleString() : ""}</td>
           <td class="px-4 py-2 font-mono" style="color: var(--eb-text);">${e.ip_public || ""}</td>
           <td class="px-4 py-2" style="color: var(--eb-text);">${e.browser || ""} / ${e.os || ""}</td>
           <td class="px-4 py-2 truncate max-w-[16rem]" style="color: var(--eb-muted);">${e.url || ""}</td>
+          <td class="px-4 py-2 truncate max-w-[12rem]" style="color: var(--eb-muted);">${e.referrer || ""}</td>
           <td class="px-4 py-2" style="color: var(--eb-text);">${e.event_type || ""}</td>
+          <td class="px-4 py-2" style="color: var(--eb-muted);">${e.time_on_page ? Math.round(e.time_on_page) + "s" : ""}</td>
+          <td class="px-4 py-2" style="color: var(--eb-muted);">${e.language || ""}</td>
+          <td class="px-4 py-2" style="color: var(--eb-muted);">${e.screen || ""}</td>
           <td class="px-4 py-2 font-mono" style="color: var(--eb-muted);">${e.session_id || ""}</td>
         `;
         tbody.insertBefore(tr, tbody.firstChild);

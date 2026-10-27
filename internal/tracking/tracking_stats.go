@@ -4,6 +4,7 @@ import (
 	"eptaadmin/internal/geoip"
 	"eptaadmin/internal/store"
 	"net"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -64,17 +65,35 @@ func ParseUserAgent(ua string) (browser, os, device string) {
 // "session", so this is rebuilt fresh on every dashboard request from the
 // raw enter/exit rows (see ComputeDashboardStats).
 type SessionSummary struct {
-	SessionID  string
-	FirstSeen  time.Time
-	LastSeen   time.Time
-	EntryURL   string
-	ExitURL    string
-	EventCount int
-	TimeOnPage float64
-	Browser    string
-	OS         string
-	Device     string
-	Country    string // ISO 3166-1 alpha-2, "" if unresolved (see lookupCountry)
+	SessionID   string
+	FirstSeen   time.Time
+	LastSeen    time.Time
+	EntryURL    string
+	ExitURL     string
+	EventCount  int
+	TimeOnPage  float64
+	Browser     string
+	OS          string
+	Device      string
+	Country     string // ISO 3166-1 alpha-2, "" if unresolved (see lookupCountry)
+	CountryName string // resolved once at session creation, so both the server-rendered Sessions tab and its JSON-driven live refresh show the same full name without the frontend needing its own code→name table
+	// Language/Screen/Referrer are captured once, from the first physical
+	// row seen for this session (same timing as Browser/OS/Device below) —
+	// they're per-visitor/per-landing, not per-event, so there's no "which
+	// event's value" ambiguity to resolve. Referrer in particular is the
+	// value of document.referrer on the session's very first request,
+	// i.e. wherever the visitor actually came from before landing on the
+	// tracked site — not the referrer of whichever page they're on now.
+	Language string
+	Screen   string
+	Referrer string
+}
+
+// DurationSeconds is how long the session has been observed for, i.e. the
+// span between its first and last recorded event. A single-event (bounced)
+// session has a duration of 0, not a missing value — it's simply accurate.
+func (s SessionSummary) DurationSeconds() float64 {
+	return s.LastSeen.Sub(s.FirstSeen).Seconds()
 }
 
 type BreakdownEntry struct {
@@ -160,21 +179,106 @@ func countryFillColor(count, maxCount int) string {
 // DashboardStats is everything the Overview tab needs, computed in one
 // pass over the table's record store — see ComputeDashboardStats.
 type DashboardStats struct {
-	Range              string
-	TotalEvents        int
-	UniqueSessions     int
-	ActiveSessions     int
-	BounceRatePercent  float64
-	TopDevice          string
-	TopBrowser         string
-	BrowserBreakdown   []BreakdownEntry
-	DonutGradient      string
-	TopPages           []BreakdownEntry
-	CountryBreakdown   []CountryBreakdownEntry
-	Sessions           []SessionSummary
-	RecentEvents       []RecentEvent
-	ActivityPage       int
-	ActivityTotalPages int
+	Range               string
+	TotalEvents         int
+	UniqueSessions      int
+	ActiveSessions      int
+	BounceRatePercent   float64
+	TopDevice           string
+	TopBrowser          string
+	BrowserBreakdown    []BreakdownEntry
+	DeviceBreakdown     []BreakdownEntry
+	LanguageBreakdown   []BreakdownEntry
+	ScreenBreakdown     []BreakdownEntry
+	ReferrerBreakdown   []BreakdownEntry
+	DonutGradient       string
+	TopPages            []BreakdownEntry
+	CountryBreakdown    []CountryBreakdownEntry
+	AvgSessionDuration  float64
+	AvgEventsPerSession float64
+	Trend               []TrendPoint
+	TrendMax            int
+	Sessions            []SessionSummary
+	RecentEvents        []RecentEvent
+	ActivityPage        int
+	ActivityTotalPages  int
+}
+
+// TrendPoint is one bucket of the Overview tab's events/sessions-over-time
+// chart — see buildTrendBuckets.
+type TrendPoint struct {
+	Label    string
+	Events   int
+	Sessions int
+}
+
+// referrerDirectLabel is the bucket name for events with no referrer at
+// all (document.referrer was empty — a bookmark, a typed URL, most native
+// apps/QR codes) — the standard "Direct" label any analytics tool uses.
+const referrerDirectLabel = "Direct"
+
+// referrerSource reduces a raw referrer URL to its traffic-source label:
+// the referring site's bare host (scheme and path dropped — two pages on
+// the same referring site are the same traffic source), "Direct" for no
+// referrer, or the raw value verbatim if it doesn't parse as a URL.
+func referrerSource(raw string) string {
+	if raw == "" {
+		return referrerDirectLabel
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		return raw
+	}
+	return strings.TrimPrefix(strings.ToLower(u.Host), "www.")
+}
+
+// trendBucketKey/trendBucketLabel split a timestamp into its bucket's
+// stable map key (sortless string, so buckets are built by walking the
+// [start, end] window rather than by sorting map keys) and its
+// display label, at hourly or daily granularity.
+func trendBucketKey(t time.Time, hourly bool) string {
+	if hourly {
+		return t.Format("2006-01-02T15")
+	}
+	return t.Format("2006-01-02")
+}
+
+func trendBucketLabel(t time.Time, hourly bool) string {
+	if hourly {
+		return t.Format("15:00")
+	}
+	return t.Format("02/01")
+}
+
+// maxTrendDays bounds how far back the "all time" range's trend chart
+// reaches — long-running sites otherwise draw one bar per day since
+// creation, which both renders terribly and isn't very readable anyway.
+// Every other range-scoped number on the page still reflects the full
+// history; only this chart's x-axis is clamped.
+const maxTrendDays = 90
+
+// buildTrendBuckets walks [start, end] in fixed-size steps (hourly for the
+// 24h range, daily otherwise — see ComputeDashboardStats) producing one
+// TrendPoint per step, including zero-activity steps, so the chart reads
+// as a continuous timeline rather than skipping gaps.
+func buildTrendBuckets(start, end time.Time, hourly bool, eventCounts map[string]int, sessionSets map[string]map[string]bool) []TrendPoint {
+	step := 24 * time.Hour
+	cur := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
+	if hourly {
+		step = time.Hour
+		cur = time.Date(start.Year(), start.Month(), start.Day(), start.Hour(), 0, 0, 0, start.Location())
+	}
+	var pts []TrendPoint
+	for !cur.After(end) {
+		key := trendBucketKey(cur, hourly)
+		pts = append(pts, TrendPoint{
+			Label:    trendBucketLabel(cur, hourly),
+			Events:   eventCounts[key],
+			Sessions: len(sessionSets[key]),
+		})
+		cur = cur.Add(step)
+	}
+	return pts
 }
 
 // RecentEvent is the compact shape shown in the Overview tab's "recent
@@ -232,6 +336,16 @@ func ComputeDashboardStats(records store.RecordStore, cutoff time.Time, rangeLab
 	pageCounts := map[string]int{}
 	var recent []RecentEvent
 
+	// hourly/trendEventCounts/trendSessionSets/minInRangeTs feed the
+	// Overview tab's events-over-time chart (buildTrendBuckets, called
+	// after this loop once the bucketing window is known) — hourly
+	// buckets for the 24h range (a single day's shape is worth seeing),
+	// daily otherwise.
+	hourly := rangeLabel == "24h"
+	trendEventCounts := map[string]int{}
+	trendSessionSets := map[string]map[string]bool{}
+	var minInRangeTs time.Time
+
 	for _, rec := range records {
 		sid, _ := rec["session_id"].(string)
 		if sid == "" {
@@ -246,13 +360,21 @@ func ComputeDashboardStats(records store.RecordStore, cutoff time.Time, rangeLab
 		if !exists {
 			ua, _ := rec["user_agent"].(string)
 			browser, os, device := ParseUserAgent(ua)
-			country := ""
+			country, countryName := "", ""
 			if ipStr, _ := rec["ip_public"].(string); ipStr != "" {
 				if code, ok := geoip.LookupCountry(net.ParseIP(ipStr)); ok {
 					country = code
+					countryName = geoip.CountryName(code)
 				}
 			}
-			s = &SessionSummary{SessionID: sid, FirstSeen: ts, LastSeen: ts, Browser: browser, OS: os, Device: device, Country: country}
+			language, _ := rec["language"].(string)
+			screen, _ := rec["screen"].(string)
+			referrer, _ := rec["referrer"].(string)
+			s = &SessionSummary{
+				SessionID: sid, FirstSeen: ts, LastSeen: ts,
+				Browser: browser, OS: os, Device: device, Country: country, CountryName: countryName,
+				Language: language, Screen: screen, Referrer: referrer,
+			}
 			sessions[sid] = s
 			order = append(order, sid)
 		}
@@ -289,6 +411,16 @@ func ComputeDashboardStats(records store.RecordStore, cutoff time.Time, rangeLab
 				}
 			}
 			recent = append(recent, RecentEvent{EventType: eventType, URL: url, SessionID: sid, Browser: s.Browser, Timestamp: ts})
+
+			if minInRangeTs.IsZero() || ts.Before(minInRangeTs) {
+				minInRangeTs = ts
+			}
+			key := trendBucketKey(ts, hourly)
+			trendEventCounts[key]++
+			if trendSessionSets[key] == nil {
+				trendSessionSets[key] = map[string]bool{}
+			}
+			trendSessionSets[key][sid] = true
 		}
 	}
 
@@ -364,18 +496,74 @@ func ComputeDashboardStats(records store.RecordStore, cutoff time.Time, rangeLab
 	}
 
 	deviceCounts := map[string]int{}
+	languageCounts := map[string]int{}
+	screenCounts := map[string]int{}
+	referrerCounts := map[string]int{}
+	totalDuration := 0.0
 	for _, s := range inRangeSessions {
 		deviceCounts[s.Device]++
+		if s.Language != "" {
+			languageCounts[s.Language]++
+		}
+		if s.Screen != "" {
+			screenCounts[s.Screen]++
+		}
+		referrerCounts[referrerSource(s.Referrer)]++
+		totalDuration += s.DurationSeconds()
 	}
 	deviceBreakdown := breakdownFromCounts(deviceCounts, uniqueSessions)
 	topDevice := "—"
 	if len(deviceBreakdown) > 0 {
 		topDevice = deviceBreakdown[0].Name
 	}
+	languageBreakdown := breakdownFromCounts(languageCounts, uniqueSessions)
+	if len(languageBreakdown) > 8 {
+		languageBreakdown = languageBreakdown[:8]
+	}
+	screenBreakdown := breakdownFromCounts(screenCounts, uniqueSessions)
+	if len(screenBreakdown) > 8 {
+		screenBreakdown = screenBreakdown[:8]
+	}
+	referrerBreakdown := breakdownFromCounts(referrerCounts, uniqueSessions)
+	if len(referrerBreakdown) > 8 {
+		referrerBreakdown = referrerBreakdown[:8]
+	}
+
+	avgSessionDuration := 0.0
+	avgEventsPerSession := 0.0
+	if uniqueSessions > 0 {
+		avgSessionDuration = totalDuration / float64(uniqueSessions)
+		avgEventsPerSession = float64(totalInRange) / float64(uniqueSessions)
+	}
 
 	topPages := breakdownFromCounts(pageCounts, totalInRange)
 	if len(topPages) > 8 {
 		topPages = topPages[:8]
+	}
+
+	// Trend window: the range's own cutoff for 24h/7d/30d, but "all" has no
+	// cutoff (time.Time{}) by definition, so it's clamped to maxTrendDays —
+	// or to the earliest in-range event if the site's history is shorter
+	// than that, so a brand-new site doesn't draw 90 days of empty bars.
+	trendStart := cutoff
+	if rangeLabel == "all" {
+		trendStart = now.Add(-maxTrendDays * 24 * time.Hour)
+		if !minInRangeTs.IsZero() && minInRangeTs.After(trendStart) {
+			trendStart = minInRangeTs
+		}
+	}
+	var trend []TrendPoint
+	if !trendStart.IsZero() {
+		trend = buildTrendBuckets(trendStart, now, hourly, trendEventCounts, trendSessionSets)
+	}
+	trendMax := 1
+	for _, p := range trend {
+		if p.Events > trendMax {
+			trendMax = p.Events
+		}
+		if p.Sessions > trendMax {
+			trendMax = p.Sessions
+		}
 	}
 
 	countryCounts := map[string]int{}
@@ -408,21 +596,29 @@ func ComputeDashboardStats(records store.RecordStore, cutoff time.Time, rangeLab
 	sortSessionsByLastSeenDesc(summaries)
 
 	return DashboardStats{
-		Range:              rangeLabel,
-		TotalEvents:        totalInRange,
-		UniqueSessions:     uniqueSessions,
-		ActiveSessions:     activeSessions,
-		BounceRatePercent:  bounceRate,
-		TopDevice:          topDevice,
-		TopBrowser:         topBrowser,
-		BrowserBreakdown:   browserBreakdown,
-		DonutGradient:      donutGradient,
-		TopPages:           topPages,
-		CountryBreakdown:   countryBreakdown,
-		Sessions:           summaries,
-		RecentEvents:       recentEvents,
-		ActivityPage:       activityPage,
-		ActivityTotalPages: activityTotalPages,
+		Range:               rangeLabel,
+		TotalEvents:         totalInRange,
+		UniqueSessions:      uniqueSessions,
+		ActiveSessions:      activeSessions,
+		BounceRatePercent:   bounceRate,
+		TopDevice:           topDevice,
+		TopBrowser:          topBrowser,
+		BrowserBreakdown:    browserBreakdown,
+		DeviceBreakdown:     deviceBreakdown,
+		LanguageBreakdown:   languageBreakdown,
+		ScreenBreakdown:     screenBreakdown,
+		ReferrerBreakdown:   referrerBreakdown,
+		DonutGradient:       donutGradient,
+		TopPages:            topPages,
+		CountryBreakdown:    countryBreakdown,
+		AvgSessionDuration:  avgSessionDuration,
+		AvgEventsPerSession: avgEventsPerSession,
+		Trend:               trend,
+		TrendMax:            trendMax,
+		Sessions:            summaries,
+		RecentEvents:        recentEvents,
+		ActivityPage:        activityPage,
+		ActivityTotalPages:  activityTotalPages,
 	}
 }
 
